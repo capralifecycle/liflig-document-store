@@ -1,4 +1,4 @@
-package no.liflig.dddaggregates.entity
+package no.liflig.documentstore.entity
 
 import org.jdbi.v3.core.argument.AbstractArgumentFactory
 import org.jdbi.v3.core.argument.Argument

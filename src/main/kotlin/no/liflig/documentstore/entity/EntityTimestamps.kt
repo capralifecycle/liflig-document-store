@@ -1,4 +1,4 @@
-package no.liflig.dddaggregates.entity
+package no.liflig.documentstore.entity
 
 import java.time.Instant
 

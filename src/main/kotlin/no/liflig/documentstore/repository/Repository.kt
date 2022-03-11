@@ -1,17 +1,13 @@
-package no.liflig.dddaggregates.repository
+package no.liflig.documentstore.repository
 
-import arrow.core.Either
-import arrow.core.getOrHandle
-import arrow.core.left
-import arrow.core.right
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
-import no.liflig.dddaggregates.entity.AggregateRoot
-import no.liflig.dddaggregates.entity.EntityId
-import no.liflig.dddaggregates.entity.Version
-import no.liflig.dddaggregates.entity.VersionedAggregate
+import no.liflig.documentstore.entity.AggregateRoot
+import no.liflig.documentstore.entity.EntityId
+import no.liflig.documentstore.entity.Version
+import no.liflig.documentstore.entity.VersionedAggregate
 import org.jdbi.v3.core.CloseException
 import org.jdbi.v3.core.ConnectionException
 import org.jdbi.v3.core.Jdbi
@@ -24,8 +20,6 @@ import java.time.Instant
 import java.util.UUID
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
-
-typealias Response<T> = Either<RepositoryDeviation, T>
 
 /**
  * A Repository holds the logic for persistence of an [AggregateRoot],
@@ -58,16 +52,19 @@ interface CrudRepository<I : EntityId, A : AggregateRoot> : Repository {
 
   fun fromJson(value: String): A
 
-  suspend fun create(aggregate: A): Response<VersionedAggregate<A>>
+  suspend fun create(aggregate: A): VersionedAggregate<A>
 
-  suspend fun getByIdList(ids: List<I>): Response<List<VersionedAggregate<A>>>
+  suspend fun getByIdList(ids: List<I>): List<VersionedAggregate<A>>
 
-  suspend fun get(id: I): Response<VersionedAggregate<A>?> =
-    getByIdList(listOf(id)).map { it.firstOrNull() }
+  suspend fun get(id: I): VersionedAggregate<A>? =
+    getByIdList(listOf(id)).firstOrNull()
 
-  suspend fun <A2 : A> update(aggregate: A2, previousVersion: Version): Response<VersionedAggregate<A2>>
+  suspend fun <A2 : A> update(
+    aggregate: A2,
+    previousVersion: Version,
+  ): VersionedAggregate<A2>
 
-  suspend fun delete(id: I, previousVersion: Version): Response<Unit>
+  suspend fun delete(id: I, previousVersion: Version): Unit
 }
 
 /**
@@ -103,7 +100,7 @@ abstract class AbstractCrudRepository<I, A>(
   protected open suspend fun getByPredicate(
     sqlWhere: String = "TRUE",
     bind: Query.() -> Query = { this }
-  ): Response<List<VersionedAggregate<A>>> = mapExceptionsToResponse {
+  ): List<VersionedAggregate<A>> = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
       jdbi.open().use { handle ->
         handle
@@ -119,12 +116,12 @@ abstract class AbstractCrudRepository<I, A>(
           .map(rowMapper)
           .list()
       }
-    }.right()
+    }
   }
 
   override suspend fun getByIdList(
     ids: List<I>
-  ): Response<List<VersionedAggregate<A>>> =
+  ): List<VersionedAggregate<A>> =
     getByPredicate("id = ANY (:ids)") {
       bindArray("ids", EntityId::class.java, ids)
     }
@@ -132,7 +129,7 @@ abstract class AbstractCrudRepository<I, A>(
   override suspend fun delete(
     id: I,
     previousVersion: Version
-  ): Response<Unit> = mapExceptionsToResponse {
+  ): Unit = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
       jdbi.open().use { handle ->
         val deleted = handle
@@ -146,8 +143,8 @@ abstract class AbstractCrudRepository<I, A>(
           .bind("previousVersion", previousVersion)
           .execute()
 
-        if (deleted == 0) RepositoryDeviation.Conflict.left()
-        else Unit.right()
+        if (deleted == 0) throw ConflictRepositoryException()
+        else Unit
       }
     }
   }
@@ -159,7 +156,7 @@ abstract class AbstractCrudRepository<I, A>(
    */
   override suspend fun create(
     aggregate: A
-  ): Response<VersionedAggregate<A>> = mapExceptionsToResponse {
+  ): VersionedAggregate<A> = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
       VersionedAggregate(aggregate, Version.initial()).also {
         jdbi.open().use { handle ->
@@ -179,7 +176,7 @@ abstract class AbstractCrudRepository<I, A>(
             .execute()
         }
       }
-    }.right()
+    }
   }
 
   /**
@@ -190,7 +187,7 @@ abstract class AbstractCrudRepository<I, A>(
   override suspend fun <A2 : A> update(
     aggregate: A2,
     previousVersion: Version
-  ): Response<VersionedAggregate<A2>> = mapExceptionsToResponse {
+  ): VersionedAggregate<A2> = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
       jdbi.open().use { handle ->
         val result = VersionedAggregate(aggregate, previousVersion.next())
@@ -215,8 +212,8 @@ abstract class AbstractCrudRepository<I, A>(
             .bind("previousVersion", previousVersion)
             .execute()
 
-        if (updated == 0) RepositoryDeviation.Conflict.left()
-        else result.right()
+        if (updated == 0) throw ConflictRepositoryException()
+        else result
       }
     }
   }
@@ -256,51 +253,30 @@ fun <A : AggregateRoot> createRowParser(
 }
 
 /**
- * A deviation for an operation on a Repository.
+ * An exception for an operation on a Repository.
  */
-sealed class RepositoryDeviation {
-  /**
-   * A version conflict occurred.
-   */
-  object Conflict : RepositoryDeviation()
+sealed class RepositoryException : RuntimeException()
 
-  /**
-   * The repository is currently unavailable, e.g. due to the
-   * database being unreachable.
-   */
-  data class Unavailable(val e: Exception) : RepositoryDeviation()
+class ConflictRepositoryException() : RepositoryException()
+data class UnavailableRepositoryException(
+  val e: Exception,
+) : RepositoryException()
 
-  /**
-   * Some unknown error occurred.
-   */
-  class Unknown(val e: Exception) : RepositoryDeviation()
-}
+data class UnknownRepositoryException(
+  val e: Exception,
+) : RepositoryException()
 
-fun RepositoryDeviation.toException(): Exception =
-  when (this) {
-    RepositoryDeviation.Conflict -> IllegalArgumentException("Version conflict")
-    is RepositoryDeviation.Unavailable -> IllegalStateException("Repository currently unavailable")
-    is RepositoryDeviation.Unknown -> RuntimeException("Unknown error: ${e.message}", e)
-  }
-
-/**
- * Unwrap the result or throw ugly if we have a deviation.
- */
-fun <T> Either<RepositoryDeviation, T>.leftThrowUnhandled(): T =
-  getOrHandle {
-    throw it.toException()
-  }
-
-inline fun <T> mapExceptionsToResponse(block: () -> Response<T>): Response<T> =
+inline fun <T> mapExceptions(block: () -> T): T {
   try {
-    block()
+    return block()
   } catch (e: Exception) {
     when (e) {
+      is ConflictRepositoryException -> throw e
       is SQLTransientException,
       is InterruptedIOException,
       is ConnectionException,
-      is CloseException ->
-        RepositoryDeviation.Unavailable(e).left()
-      else -> RepositoryDeviation.Unknown(e).left()
+      is CloseException -> throw UnavailableRepositoryException(e)
+      else -> throw UnknownRepositoryException(e)
     }
   }
+}

@@ -1,6 +1,6 @@
-package no.liflig.dddaggregates
+package no.liflig.documentstore
 
-import no.liflig.dddaggregates.repository.AbstractCrudRepository
+import no.liflig.documentstore.repository.AbstractCrudRepository
 import org.jdbi.v3.core.Jdbi
 
 class ExampleRepository(

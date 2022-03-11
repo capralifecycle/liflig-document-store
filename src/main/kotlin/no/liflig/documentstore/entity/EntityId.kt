@@ -1,4 +1,4 @@
-package no.liflig.dddaggregates.entity
+package no.liflig.documentstore.entity
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind

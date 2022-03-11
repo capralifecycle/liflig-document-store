@@ -1,17 +1,15 @@
-package no.liflig.dddaggregates
+package no.liflig.documentstore
 
-import arrow.core.left
-import arrow.core.right
 import kotlinx.coroutines.runBlocking
-import no.liflig.dddaggregates.entity.Version
-import no.liflig.dddaggregates.repository.RepositoryDeviation
-import no.liflig.dddaggregates.repository.leftThrowUnhandled
+import no.liflig.documentstore.entity.Version
+import no.liflig.documentstore.repository.ConflictRepositoryException
 import no.liflig.snapshot.verifyJsonSnapshot
 import org.spekframework.spek2.Spek
 import org.spekframework.spek2.style.specification.describe
 import java.time.Instant
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -27,11 +25,9 @@ object ExampleSpec : Spek({
 
         repository
           .create(agg)
-          .leftThrowUnhandled()
 
         val read = repository
           .get(agg.id)
-          .leftThrowUnhandled()
 
         assertNotNull(read)
         assertEquals(Version.initial(), read.version)
@@ -45,12 +41,11 @@ object ExampleSpec : Spek({
 
         val storeResult = repository
           .create(agg)
-          .leftThrowUnhandled()
 
-        val result = repository
-          .update(agg, storeResult.version.next())
-
-        assertEquals(RepositoryDeviation.Conflict.left(), result)
+        assertFailsWith<ConflictRepositoryException> {
+          repository
+            .update(agg, storeResult.version.next())
+        }
       }
     }
 
@@ -58,16 +53,17 @@ object ExampleSpec : Spek({
       runBlocking {
         val agg = ExampleAggregate.create("hello world")
 
-        val res1 = repository.delete(agg.id, Version.initial())
-        assertEquals(RepositoryDeviation.Conflict.left(), res1)
+        assertFailsWith<ConflictRepositoryException> {
+          repository.delete(agg.id, Version.initial())
+        }
 
-        val res2 = repository.create(agg).leftThrowUnhandled()
+        val res2 = repository.create(agg)
         assertEquals(Version.initial(), res2.version)
 
         val res3 = repository.delete(agg.id, Version.initial())
-        assertEquals(Unit.right(), res3)
+        assertEquals(Unit, res3)
 
-        val res4 = repository.get(agg.id).leftThrowUnhandled()
+        val res4 = repository.get(agg.id)
         assertNull(res4)
       }
     }
@@ -76,16 +72,14 @@ object ExampleSpec : Spek({
       runBlocking {
         val (initialAgg, initialVersion) = repository
           .create(ExampleAggregate.create("hello world"))
-          .leftThrowUnhandled()
 
         val updatedAgg = initialAgg.updateText("new value")
         repository
           .update(updatedAgg, initialVersion)
-          .leftThrowUnhandled()
 
         val res = repository
           .get(updatedAgg.id)
-          .leftThrowUnhandled()
+
         assertNotNull(res)
         val (agg, version) = res
 

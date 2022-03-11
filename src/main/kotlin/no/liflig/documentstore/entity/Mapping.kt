@@ -1,40 +1,21 @@
-package no.liflig.dddaggregates.entity
+package no.liflig.documentstore.entity
 
-import arrow.core.Either
-import arrow.core.flatMap
-import arrow.core.left
-import arrow.core.right
 import java.util.UUID
 
-typealias StringMapper<T> = (String) -> Either<IllegalArgumentException, T>
-
-/**
- * Evaluate the block and map an [IllegalArgumentException] into left side of [Either].
- */
-inline fun <T> catchArgument(block: () -> T): Either<IllegalArgumentException, T> =
-  try {
-    block().right()
-  } catch (e: IllegalArgumentException) {
-    e.left()
-  }
+typealias StringMapper<T> = (String) -> T
 
 /**
  * Wrap a function so any [IllegalArgumentException] thrown will be returned into left side of [Either].
  */
-inline fun <T, R> handleIllegalArgument(crossinline block: (T) -> R): (T) -> Either<IllegalArgumentException, R> =
+inline fun <T, R> mapToType(crossinline block: (T) -> R): (T) -> R =
   {
-    catchArgument {
-      block(it)
-    }
+    block(it)
   }
 
 /**
  * Parse a [String] into [UUID] with error handling.
  */
-fun parseUuid(value: String): Either<IllegalArgumentException, UUID> =
-  catchArgument {
-    UUID.fromString(value)
-  }
+fun parseUuid(value: String): UUID = UUID.fromString(value)
 
 /**
  * Create a mapper function to convert a [String] holding an [UUID] into a known [T].
@@ -43,7 +24,7 @@ fun parseUuid(value: String): Either<IllegalArgumentException, UUID> =
  */
 fun <T> createUuidMapper(factory: (UUID) -> T): StringMapper<T> =
   {
-    parseUuid(it).flatMap(handleIllegalArgument(factory))
+    mapToType(factory).invoke(parseUuid(it))
   }
 
 /**
@@ -53,7 +34,7 @@ fun <T> createUuidMapper(factory: (UUID) -> T): StringMapper<T> =
  * [IllegalArgumentException] in the conversion will be handled.
  */
 @JvmName("createMapperPairForUuid")
-inline fun <reified T> createMapperPair(
+inline fun <reified T> createMapperPairForUuid(
   noinline factory: (UUID) -> T
 ): Pair<Class<T>, StringMapper<T>> =
   T::class.java to createUuidMapper(factory)
@@ -65,17 +46,17 @@ inline fun <reified T> createMapperPair(
  * [IllegalArgumentException] in the conversion will be handled.
  */
 @JvmName("createMapperPairForString")
-inline fun <reified T> createMapperPair(
+inline fun <reified T> createMapperPairForString(
   noinline factory: (String) -> T
 ): Pair<Class<T>, StringMapper<T>> =
-  T::class.java to handleIllegalArgument(factory)
+  T::class.java to mapToType(factory)
 
 /**
  * Create a pair representing the mapping of a specific [T] from a [String]
  * by using the provided [factory] function.
  */
 @JvmName("createMapperPairForStringMapper")
-inline fun <reified T> createMapperPair(
+inline fun <reified T> createMapperPairForStringMapper(
   noinline factory: StringMapper<T>
 ): Pair<Class<T>, StringMapper<T>> =
   T::class.java to factory

@@ -1,4 +1,4 @@
-package no.liflig.dddaggregates.entity
+package no.liflig.documentstore.entity
 
 interface Entity {
   val id: EntityId

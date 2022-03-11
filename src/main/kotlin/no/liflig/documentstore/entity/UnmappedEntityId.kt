@@ -1,9 +1,5 @@
-package no.liflig.dddaggregates.entity
+package no.liflig.documentstore.entity
 
-import arrow.core.Either
-import arrow.core.getOrHandle
-import arrow.core.left
-import arrow.core.right
 import org.jdbi.v3.core.argument.AbstractArgumentFactory
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.config.ConfigRegistry
@@ -19,27 +15,20 @@ data class UnmappedEntityId private constructor(val value: String) {
   companion object {
     private val validPattern = Regex("[a-zA-Z0-9:\\-]+")
 
-    fun fromString(value: String): Either<IllegalArgumentException, UnmappedEntityId> =
+    fun fromString(value: String): UnmappedEntityId =
       try {
         // Some simple safeguards.
         check(value.length < 60)
         check(validPattern.matches(value))
-        UnmappedEntityId(value).right()
+        UnmappedEntityId(value)
       } catch (e: Exception) {
-        when (e) {
-          is IllegalArgumentException -> e
-          else -> IllegalArgumentException("Mapping failed", e)
-        }.left()
+        throw IllegalArgumentException("Mapping failed", e)
       }
   }
 }
 
 fun EntityId.toUnmapped(): UnmappedEntityId =
-  UnmappedEntityId.fromString(toString()).getOrHandle {
-    // We don't expect this to ever happen, so simply throw it
-    // instead of forcing the caller to handle it.
-    throw it
-  }
+  UnmappedEntityId.fromString(toString())
 
 /**
  * An argument factory for JDBI so that we can use a [UnmappedEntityId] as a bind argument.

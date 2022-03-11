@@ -1,4 +1,4 @@
-# ddd-aggregates
+# liflig-document-store
 
 Kotlin library implementing the repository pattern for storing documents as JSONB in Postgres.
 

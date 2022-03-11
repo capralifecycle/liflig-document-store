@@ -1,13 +1,13 @@
 @file:UseSerializers(InstantSerializer::class)
 
-package no.liflig.dddaggregates
+package no.liflig.documentstore
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
-import no.liflig.dddaggregates.entity.AbstractAggregateRoot
-import no.liflig.dddaggregates.entity.EntityTimestamps
-import no.liflig.dddaggregates.entity.UuidEntityId
-import no.liflig.dddaggregates.entity.UuidEntityIdSerializer
+import no.liflig.documentstore.entity.AbstractAggregateRoot
+import no.liflig.documentstore.entity.EntityTimestamps
+import no.liflig.documentstore.entity.UuidEntityId
+import no.liflig.documentstore.entity.UuidEntityIdSerializer
 import java.time.Instant
 import java.util.UUID
 

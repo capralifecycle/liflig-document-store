@@ -1,11 +1,11 @@
-package no.liflig.dddaggregates
+package no.liflig.documentstore
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
-import no.liflig.dddaggregates.entity.EntityId
-import no.liflig.dddaggregates.entity.UnmappedEntityIdArgumentFactory
-import no.liflig.dddaggregates.entity.UuidEntityIdArgumentFactory
-import no.liflig.dddaggregates.entity.VersionArgumentFactory
+import no.liflig.documentstore.entity.EntityId
+import no.liflig.documentstore.entity.UnmappedEntityIdArgumentFactory
+import no.liflig.documentstore.entity.UuidEntityIdArgumentFactory
+import no.liflig.documentstore.entity.VersionArgumentFactory
 import org.flywaydb.core.Flyway
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
