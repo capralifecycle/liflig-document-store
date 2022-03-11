@@ -5,14 +5,6 @@ import java.util.UUID
 typealias StringMapper<T> = (String) -> T
 
 /**
- * Wrap a function so any [IllegalArgumentException] thrown will be returned into left side of [Either].
- */
-inline fun <T, R> mapToType(crossinline block: (T) -> R): (T) -> R =
-  {
-    block(it)
-  }
-
-/**
  * Parse a [String] into [UUID] with error handling.
  */
 fun parseUuid(value: String): UUID = UUID.fromString(value)
@@ -24,7 +16,7 @@ fun parseUuid(value: String): UUID = UUID.fromString(value)
  */
 fun <T> createUuidMapper(factory: (UUID) -> T): StringMapper<T> =
   {
-    mapToType(factory).invoke(parseUuid(it))
+    factory.invoke(parseUuid(it))
   }
 
 /**
@@ -49,7 +41,7 @@ inline fun <reified T> createMapperPairForUuid(
 inline fun <reified T> createMapperPairForString(
   noinline factory: (String) -> T
 ): Pair<Class<T>, StringMapper<T>> =
-  T::class.java to mapToType(factory)
+  T::class.java to factory
 
 /**
  * Create a pair representing the mapping of a specific [T] from a [String]
