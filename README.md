@@ -1,11 +1,13 @@
 # ddd-aggregates
 
-Kotlin library holding some concepts around DDD Aggregates
-for reuse in Liflig.
+Kotlin library implementing the repository pattern for storing documents as JSONB in Postgres.
 
-* Basic structure for Entity, Entity IDs, Aggregates and versions
-* CRUD-like Repository with optimistic locking using JDBI,
-  Kotlinx Serialization, Arrow and Kotlin Coroutines
+* CRUD-like Repository with extendable methods for flexibility.
+* Optimistic locking.
+* JDBI library for convenience.
+* Serialization and deserialization of objects using Kotlinx Serialization.
+* Connection pool with HikariCP.
+* Database migrations with Flyway.
 
 This library is currently only distributed in Liflig
 internal repositories.
