@@ -19,7 +19,7 @@ data class Version(
   }
 }
 
-data class VersionedEntity<out T : EntityRoot>(
+data class VersionedEntity<out T : EntityRoot<*>>(
   val item: T,
   val version: Version
 )

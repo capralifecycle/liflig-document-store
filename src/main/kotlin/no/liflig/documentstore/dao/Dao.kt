@@ -46,7 +46,7 @@ interface Dao
  * Note that this does not mean we cannot have more methods, just that we expect
  * these methods for managing persistence of an aggregate in a consistent way.
  */
-interface CrudDao<I : EntityId, A : EntityRoot> : Dao {
+interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
   fun toJson(entity: A): String
 
   fun fromJson(value: String): A
@@ -75,7 +75,7 @@ abstract class AbstractCrudDao<I, A>(
   protected val serilizationAdapter: SerializationAdapter<A>,
 ) : CrudDao<I, A>
   where I : EntityId,
-        A : EntityRoot {
+        A : EntityRoot<I> {
 
   override fun toJson(entity: A): String = serilizationAdapter.toJson(entity)
   override fun fromJson(value: String): A = serilizationAdapter.fromJson(value)
@@ -221,7 +221,7 @@ data class AggregateRow(
   val version: Long
 )
 
-fun <A : EntityRoot> createRowMapper(
+fun <A : EntityRoot<*>> createRowMapper(
   fromRow: (row: AggregateRow) -> VersionedEntity<A>
 ): RowMapper<VersionedEntity<A>> {
   val kotlinMapper = KotlinMapper(AggregateRow::class.java)
@@ -232,7 +232,7 @@ fun <A : EntityRoot> createRowMapper(
   }
 }
 
-fun <A : EntityRoot> createRowParser(
+fun <A : EntityRoot<*>> createRowParser(
   fromJson: (String) -> A
 ): (row: AggregateRow) -> VersionedEntity<A> {
   return { row ->
