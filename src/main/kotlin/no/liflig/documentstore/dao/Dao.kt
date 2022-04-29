@@ -1,13 +1,11 @@
-package no.liflig.documentstore.repository
+package no.liflig.documentstore.dao
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.json.Json
-import no.liflig.documentstore.entity.AggregateRoot
 import no.liflig.documentstore.entity.EntityId
+import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.Version
-import no.liflig.documentstore.entity.VersionedAggregate
+import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.CloseException
 import org.jdbi.v3.core.ConnectionException
 import org.jdbi.v3.core.Jdbi
@@ -21,17 +19,18 @@ import java.util.UUID
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
+// TODO: update docs
 /**
- * A Repository holds the logic for persistence of an [AggregateRoot],
+ * A Repository holds the logic for persistence of an [EntityRoot],
  * including lookup methods.
  *
- * The [Repository] owns how an [AggregateRoot] is serialized, and it is
+ * The [Dao] owns how an [EntityRoot] is serialized, and it is
  * free to make optimizations so that later lookups will be less costly,
- * e.g. by putting some fields from the [AggregateRoot] into specific columns
+ * e.g. by putting some fields from the [EntityRoot] into specific columns
  * in the persisted storage, which can then be indexed and used for lookup
- * by other [Repository] methods.
+ * by other [Dao] methods.
  *
- * We want all our methods in the [Repository] to return a [Response] type.
+ * We want all our methods in the [Dao] to return a [Response] type.
  *
  * For this to work properly, all methods should be wrapped using the
  * [mapExceptionsToResponse] method, which takes care of the exceptions
@@ -39,7 +38,7 @@ import kotlin.coroutines.EmptyCoroutineContext
  * of consistently guarantee this, so it is left for the developer to
  * remember it.
  */
-interface Repository
+interface Dao
 
 /**
  * A base for a CRUD-like Repository.
@@ -47,22 +46,22 @@ interface Repository
  * Note that this does not mean we cannot have more methods, just that we expect
  * these methods for managing persistence of an aggregate in a consistent way.
  */
-interface CrudRepository<I : EntityId, A : AggregateRoot> : Repository {
-  fun toJson(aggregate: A): String
+interface CrudDao<I : EntityId, A : EntityRoot> : Dao {
+  fun toJson(entity: A): String
 
   fun fromJson(value: String): A
 
-  suspend fun create(aggregate: A): VersionedAggregate<A>
+  suspend fun create(entity: A): VersionedEntity<A>
 
-  suspend fun getByIdList(ids: List<I>): List<VersionedAggregate<A>>
+  suspend fun getByIdList(ids: List<I>): List<VersionedEntity<A>>
 
-  suspend fun get(id: I): VersionedAggregate<A>? =
+  suspend fun get(id: I): VersionedEntity<A>? =
     getByIdList(listOf(id)).firstOrNull()
 
   suspend fun <A2 : A> update(
     aggregate: A2,
     previousVersion: Version,
-  ): VersionedAggregate<A2>
+  ): VersionedEntity<A2>
 
   suspend fun delete(id: I, previousVersion: Version): Unit
 }
@@ -70,24 +69,16 @@ interface CrudRepository<I : EntityId, A : AggregateRoot> : Repository {
 /**
  * An abstract Repository to hold common logic we share.
  */
-abstract class AbstractCrudRepository<I, A>(
+abstract class AbstractCrudDao<I, A>(
   protected val jdbi: Jdbi,
   protected val sqlTableName: String,
-  protected val serializer: KSerializer<A>,
-) : CrudRepository<I, A>
+  protected val serilizationAdapter: SerializationAdapter<A>,
+) : CrudDao<I, A>
   where I : EntityId,
-        A : AggregateRoot {
+        A : EntityRoot {
 
-  /**
-   * The JSON instance used to serialize/deserialize.
-   */
-  open val json: Json = Json {
-    encodeDefaults = true
-    ignoreUnknownKeys = true
-  }
-
-  override fun toJson(aggregate: A): String = json.encodeToString(serializer, aggregate)
-  override fun fromJson(value: String): A = json.decodeFromString(serializer, value)
+  override fun toJson(entity: A): String = serilizationAdapter.toJson(entity)
+  override fun fromJson(value: String): A = serilizationAdapter.fromJson(value)
 
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
@@ -100,7 +91,7 @@ abstract class AbstractCrudRepository<I, A>(
   protected open suspend fun getByPredicate(
     sqlWhere: String = "TRUE",
     bind: Query.() -> Query = { this }
-  ): List<VersionedAggregate<A>> = mapExceptions {
+  ): List<VersionedEntity<A>> = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
       jdbi.open().use { handle ->
         handle
@@ -121,7 +112,7 @@ abstract class AbstractCrudRepository<I, A>(
 
   override suspend fun getByIdList(
     ids: List<I>
-  ): List<VersionedAggregate<A>> =
+  ): List<VersionedEntity<A>> =
     getByPredicate("id = ANY (:ids)") {
       bindArray("ids", EntityId::class.java, ids)
     }
@@ -143,7 +134,7 @@ abstract class AbstractCrudRepository<I, A>(
           .bind("previousVersion", previousVersion)
           .execute()
 
-        if (deleted == 0) throw ConflictRepositoryException()
+        if (deleted == 0) throw ConflictDaoException()
         else Unit
       }
     }
@@ -155,10 +146,10 @@ abstract class AbstractCrudRepository<I, A>(
    * kept in sync e.g. for indexing purposes.
    */
   override suspend fun create(
-    aggregate: A
-  ): VersionedAggregate<A> = mapExceptions {
+    entity: A
+  ): VersionedEntity<A> = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
-      VersionedAggregate(aggregate, Version.initial()).also {
+      VersionedEntity(entity, Version.initial()).also {
         jdbi.open().use { handle ->
           val now = Instant.now()
           handle
@@ -168,9 +159,9 @@ abstract class AbstractCrudRepository<I, A>(
               VALUES (:id, :version, :data::jsonb, :modifiedAt, :createdAt)
               """.trimIndent()
             )
-            .bind("id", aggregate.id)
+            .bind("id", entity.id)
             .bind("version", it.version)
-            .bind("data", toJson(aggregate))
+            .bind("data", toJson(entity))
             .bind("modifiedAt", now)
             .bind("createdAt", now)
             .execute()
@@ -187,10 +178,10 @@ abstract class AbstractCrudRepository<I, A>(
   override suspend fun <A2 : A> update(
     aggregate: A2,
     previousVersion: Version
-  ): VersionedAggregate<A2> = mapExceptions {
+  ): VersionedEntity<A2> = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
       jdbi.open().use { handle ->
-        val result = VersionedAggregate(aggregate, previousVersion.next())
+        val result = VersionedEntity(aggregate, previousVersion.next())
         val updated =
           handle
             .createUpdate(
@@ -212,7 +203,7 @@ abstract class AbstractCrudRepository<I, A>(
             .bind("previousVersion", previousVersion)
             .execute()
 
-        if (updated == 0) throw ConflictRepositoryException()
+        if (updated == 0) throw ConflictDaoException()
         else result
       }
     }
@@ -230,9 +221,9 @@ data class AggregateRow(
   val version: Long
 )
 
-fun <A : AggregateRoot> createRowMapper(
-  fromRow: (row: AggregateRow) -> VersionedAggregate<A>
-): RowMapper<VersionedAggregate<A>> {
+fun <A : EntityRoot> createRowMapper(
+  fromRow: (row: AggregateRow) -> VersionedEntity<A>
+): RowMapper<VersionedEntity<A>> {
   val kotlinMapper = KotlinMapper(AggregateRow::class.java)
 
   return RowMapper { rs, ctx ->
@@ -241,11 +232,11 @@ fun <A : AggregateRoot> createRowMapper(
   }
 }
 
-fun <A : AggregateRoot> createRowParser(
+fun <A : EntityRoot> createRowParser(
   fromJson: (String) -> A
-): (row: AggregateRow) -> VersionedAggregate<A> {
+): (row: AggregateRow) -> VersionedEntity<A> {
   return { row ->
-    VersionedAggregate(
+    VersionedEntity(
       fromJson(row.data),
       Version(row.version)
     )
@@ -255,28 +246,28 @@ fun <A : AggregateRoot> createRowParser(
 /**
  * An exception for an operation on a Repository.
  */
-sealed class RepositoryException : RuntimeException()
+sealed class DaoException : RuntimeException()
 
-class ConflictRepositoryException() : RepositoryException()
-data class UnavailableRepositoryException(
+class ConflictDaoException() : DaoException()
+data class UnavailableDaoException(
   val e: Exception,
-) : RepositoryException()
+) : DaoException()
 
-data class UnknownRepositoryException(
+data class UnknownDaoException(
   val e: Exception,
-) : RepositoryException()
+) : DaoException()
 
 inline fun <T> mapExceptions(block: () -> T): T {
   try {
     return block()
   } catch (e: Exception) {
     when (e) {
-      is ConflictRepositoryException -> throw e
+      is ConflictDaoException -> throw e
       is SQLTransientException,
       is InterruptedIOException,
       is ConnectionException,
-      is CloseException -> throw UnavailableRepositoryException(e)
-      else -> throw UnknownRepositoryException(e)
+      is CloseException -> throw UnavailableDaoException(e)
+      else -> throw UnknownDaoException(e)
     }
   }
 }

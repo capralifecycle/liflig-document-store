@@ -2,12 +2,17 @@
 
 package no.liflig.documentstore
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
-import no.liflig.documentstore.entity.AbstractAggregateRoot
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import no.liflig.documentstore.entity.AbstractEntityRoot
 import no.liflig.documentstore.entity.EntityTimestamps
 import no.liflig.documentstore.entity.UuidEntityId
-import no.liflig.documentstore.entity.UuidEntityIdSerializer
 import java.time.Instant
 import java.util.UUID
 
@@ -18,7 +23,7 @@ class ExampleAggregate private constructor(
   val moreText: String?,
   override val createdAt: Instant,
   override val modifiedAt: Instant
-) : AbstractAggregateRoot(), EntityTimestamps {
+) : AbstractEntityRoot(), EntityTimestamps {
   private fun update(
     text: String = this.text,
     moreText: String? = this.moreText,
@@ -57,6 +62,19 @@ class ExampleAggregate private constructor(
         modifiedAt = now
       )
   }
+}
+
+abstract class UuidEntityIdSerializer<T : UuidEntityId>(
+  val factory: (UUID) -> T
+) : KSerializer<T> {
+  override val descriptor: SerialDescriptor =
+    PrimitiveSerialDescriptor("UuidEntityId", PrimitiveKind.STRING)
+
+  override fun serialize(encoder: Encoder, value: T) =
+    encoder.encodeString(value.id.toString())
+
+  override fun deserialize(decoder: Decoder): T =
+    factory(UUID.fromString(decoder.decodeString()))
 }
 
 object ExampleIdSerializer : UuidEntityIdSerializer<ExampleId>({ ExampleId(it) })

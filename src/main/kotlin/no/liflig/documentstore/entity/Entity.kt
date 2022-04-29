@@ -4,7 +4,7 @@ interface Entity {
   val id: EntityId
 }
 
-interface AggregateRoot : Entity
+interface EntityRoot : Entity
 
 /**
  * Base class for an Entity.
@@ -27,6 +27,6 @@ abstract class AbstractEntity : Entity {
 }
 
 /**
- * Base class for the root Entity of an Aggregate.
+ * Base class for the root Entity.
  */
-abstract class AbstractAggregateRoot : AbstractEntity(), AggregateRoot
+abstract class AbstractEntityRoot : AbstractEntity(), EntityRoot
