@@ -17,7 +17,7 @@ import java.time.Instant
 import java.util.UUID
 
 @Serializable
-class ExampleAggregate private constructor(
+class ExampleEntity private constructor(
   override val id: ExampleId,
   val text: String,
   val moreText: String?,
@@ -29,8 +29,8 @@ class ExampleAggregate private constructor(
     moreText: String? = this.moreText,
     createdAt: Instant = this.createdAt,
     modifiedAt: Instant = Instant.now()
-  ): ExampleAggregate =
-    ExampleAggregate(
+  ): ExampleEntity =
+    ExampleEntity(
       id = this.id,
       text = text,
       moreText = moreText,
@@ -41,7 +41,7 @@ class ExampleAggregate private constructor(
   fun updateText(
     text: String = this.text,
     moreText: String? = this.moreText,
-  ): ExampleAggregate =
+  ): ExampleEntity =
     update(
       text = text,
       moreText = moreText
@@ -53,8 +53,8 @@ class ExampleAggregate private constructor(
       moreText: String? = null,
       now: Instant = Instant.now(),
       id: ExampleId = ExampleId()
-    ): ExampleAggregate =
-      ExampleAggregate(
+    ): ExampleEntity =
+      ExampleEntity(
         id = id,
         text = text,
         moreText = moreText,

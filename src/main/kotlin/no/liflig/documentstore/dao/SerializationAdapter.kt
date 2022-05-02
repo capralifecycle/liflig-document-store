@@ -4,6 +4,6 @@ import no.liflig.documentstore.entity.EntityRoot
 
 interface SerializationAdapter<A> where
 A : EntityRoot<*> {
-  fun toJson(aggregate: A): String
+  fun toJson(entity: A): String
   fun fromJson(value: String): A
 }

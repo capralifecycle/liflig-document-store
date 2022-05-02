@@ -47,9 +47,6 @@ interface Dao
  * these methods for managing persistence of an aggregate in a consistent way.
  */
 interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
-  fun toJson(entity: A): String
-
-  fun fromJson(value: String): A
 
   suspend fun create(entity: A): VersionedEntity<A>
 
@@ -59,7 +56,7 @@ interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
     getByIdList(listOf(id)).firstOrNull()
 
   suspend fun <A2 : A> update(
-    aggregate: A2,
+    entity: A2,
     previousVersion: Version,
   ): VersionedEntity<A2>
 
@@ -77,8 +74,8 @@ abstract class AbstractCrudDao<I, A>(
   where I : EntityId,
         A : EntityRoot<I> {
 
-  override fun toJson(entity: A): String = serilizationAdapter.toJson(entity)
-  override fun fromJson(value: String): A = serilizationAdapter.fromJson(value)
+  private fun toJson(entity: A): String = serilizationAdapter.toJson(entity)
+  private fun fromJson(value: String): A = serilizationAdapter.fromJson(value)
 
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
@@ -176,12 +173,12 @@ abstract class AbstractCrudDao<I, A>(
    * kept in sync e.g. for indexing purposes.
    */
   override suspend fun <A2 : A> update(
-    aggregate: A2,
+    entity: A2,
     previousVersion: Version
   ): VersionedEntity<A2> = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
       jdbi.open().use { handle ->
-        val result = VersionedEntity(aggregate, previousVersion.next())
+        val result = VersionedEntity(entity, previousVersion.next())
         val updated =
           handle
             .createUpdate(
@@ -197,8 +194,8 @@ abstract class AbstractCrudDao<I, A>(
               """.trimIndent()
             )
             .bind("nextVersion", result.version)
-            .bind("data", toJson(aggregate))
-            .bind("id", aggregate.id)
+            .bind("data", toJson(entity))
+            .bind("id", entity.id)
             .bind("modifiedAt", Instant.now())
             .bind("previousVersion", previousVersion)
             .execute()
@@ -215,26 +212,26 @@ abstract class AbstractCrudDao<I, A>(
  *
  * Note that the table might include more fields - this is only to read _out_ the aggregate.
  */
-data class AggregateRow(
+data class EntityRow(
   val id: UUID,
   val data: String,
   val version: Long
 )
 
 fun <A : EntityRoot<*>> createRowMapper(
-  fromRow: (row: AggregateRow) -> VersionedEntity<A>
+  fromRow: (row: EntityRow) -> VersionedEntity<A>
 ): RowMapper<VersionedEntity<A>> {
-  val kotlinMapper = KotlinMapper(AggregateRow::class.java)
+  val kotlinMapper = KotlinMapper(EntityRow::class.java)
 
   return RowMapper { rs, ctx ->
-    val simpleRow = kotlinMapper.map(rs, ctx) as AggregateRow
+    val simpleRow = kotlinMapper.map(rs, ctx) as EntityRow
     fromRow(simpleRow)
   }
 }
 
 fun <A : EntityRoot<*>> createRowParser(
   fromJson: (String) -> A
-): (row: AggregateRow) -> VersionedEntity<A> {
+): (row: EntityRow) -> VersionedEntity<A> {
   return { row ->
     VersionedEntity(
       fromJson(row.data),

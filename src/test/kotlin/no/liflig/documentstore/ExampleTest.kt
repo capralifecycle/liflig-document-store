@@ -15,12 +15,13 @@ import kotlin.test.assertNull
 
 class ExampleTest {
   val jdbi = createTestDatabase()
-  val dao = ExampleDao(jdbi)
+  val serializationAdapter = ExampleSerializationAdapter()
+  val dao = ExampleDao(jdbi, serializationAdapter)
 
   @Test
-  fun storeAndRetrieveNewAggregate() {
+  fun storeAndRetrieveNewEntity() {
     runBlocking {
-      val agg = ExampleAggregate.create("hello world")
+      val agg = ExampleEntity.create("hello world")
 
       dao
         .create(agg)
@@ -37,7 +38,7 @@ class ExampleTest {
   @Test
   fun updateWithWrongVersion() {
     runBlocking {
-      val agg = ExampleAggregate.create("hello world")
+      val agg = ExampleEntity.create("hello world")
 
       val storeResult = dao
         .create(agg)
@@ -50,9 +51,9 @@ class ExampleTest {
   }
 
   @Test
-  fun deleteAggregate() {
+  fun deleteEntity() {
     runBlocking {
-      val agg = ExampleAggregate.create("hello world")
+      val agg = ExampleEntity.create("hello world")
 
       assertFailsWith<ConflictDaoException> {
         dao.delete(agg.id, Version.initial())
@@ -70,10 +71,10 @@ class ExampleTest {
   }
 
   @Test
-  fun updateAggregate() {
+  fun updateEntity() {
     runBlocking {
       val (initialAgg, initialVersion) = dao
-        .create(ExampleAggregate.create("hello world"))
+        .create(ExampleEntity.create("hello world"))
 
       val updatedAgg = initialAgg.updateText("new value")
       dao
@@ -92,12 +93,12 @@ class ExampleTest {
 
   @Test
   fun verifySnapshot() {
-    val agg = ExampleAggregate.create(
+    val agg = ExampleEntity.create(
       id = ExampleId(UUID.fromString("928f6ef3-6873-454a-a68d-ef3f5d7963b5")),
       text = "hello world",
       now = Instant.parse("2020-10-11T23:25:00Z")
     )
 
-    verifyJsonSnapshot("Example.json", dao.toJson(agg))
+    verifyJsonSnapshot("Example.json", serializationAdapter.toJson(agg))
   }
 }

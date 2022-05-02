@@ -312,18 +312,18 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>com.github.gantsign.maven</groupId>
-        <artifactId>ktlint-maven-plugin</artifactId>
-        <version>1.13.1</version>
-        <executions>
-          <execution>
-            <id>check</id>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
+      <groupId>com.github.gantsign.maven</groupId>
+      <artifactId>ktlint-maven-plugin</artifactId>
+      <version>1.13.1</version>
+      <executions>
+        <execution>
+          <id>check</id>
+          <goals>
+            <goal>check</goal>
+          </goals>
+        </execution>
+      </executions>
+    </plugin>
     </plugins>
   </build>
 </project>
