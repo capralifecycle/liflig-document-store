@@ -69,13 +69,13 @@ interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 abstract class AbstractCrudDao<I, A>(
   protected val jdbi: Jdbi,
   protected val sqlTableName: String,
-  protected val serilizationAdapter: SerializationAdapter<A>,
+  protected val serializationAdapter: SerializationAdapter<A>,
 ) : CrudDao<I, A>
   where I : EntityId,
         A : EntityRoot<I> {
 
-  private fun toJson(entity: A): String = serilizationAdapter.toJson(entity)
-  private fun fromJson(value: String): A = serilizationAdapter.fromJson(value)
+  private fun toJson(entity: A): String = serializationAdapter.toJson(entity)
+  private fun fromJson(value: String): A = serializationAdapter.fromJson(value)
 
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
