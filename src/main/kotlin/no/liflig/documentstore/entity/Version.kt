@@ -6,7 +6,7 @@ import org.jdbi.v3.core.config.ConfigRegistry
 import java.sql.Types
 
 /**
- * A [Version] represents the version for an aggregate and is used
+ * A [Version] represents the version for an entity and is used
  * to implement optimistic locking.
  */
 data class Version(

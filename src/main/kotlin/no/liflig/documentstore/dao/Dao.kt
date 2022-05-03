@@ -44,7 +44,7 @@ interface Dao
  * A base for a CRUD-like Repository.
  *
  * Note that this does not mean we cannot have more methods, just that we expect
- * these methods for managing persistence of an aggregate in a consistent way.
+ * these methods for managing persistence of an entity in a consistent way.
  */
 interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 
@@ -208,9 +208,9 @@ abstract class AbstractCrudDao<I, A>(
 }
 
 /**
- * A data class that represents fields for a database row that holds an aggregate instance.
+ * A data class that represents fields for a database row that holds an entity instance.
  *
- * Note that the table might include more fields - this is only to read _out_ the aggregate.
+ * Note that the table might include more fields - this is only to read _out_ the entity.
  */
 data class EntityRow(
   val id: UUID,
