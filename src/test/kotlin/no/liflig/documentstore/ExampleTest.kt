@@ -2,6 +2,7 @@ package no.liflig.documentstore
 
 import kotlinx.coroutines.runBlocking
 import no.liflig.documentstore.dao.ConflictDaoException
+import no.liflig.documentstore.dao.CrudDaoJdbi
 import no.liflig.documentstore.entity.Version
 import no.liflig.snapshot.verifyJsonSnapshot
 import org.junit.jupiter.api.Test
@@ -16,7 +17,7 @@ import kotlin.test.assertNull
 class ExampleTest {
   val jdbi = createTestDatabase()
   val serializationAdapter = ExampleSerializationAdapter()
-  val dao = ExampleDao(jdbi, serializationAdapter)
+  val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
 
   @Test
   fun storeAndRetrieveNewEntity() {
