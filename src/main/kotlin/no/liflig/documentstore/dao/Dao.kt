@@ -1,6 +1,7 @@
 package no.liflig.documentstore.dao
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope.coroutineContext
 import kotlinx.coroutines.withContext
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityRoot
@@ -16,8 +17,6 @@ import java.io.InterruptedIOException
 import java.sql.SQLTransientException
 import java.time.Instant
 import java.util.UUID
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
 
 // TODO: update docs
 /**
@@ -50,10 +49,9 @@ interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 
   suspend fun create(entity: A): VersionedEntity<A>
 
-  suspend fun getByIdList(ids: List<I>): List<VersionedEntity<A>>
+//  suspend fun getByIdList(ids: List<I>): List<VersionedEntity<A>>
 
-  suspend fun get(id: I): VersionedEntity<A>? =
-    getByIdList(listOf(id)).firstOrNull()
+  suspend fun get(id: I): VersionedEntity<A>?
 
   suspend fun <A2 : A> update(
     entity: A2,
@@ -63,32 +61,18 @@ interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
   suspend fun delete(id: I, previousVersion: Version): Unit
 }
 
-/**
- * An abstract Repository to hold common logic we share.
- */
-abstract class AbstractCrudDao<I, A>(
+class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   protected val jdbi: Jdbi,
   protected val sqlTableName: String,
   protected val serializationAdapter: SerializationAdapter<A>,
-) : CrudDao<I, A>
-  where I : EntityId,
-        A : EntityRoot<I> {
-
+) : CrudDao<I, A> {
   private fun toJson(entity: A): String = serializationAdapter.toJson(entity)
   private fun fromJson(value: String): A = serializationAdapter.fromJson(value)
-
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  /**
-   * Extension point to extend the coroutine context used when switching
-   * dispatcher, e.g. to add MDC context.
-   */
-  protected open val coroutineContext: CoroutineContext = EmptyCoroutineContext
-
-  protected open suspend fun getByPredicate(
-    sqlWhere: String = "TRUE",
-    bind: Query.() -> Query = { this }
-  ): List<VersionedEntity<A>> = mapExceptions {
+  override suspend fun get(
+    id: I,
+  ): VersionedEntity<A>? = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
       jdbi.open().use { handle ->
         handle
@@ -96,23 +80,16 @@ abstract class AbstractCrudDao<I, A>(
             """
             SELECT id, data, version, created_at, modified_at
             FROM "$sqlTableName"
-            WHERE ($sqlWhere)
+            WHERE id = :id
             ORDER BY created_at
             """.trimIndent()
           )
-          .bind()
+          .bind("id", id)
           .map(rowMapper)
-          .list()
+          .firstOrNull()
       }
     }
   }
-
-  override suspend fun getByIdList(
-    ids: List<I>
-  ): List<VersionedEntity<A>> =
-    getByPredicate("id = ANY (:ids)") {
-      bindArray("ids", EntityId::class.java, ids)
-    }
 
   override suspend fun delete(
     id: I,
@@ -202,6 +179,55 @@ abstract class AbstractCrudDao<I, A>(
 
         if (updated == 0) throw ConflictDaoException()
         else result
+      }
+    }
+  }
+}
+
+interface SearchRepository<I, A, Q>
+  where I : EntityId, A : EntityRoot<I> {
+  suspend fun search(query: Q): List<VersionedEntity<A>>
+  suspend fun listByIds(ids: List<I>): List<VersionedEntity<A>>
+}
+
+/**
+ * An abstract Repository to hold common logic for listing.
+ */
+abstract class AbstractSearchRepository<I, A, Q>(
+  protected val jdbi: Jdbi,
+  protected val sqlTableName: String,
+  protected val serializationAdapter: SerializationAdapter<A>,
+) : SearchRepository<I, A, Q>
+  where I : EntityId,
+        A : EntityRoot<I> {
+
+  private fun fromJson(value: String): A = serializationAdapter.fromJson(value)
+
+  protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
+
+  override suspend fun listByIds(ids: List<I>): List<VersionedEntity<A>> =
+    getByPredicate("id = ANY (:ids)") {
+      bindArray("ids", EntityId::class.java, ids)
+    }
+
+  protected open suspend fun getByPredicate(
+    sqlWhere: String = "TRUE",
+    bind: Query.() -> Query = { this }
+  ): List<VersionedEntity<A>> = mapExceptions {
+    withContext(Dispatchers.IO + coroutineContext) {
+      jdbi.open().use { handle ->
+        handle
+          .select(
+            """
+            SELECT id, data, version, created_at, modified_at
+            FROM "$sqlTableName"
+            WHERE ($sqlWhere)
+            ORDER BY created_at
+            """.trimIndent()
+          )
+          .bind()
+          .map(rowMapper)
+          .list()
       }
     }
   }
