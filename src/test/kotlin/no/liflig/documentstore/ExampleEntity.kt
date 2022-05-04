@@ -2,30 +2,35 @@
 
 package no.liflig.documentstore
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
-import no.liflig.documentstore.entity.AbstractAggregateRoot
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import no.liflig.documentstore.entity.AbstractEntityRoot
 import no.liflig.documentstore.entity.EntityTimestamps
 import no.liflig.documentstore.entity.UuidEntityId
-import no.liflig.documentstore.entity.UuidEntityIdSerializer
 import java.time.Instant
 import java.util.UUID
 
 @Serializable
-class ExampleAggregate private constructor(
+class ExampleEntity private constructor(
   override val id: ExampleId,
   val text: String,
   val moreText: String?,
   override val createdAt: Instant,
   override val modifiedAt: Instant
-) : AbstractAggregateRoot(), EntityTimestamps {
+) : AbstractEntityRoot<ExampleId>(), EntityTimestamps {
   private fun update(
     text: String = this.text,
     moreText: String? = this.moreText,
     createdAt: Instant = this.createdAt,
     modifiedAt: Instant = Instant.now()
-  ): ExampleAggregate =
-    ExampleAggregate(
+  ): ExampleEntity =
+    ExampleEntity(
       id = this.id,
       text = text,
       moreText = moreText,
@@ -36,7 +41,7 @@ class ExampleAggregate private constructor(
   fun updateText(
     text: String = this.text,
     moreText: String? = this.moreText,
-  ): ExampleAggregate =
+  ): ExampleEntity =
     update(
       text = text,
       moreText = moreText
@@ -48,8 +53,8 @@ class ExampleAggregate private constructor(
       moreText: String? = null,
       now: Instant = Instant.now(),
       id: ExampleId = ExampleId()
-    ): ExampleAggregate =
-      ExampleAggregate(
+    ): ExampleEntity =
+      ExampleEntity(
         id = id,
         text = text,
         moreText = moreText,
@@ -57,6 +62,19 @@ class ExampleAggregate private constructor(
         modifiedAt = now
       )
   }
+}
+
+abstract class UuidEntityIdSerializer<T : UuidEntityId>(
+  val factory: (UUID) -> T
+) : KSerializer<T> {
+  override val descriptor: SerialDescriptor =
+    PrimitiveSerialDescriptor("UuidEntityId", PrimitiveKind.STRING)
+
+  override fun serialize(encoder: Encoder, value: T) =
+    encoder.encodeString(value.id.toString())
+
+  override fun deserialize(decoder: Decoder): T =
+    factory(UUID.fromString(decoder.decodeString()))
 }
 
 object ExampleIdSerializer : UuidEntityIdSerializer<ExampleId>({ ExampleId(it) })

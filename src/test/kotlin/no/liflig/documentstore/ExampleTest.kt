@@ -1,8 +1,8 @@
 package no.liflig.documentstore
 
 import kotlinx.coroutines.runBlocking
+import no.liflig.documentstore.dao.ConflictDaoException
 import no.liflig.documentstore.entity.Version
-import no.liflig.documentstore.repository.ConflictRepositoryException
 import no.liflig.snapshot.verifyJsonSnapshot
 import org.junit.jupiter.api.Test
 import java.time.Instant
@@ -15,17 +15,18 @@ import kotlin.test.assertNull
 
 class ExampleTest {
   val jdbi = createTestDatabase()
-  val repository = ExampleRepository(jdbi)
+  val serializationAdapter = ExampleSerializationAdapter()
+  val dao = ExampleDao(jdbi, serializationAdapter)
 
   @Test
-  fun storeAndRetrieveNewAggregate() {
+  fun storeAndRetrieveNewEntity() {
     runBlocking {
-      val agg = ExampleAggregate.create("hello world")
+      val agg = ExampleEntity.create("hello world")
 
-      repository
+      dao
         .create(agg)
 
-      val read = repository
+      val read = dao
         .get(agg.id)
 
       assertNotNull(read)
@@ -37,49 +38,49 @@ class ExampleTest {
   @Test
   fun updateWithWrongVersion() {
     runBlocking {
-      val agg = ExampleAggregate.create("hello world")
+      val agg = ExampleEntity.create("hello world")
 
-      val storeResult = repository
+      val storeResult = dao
         .create(agg)
 
-      assertFailsWith<ConflictRepositoryException> {
-        repository
+      assertFailsWith<ConflictDaoException> {
+        dao
           .update(agg, storeResult.version.next())
       }
     }
   }
 
   @Test
-  fun deleteAggregate() {
+  fun deleteEntity() {
     runBlocking {
-      val agg = ExampleAggregate.create("hello world")
+      val agg = ExampleEntity.create("hello world")
 
-      assertFailsWith<ConflictRepositoryException> {
-        repository.delete(agg.id, Version.initial())
+      assertFailsWith<ConflictDaoException> {
+        dao.delete(agg.id, Version.initial())
       }
 
-      val res2 = repository.create(agg)
+      val res2 = dao.create(agg)
       assertEquals(Version.initial(), res2.version)
 
-      val res3 = repository.delete(agg.id, Version.initial())
+      val res3 = dao.delete(agg.id, Version.initial())
       assertEquals(Unit, res3)
 
-      val res4 = repository.get(agg.id)
+      val res4 = dao.get(agg.id)
       assertNull(res4)
     }
   }
 
   @Test
-  fun updateAggregate() {
+  fun updateEntity() {
     runBlocking {
-      val (initialAgg, initialVersion) = repository
-        .create(ExampleAggregate.create("hello world"))
+      val (initialAgg, initialVersion) = dao
+        .create(ExampleEntity.create("hello world"))
 
       val updatedAgg = initialAgg.updateText("new value")
-      repository
+      dao
         .update(updatedAgg, initialVersion)
 
-      val res = repository
+      val res = dao
         .get(updatedAgg.id)
 
       assertNotNull(res)
@@ -92,12 +93,12 @@ class ExampleTest {
 
   @Test
   fun verifySnapshot() {
-    val agg = ExampleAggregate.create(
+    val agg = ExampleEntity.create(
       id = ExampleId(UUID.fromString("928f6ef3-6873-454a-a68d-ef3f5d7963b5")),
       text = "hello world",
       now = Instant.parse("2020-10-11T23:25:00Z")
     )
 
-    verifyJsonSnapshot("Example.json", repository.toJson(agg))
+    verifyJsonSnapshot("Example.json", serializationAdapter.toJson(agg))
   }
 }
