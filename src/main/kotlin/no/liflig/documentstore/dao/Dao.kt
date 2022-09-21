@@ -1,7 +1,6 @@
 package no.liflig.documentstore.dao
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope.coroutineContext
 import kotlinx.coroutines.withContext
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityRoot
@@ -18,6 +17,7 @@ import java.io.InterruptedIOException
 import java.sql.SQLTransientException
 import java.time.Instant
 import java.util.UUID
+import kotlin.coroutines.coroutineContext
 
 // TODO: update docs
 /**
@@ -73,37 +73,55 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
 
   override suspend fun get(
     id: I,
-  ): VersionedEntity<A>? = mapExceptions {
-    withContext(Dispatchers.IO + coroutineContext) {
-      jdbi.open().use { handle ->
-        handle
-          .select(
-            """
+  ): VersionedEntity<A>? {
+    val transaction = coroutineContext[CoroutineTransaction]
+    return if (transaction != null)
+      innerGet(id, transaction.handle)
+    else
+      mapExceptions {
+        withContext(Dispatchers.IO + coroutineContext) {
+          jdbi.open().use { handle ->
+            innerGet(id, handle)
+          }
+        }
+      }
+  }
+
+  private fun innerGet(
+    id: I,
+    handle: Handle,
+  ): VersionedEntity<A>? = handle
+    .select(
+      """
             SELECT id, data, version, created_at, modified_at
             FROM "$sqlTableName"
             WHERE id = :id
             ORDER BY created_at
             """.trimIndent()
-          )
-          .bind("id", id)
-          .map(rowMapper)
-          .firstOrNull()
-      }
-    }
-  }
+    )
+    .bind("id", id)
+    .map(rowMapper)
+    .firstOrNull()
 
   override suspend fun delete(
     id: I,
     previousVersion: Version
-  ): Unit = mapExceptions {
-    withContext(Dispatchers.IO + coroutineContext) {
-      jdbi.open().use { handle ->
-        innerDelete(id, previousVersion, handle)
+  ) {
+    val transaction = coroutineContext[CoroutineTransaction]
+
+    if (transaction != null)
+      innerDelete(id, previousVersion, transaction.handle)
+    else
+      mapExceptions {
+        withContext(Dispatchers.IO + coroutineContext) {
+          jdbi.open().use { handle ->
+            innerDelete(id, previousVersion, handle)
+          }
+        }
       }
-    }
   }
 
-  internal fun innerDelete(
+  private fun innerDelete(
     id: I,
     previousVersion: Version,
     handle: Handle,
@@ -130,16 +148,22 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    */
   override suspend fun create(
     entity: A
-  ): VersionedEntity<A> = mapExceptions {
-    withContext(Dispatchers.IO + coroutineContext) {
+  ): VersionedEntity<A> {
+    val transaction = coroutineContext[CoroutineTransaction]
 
-      jdbi.open().use { handle ->
-        innerCreate(entity, handle)
+    return if (transaction != null)
+      innerCreate(entity, transaction.handle)
+    else
+      mapExceptions {
+        withContext(Dispatchers.IO + coroutineContext) {
+          jdbi.open().use { handle ->
+            innerCreate(entity, handle)
+          }
+        }
       }
-    }
   }
 
-  internal fun innerCreate(
+  private fun innerCreate(
     entity: A,
     handle: Handle
   ): VersionedEntity<A> = VersionedEntity(entity, Version.initial()).also {
@@ -167,12 +191,20 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   override suspend fun <A2 : A> update(
     entity: A2,
     previousVersion: Version
-  ): VersionedEntity<A2> = mapExceptions {
-    withContext(Dispatchers.IO + coroutineContext) {
-      jdbi.open().use { handle ->
-        innerUpdate(handle, entity, previousVersion)
+  ): VersionedEntity<A2> {
+    val transaction = coroutineContext[CoroutineTransaction]
+
+
+    return if (transaction != null)
+      innerUpdate(transaction.handle, entity, previousVersion)
+    else
+      mapExceptions {
+        withContext(Dispatchers.IO + coroutineContext) {
+          jdbi.open().use { handle ->
+            innerUpdate(handle, entity, previousVersion)
+          }
+        }
       }
-    }
   }
 
   internal fun <A2 : A> innerUpdate(
@@ -204,49 +236,6 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
 
     return if (updated == 0) throw ConflictDaoException()
     else result
-  }
-}
-
-class TempClass(
-  private val handle: Handle,
-) {
-  fun <I : EntityId, A : EntityRoot<I>, A2 : A> CrudDao<I, A>.transactionalUpdate(
-    entity: A2,
-    previousVersion: Version
-  ): VersionedEntity<A2> = (this as CrudDaoJdbi<I, A>).innerUpdate(handle, entity, previousVersion)
-
-  fun <I : EntityId, A : EntityRoot<I>, A2 : A> CrudDao<I, A>.transactionalCreate(
-    entity: A2,
-  ): VersionedEntity<A> = (this as CrudDaoJdbi<I, A>).innerCreate(entity, handle)
-
-  fun <I : EntityId, A : EntityRoot<I>> CrudDao<I, A>.transactionalDelete(
-    id: I,
-    previousVersion: Version
-  ): Unit = (this as CrudDaoJdbi<I, A>).innerDelete(id, previousVersion, handle)
-}
-
-suspend fun transactional(dao: CrudDao<*, *>, dbOperations: suspend TempClass.() -> Unit) {
-  // TODO we need onlu one dao for the jdbi?
-  // TODO do threadlocal magic
-
-  when (dao) {
-    is CrudDaoJdbi -> mapExceptions {
-      withContext(Dispatchers.IO + coroutineContext) {
-        dao.jdbi.open().use { handle ->
-          TempClass(handle).dbOperations()
-        }
-      }
-    }
-
-    else -> throw Error("Transactional requires JDBIDao")
-  }
-
-  return mapExceptions {
-    withContext(Dispatchers.IO + coroutineContext) {
-      dao.jdbi.open().use { handle ->
-        TempClass(handle).dbOperations()
-      }
-    }
   }
 }
 
@@ -298,6 +287,7 @@ abstract class AbstractSearchRepository<I, A, Q>(
     }
   }
 }
+
 
 /**
  * A data class that represents fields for a database row that holds an entity instance.
