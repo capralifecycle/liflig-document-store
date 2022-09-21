@@ -194,10 +194,6 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   ): VersionedEntity<A2> {
     val transaction = coroutineContext[CoroutineTransaction]
 
-
-
-
-
     return if (transaction != null)
       innerUpdate(transaction.handle, entity, previousVersion)
     else

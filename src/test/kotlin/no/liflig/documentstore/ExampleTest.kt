@@ -126,7 +126,6 @@ class ExampleTest {
         dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
       }
 
-
       assertEquals("One", dao.get(initialAgg1.id)!!.item.text)
       assertEquals("One", dao.get(initialAgg2.id)!!.item.text)
     }
