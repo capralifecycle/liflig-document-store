@@ -97,7 +97,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
             FROM "$sqlTableName"
             WHERE id = :id
             ORDER BY created_at
-            """.trimIndent()
+      """.trimIndent()
     )
     .bind("id", id)
     .map(rowMapper)
@@ -194,7 +194,6 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   ): VersionedEntity<A2> {
     val transaction = coroutineContext[CoroutineTransaction]
 
-
     return if (transaction != null)
       innerUpdate(transaction.handle, entity, previousVersion)
     else
@@ -207,7 +206,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
       }
   }
 
-  internal fun <A2 : A> innerUpdate(
+  private fun <A2 : A> innerUpdate(
     handle: Handle,
     entity: A2,
     previousVersion: Version
@@ -287,7 +286,6 @@ abstract class AbstractSearchRepository<I, A, Q>(
     }
   }
 }
-
 
 /**
  * A data class that represents fields for a database row that holds an entity instance.
