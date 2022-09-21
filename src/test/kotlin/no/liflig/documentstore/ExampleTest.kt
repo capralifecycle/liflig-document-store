@@ -94,7 +94,7 @@ class ExampleTest {
   }
 
   @Test
-  fun transactionTest() {
+  fun completeTransactionSucceeds() {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
         .create(ExampleEntity.create("One"))
@@ -114,20 +114,18 @@ class ExampleTest {
   }
 
   @Test
-  fun transactionTestAgain() {
+  fun failedTranasctionRollsBack() {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
         .create(ExampleEntity.create("One"))
       val (initialAgg2, initialVersion2) = dao
         .create(ExampleEntity.create("One"))
 
-      try {
-        transactional(dao) {
-          dao.update(initialAgg1.updateText("Two"), initialVersion1)
-          dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
-        }
-      } catch (_: ConflictDaoException) {
+      transactional(dao) {
+        dao.update(initialAgg1.updateText("Two"), initialVersion1)
+        dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
       }
+
 
       assertEquals("One", dao.get(initialAgg1.id)!!.item.text)
       assertEquals("One", dao.get(initialAgg2.id)!!.item.text)
