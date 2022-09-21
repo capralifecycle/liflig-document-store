@@ -9,6 +9,7 @@ import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.CloseException
 import org.jdbi.v3.core.ConnectionException
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinMapper
 import org.jdbi.v3.core.mapper.RowMapper
@@ -62,7 +63,7 @@ interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 }
 
 class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
-  protected val jdbi: Jdbi,
+  internal val jdbi: Jdbi,
   protected val sqlTableName: String,
   protected val serializationAdapter: SerializationAdapter<A>,
 ) : CrudDao<I, A> {
@@ -97,21 +98,29 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   ): Unit = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
       jdbi.open().use { handle ->
-        val deleted = handle
-          .createUpdate(
-            """
-            DELETE FROM "$sqlTableName"
-            WHERE id = :id AND version = :previousVersion
-            """.trimIndent()
-          )
-          .bind("id", id)
-          .bind("previousVersion", previousVersion)
-          .execute()
-
-        if (deleted == 0) throw ConflictDaoException()
-        else Unit
+        innerDelete(id, previousVersion, handle)
       }
     }
+  }
+
+  internal fun innerDelete(
+    id: I,
+    previousVersion: Version,
+    handle: Handle,
+  ) {
+    val deleted = handle
+      .createUpdate(
+        """
+            DELETE FROM "$sqlTableName"
+            WHERE id = :id AND version = :previousVersion
+        """.trimIndent()
+      )
+      .bind("id", id)
+      .bind("previousVersion", previousVersion)
+      .execute()
+
+    return if (deleted == 0) throw ConflictDaoException()
+    else Unit
   }
 
   /**
@@ -123,25 +132,31 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
     entity: A
   ): VersionedEntity<A> = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
-      VersionedEntity(entity, Version.initial()).also {
-        jdbi.open().use { handle ->
-          val now = Instant.now()
-          handle
-            .createUpdate(
-              """
-              INSERT INTO "$sqlTableName" (id, version, data, modified_at, created_at)
-              VALUES (:id, :version, :data::jsonb, :modifiedAt, :createdAt)
-              """.trimIndent()
-            )
-            .bind("id", entity.id)
-            .bind("version", it.version)
-            .bind("data", toJson(entity))
-            .bind("modifiedAt", now)
-            .bind("createdAt", now)
-            .execute()
-        }
+
+      jdbi.open().use { handle ->
+        innerCreate(entity, handle)
       }
     }
+  }
+
+  internal fun innerCreate(
+    entity: A,
+    handle: Handle
+  ): VersionedEntity<A> = VersionedEntity(entity, Version.initial()).also {
+    val now = Instant.now()
+    handle
+      .createUpdate(
+        """
+            INSERT INTO "$sqlTableName" (id, version, data, modified_at, created_at)
+            VALUES (:id, :version, :data::jsonb, :modifiedAt, :createdAt)
+        """.trimIndent()
+      )
+      .bind("id", entity.id)
+      .bind("version", it.version)
+      .bind("data", toJson(entity))
+      .bind("modifiedAt", now)
+      .bind("createdAt", now)
+      .execute()
   }
 
   /**
@@ -155,11 +170,21 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   ): VersionedEntity<A2> = mapExceptions {
     withContext(Dispatchers.IO + coroutineContext) {
       jdbi.open().use { handle ->
-        val result = VersionedEntity(entity, previousVersion.next())
-        val updated =
-          handle
-            .createUpdate(
-              """
+        innerUpdate(handle, entity, previousVersion)
+      }
+    }
+  }
+
+  internal fun <A2 : A> innerUpdate(
+    handle: Handle,
+    entity: A2,
+    previousVersion: Version
+  ): VersionedEntity<A2> {
+    val result = VersionedEntity(entity, previousVersion.next())
+    val updated =
+      handle
+        .createUpdate(
+          """
               UPDATE "$sqlTableName"
               SET
                 version = :nextVersion,
@@ -168,17 +193,58 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
               WHERE
                 id = :id AND
                 version = :previousVersion
-              """.trimIndent()
-            )
-            .bind("nextVersion", result.version)
-            .bind("data", toJson(entity))
-            .bind("id", entity.id)
-            .bind("modifiedAt", Instant.now())
-            .bind("previousVersion", previousVersion)
-            .execute()
+          """.trimIndent()
+        )
+        .bind("nextVersion", result.version)
+        .bind("data", toJson(entity))
+        .bind("id", entity.id)
+        .bind("modifiedAt", Instant.now())
+        .bind("previousVersion", previousVersion)
+        .execute()
 
-        if (updated == 0) throw ConflictDaoException()
-        else result
+    return if (updated == 0) throw ConflictDaoException()
+    else result
+  }
+}
+
+class TempClass(
+  private val handle: Handle,
+) {
+  fun <I : EntityId, A : EntityRoot<I>, A2 : A> CrudDao<I, A>.transactionalUpdate(
+    entity: A2,
+    previousVersion: Version
+  ): VersionedEntity<A2> = (this as CrudDaoJdbi<I, A>).innerUpdate(handle, entity, previousVersion)
+
+  fun <I : EntityId, A : EntityRoot<I>, A2 : A> CrudDao<I, A>.transactionalCreate(
+    entity: A2,
+  ): VersionedEntity<A> = (this as CrudDaoJdbi<I, A>).innerCreate(entity, handle)
+
+  fun <I : EntityId, A : EntityRoot<I>> CrudDao<I, A>.transactionalDelete(
+    id: I,
+    previousVersion: Version
+  ): Unit = (this as CrudDaoJdbi<I, A>).innerDelete(id, previousVersion, handle)
+}
+
+suspend fun transactional(dao: CrudDao<*, *>, dbOperations: suspend TempClass.() -> Unit) {
+  // TODO we need onlu one dao for the jdbi?
+  // TODO do threadlocal magic
+
+  when (dao) {
+    is CrudDaoJdbi -> mapExceptions {
+      withContext(Dispatchers.IO + coroutineContext) {
+        dao.jdbi.open().use { handle ->
+          TempClass(handle).dbOperations()
+        }
+      }
+    }
+
+    else -> throw Error("Transactional requires JDBIDao")
+  }
+
+  return mapExceptions {
+    withContext(Dispatchers.IO + coroutineContext) {
+      dao.jdbi.open().use { handle ->
+        TempClass(handle).dbOperations()
       }
     }
   }
@@ -290,6 +356,7 @@ inline fun <T> mapExceptions(block: () -> T): T {
       is InterruptedIOException,
       is ConnectionException,
       is CloseException -> throw UnavailableDaoException(e)
+
       else -> throw UnknownDaoException(e)
     }
   }
