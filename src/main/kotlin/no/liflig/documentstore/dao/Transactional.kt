@@ -7,7 +7,6 @@ import org.jdbi.v3.core.Handle
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
-@PublishedApi
 internal class CoroutineTransaction(
   val handle: Handle,
 ) : AbstractCoroutineContextElement(CoroutineTransaction) {

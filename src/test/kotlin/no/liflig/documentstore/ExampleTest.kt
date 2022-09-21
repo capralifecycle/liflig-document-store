@@ -121,9 +121,12 @@ class ExampleTest {
       val (initialAgg2, initialVersion2) = dao
         .create(ExampleEntity.create("One"))
 
-      transactional(dao) {
-        dao.update(initialAgg1.updateText("Two"), initialVersion1)
-        dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
+      try {
+        transactional(dao) {
+          dao.update(initialAgg1.updateText("Two"), initialVersion1)
+          dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
+        }
+      } catch (_: ConflictDaoException) {
       }
 
       assertEquals("One", dao.get(initialAgg1.id)!!.item.text)
