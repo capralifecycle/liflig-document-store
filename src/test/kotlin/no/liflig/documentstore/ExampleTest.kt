@@ -3,6 +3,7 @@ package no.liflig.documentstore
 import kotlinx.coroutines.runBlocking
 import no.liflig.documentstore.dao.ConflictDaoException
 import no.liflig.documentstore.dao.CrudDaoJdbi
+import no.liflig.documentstore.dao.transactional
 import no.liflig.documentstore.entity.Version
 import no.liflig.snapshot.verifyJsonSnapshot
 import org.junit.jupiter.api.Test
@@ -89,6 +90,47 @@ class ExampleTest {
 
       assertEquals("new value", agg.text)
       assertNotEquals(initialVersion, version)
+    }
+  }
+
+  @Test
+  fun completeTransactionSucceeds() {
+    runBlocking {
+      val (initialAgg1, initialVersion1) = dao
+        .create(ExampleEntity.create("One"))
+      val (initialAgg2, initialVersion2) = dao
+        .create(ExampleEntity.create("One"))
+
+      transactional(dao) {
+        dao.update(initialAgg1.updateText("Two"), initialVersion1)
+        dao.update(initialAgg2.updateText("Two"), initialVersion2)
+        dao.get(initialAgg2.id)
+      }
+
+      assertNotEquals(initialAgg1.id, initialAgg2.id)
+      assertEquals("Two", dao.get(initialAgg1.id)!!.item.text)
+      assertEquals("Two", dao.get(initialAgg2.id)!!.item.text)
+    }
+  }
+
+  @Test
+  fun failedTranasctionRollsBack() {
+    runBlocking {
+      val (initialAgg1, initialVersion1) = dao
+        .create(ExampleEntity.create("One"))
+      val (initialAgg2, initialVersion2) = dao
+        .create(ExampleEntity.create("One"))
+
+      try {
+        transactional(dao) {
+          dao.update(initialAgg1.updateText("Two"), initialVersion1)
+          dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
+        }
+      } catch (_: ConflictDaoException) {
+      }
+
+      assertEquals("One", dao.get(initialAgg1.id)!!.item.text)
+      assertEquals("One", dao.get(initialAgg2.id)!!.item.text)
     }
   }
 

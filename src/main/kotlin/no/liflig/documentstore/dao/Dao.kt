@@ -1,7 +1,6 @@
 package no.liflig.documentstore.dao
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope.coroutineContext
 import kotlinx.coroutines.withContext
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityRoot
@@ -9,6 +8,7 @@ import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.CloseException
 import org.jdbi.v3.core.ConnectionException
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinMapper
 import org.jdbi.v3.core.mapper.RowMapper
@@ -17,6 +17,7 @@ import java.io.InterruptedIOException
 import java.sql.SQLTransientException
 import java.time.Instant
 import java.util.UUID
+import kotlin.coroutines.coroutineContext
 
 // TODO: update docs
 /**
@@ -62,7 +63,7 @@ interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 }
 
 class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
-  protected val jdbi: Jdbi,
+  internal val jdbi: Jdbi,
   protected val sqlTableName: String,
   protected val serializationAdapter: SerializationAdapter<A>,
 ) : CrudDao<I, A> {
@@ -72,46 +73,72 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
 
   override suspend fun get(
     id: I,
-  ): VersionedEntity<A>? = mapExceptions {
-    withContext(Dispatchers.IO + coroutineContext) {
-      jdbi.open().use { handle ->
-        handle
-          .select(
-            """
+  ): VersionedEntity<A>? {
+    val transaction = coroutineContext[CoroutineTransaction]
+    return if (transaction != null)
+      innerGet(id, transaction.handle)
+    else
+      mapExceptions {
+        withContext(Dispatchers.IO + coroutineContext) {
+          jdbi.open().use { handle ->
+            innerGet(id, handle)
+          }
+        }
+      }
+  }
+
+  private fun innerGet(
+    id: I,
+    handle: Handle,
+  ): VersionedEntity<A>? = handle
+    .select(
+      """
             SELECT id, data, version, created_at, modified_at
             FROM "$sqlTableName"
             WHERE id = :id
             ORDER BY created_at
-            """.trimIndent()
-          )
-          .bind("id", id)
-          .map(rowMapper)
-          .firstOrNull()
-      }
-    }
-  }
+      """.trimIndent()
+    )
+    .bind("id", id)
+    .map(rowMapper)
+    .firstOrNull()
 
   override suspend fun delete(
     id: I,
     previousVersion: Version
-  ): Unit = mapExceptions {
-    withContext(Dispatchers.IO + coroutineContext) {
-      jdbi.open().use { handle ->
-        val deleted = handle
-          .createUpdate(
-            """
+  ) {
+    val transaction = coroutineContext[CoroutineTransaction]
+
+    if (transaction != null)
+      innerDelete(id, previousVersion, transaction.handle)
+    else
+      mapExceptions {
+        withContext(Dispatchers.IO + coroutineContext) {
+          jdbi.open().use { handle ->
+            innerDelete(id, previousVersion, handle)
+          }
+        }
+      }
+  }
+
+  private fun innerDelete(
+    id: I,
+    previousVersion: Version,
+    handle: Handle,
+  ) {
+    val deleted = handle
+      .createUpdate(
+        """
             DELETE FROM "$sqlTableName"
             WHERE id = :id AND version = :previousVersion
-            """.trimIndent()
-          )
-          .bind("id", id)
-          .bind("previousVersion", previousVersion)
-          .execute()
+        """.trimIndent()
+      )
+      .bind("id", id)
+      .bind("previousVersion", previousVersion)
+      .execute()
 
-        if (deleted == 0) throw ConflictDaoException()
-        else Unit
-      }
-    }
+    return if (deleted == 0) throw ConflictDaoException()
+    else Unit
   }
 
   /**
@@ -121,27 +148,39 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    */
   override suspend fun create(
     entity: A
-  ): VersionedEntity<A> = mapExceptions {
-    withContext(Dispatchers.IO + coroutineContext) {
-      VersionedEntity(entity, Version.initial()).also {
-        jdbi.open().use { handle ->
-          val now = Instant.now()
-          handle
-            .createUpdate(
-              """
-              INSERT INTO "$sqlTableName" (id, version, data, modified_at, created_at)
-              VALUES (:id, :version, :data::jsonb, :modifiedAt, :createdAt)
-              """.trimIndent()
-            )
-            .bind("id", entity.id)
-            .bind("version", it.version)
-            .bind("data", toJson(entity))
-            .bind("modifiedAt", now)
-            .bind("createdAt", now)
-            .execute()
+  ): VersionedEntity<A> {
+    val transaction = coroutineContext[CoroutineTransaction]
+
+    return if (transaction != null)
+      innerCreate(entity, transaction.handle)
+    else
+      mapExceptions {
+        withContext(Dispatchers.IO + coroutineContext) {
+          jdbi.open().use { handle ->
+            innerCreate(entity, handle)
+          }
         }
       }
-    }
+  }
+
+  private fun innerCreate(
+    entity: A,
+    handle: Handle
+  ): VersionedEntity<A> = VersionedEntity(entity, Version.initial()).also {
+    val now = Instant.now()
+    handle
+      .createUpdate(
+        """
+            INSERT INTO "$sqlTableName" (id, version, data, modified_at, created_at)
+            VALUES (:id, :version, :data::jsonb, :modifiedAt, :createdAt)
+        """.trimIndent()
+      )
+      .bind("id", entity.id)
+      .bind("version", it.version)
+      .bind("data", toJson(entity))
+      .bind("modifiedAt", now)
+      .bind("createdAt", now)
+      .execute()
   }
 
   /**
@@ -152,14 +191,31 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   override suspend fun <A2 : A> update(
     entity: A2,
     previousVersion: Version
-  ): VersionedEntity<A2> = mapExceptions {
-    withContext(Dispatchers.IO + coroutineContext) {
-      jdbi.open().use { handle ->
-        val result = VersionedEntity(entity, previousVersion.next())
-        val updated =
-          handle
-            .createUpdate(
-              """
+  ): VersionedEntity<A2> {
+    val transaction = coroutineContext[CoroutineTransaction]
+
+    return if (transaction != null)
+      innerUpdate(transaction.handle, entity, previousVersion)
+    else
+      mapExceptions {
+        withContext(Dispatchers.IO + coroutineContext) {
+          jdbi.open().use { handle ->
+            innerUpdate(handle, entity, previousVersion)
+          }
+        }
+      }
+  }
+
+  private fun <A2 : A> innerUpdate(
+    handle: Handle,
+    entity: A2,
+    previousVersion: Version
+  ): VersionedEntity<A2> {
+    val result = VersionedEntity(entity, previousVersion.next())
+    val updated =
+      handle
+        .createUpdate(
+          """
               UPDATE "$sqlTableName"
               SET
                 version = :nextVersion,
@@ -168,19 +224,17 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
               WHERE
                 id = :id AND
                 version = :previousVersion
-              """.trimIndent()
-            )
-            .bind("nextVersion", result.version)
-            .bind("data", toJson(entity))
-            .bind("id", entity.id)
-            .bind("modifiedAt", Instant.now())
-            .bind("previousVersion", previousVersion)
-            .execute()
+          """.trimIndent()
+        )
+        .bind("nextVersion", result.version)
+        .bind("data", toJson(entity))
+        .bind("id", entity.id)
+        .bind("modifiedAt", Instant.now())
+        .bind("previousVersion", previousVersion)
+        .execute()
 
-        if (updated == 0) throw ConflictDaoException()
-        else result
-      }
-    }
+    return if (updated == 0) throw ConflictDaoException()
+    else result
   }
 }
 
@@ -290,6 +344,7 @@ inline fun <T> mapExceptions(block: () -> T): T {
       is InterruptedIOException,
       is ConnectionException,
       is CloseException -> throw UnavailableDaoException(e)
+
       else -> throw UnknownDaoException(e)
     }
   }
