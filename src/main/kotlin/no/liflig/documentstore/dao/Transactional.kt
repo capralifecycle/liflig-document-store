@@ -11,22 +11,24 @@ internal class CoroutineTransaction(
   val handle: Handle,
 ) : AbstractCoroutineContextElement(CoroutineTransaction) {
   companion object Key : CoroutineContext.Key<CoroutineTransaction>
+
   override fun toString(): String = "CoroutineTransaction(handle=$handle)"
 }
 
-suspend fun transactional(dao: CrudDao<*, *>, block: suspend () -> Unit) {
-
-  return when (dao) {
-    is CrudDaoJdbi -> mapExceptions {
+suspend fun <T> transactional(dao: CrudDao<*, *>, block: suspend () -> T) = when (dao) {
+  is CrudDaoJdbi -> {
+    mapExceptions {
+      var result: T? = null
       dao.jdbi.open().useTransaction<Exception> { handle ->
-        runBlocking {
+        result = runBlocking {
           withContext(Dispatchers.IO + CoroutineTransaction(handle)) {
             block()
           }
         }
       }
+      result
     }
-
-    else -> throw Error("Transactional requires JDBIDao")
   }
+
+  else -> throw Error("Transactional requires JDBIDao")
 }
