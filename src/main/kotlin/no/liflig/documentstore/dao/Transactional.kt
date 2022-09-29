@@ -15,18 +15,16 @@ internal class CoroutineTransaction(
   override fun toString(): String = "CoroutineTransaction(handle=$handle)"
 }
 
-suspend fun <T> transactional(dao: CrudDao<*, *>, block: suspend () -> T) = when (dao) {
+suspend fun <T> transactional(dao: CrudDao<*, *>, block: suspend () -> T): T = when (dao) {
   is CrudDaoJdbi -> {
     mapExceptions {
-      var result: T? = null
-      dao.jdbi.open().useTransaction<Exception> { handle ->
-        result = runBlocking {
+      dao.jdbi.open().inTransaction<T, Exception> { handle ->
+        runBlocking {
           withContext(Dispatchers.IO + CoroutineTransaction(handle)) {
             block()
           }
         }
       }
-      result
     }
   }
 
