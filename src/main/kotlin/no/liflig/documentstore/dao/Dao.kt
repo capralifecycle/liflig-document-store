@@ -50,8 +50,6 @@ interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 
   suspend fun create(entity: A): VersionedEntity<A>
 
-//  suspend fun getByIdList(ids: List<I>): List<VersionedEntity<A>>
-
   suspend fun get(id: I): VersionedEntity<A>?
 
   suspend fun <A2 : A> update(
