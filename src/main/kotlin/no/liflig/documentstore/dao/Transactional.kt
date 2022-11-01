@@ -31,10 +31,3 @@ suspend fun <T> transactional(dao: CrudDao<*, *>, block: suspend () -> T): T = w
 
   else -> throw Error("Transactional requires JDBIDao")
 }
-
-suspend fun <T> withTransaction(handle: Handle, block: suspend () -> T): T =
-  mapExceptions {
-    withContext(Dispatchers.IO + CoroutineTransaction(handle)) {
-      block()
-    }
-  }
