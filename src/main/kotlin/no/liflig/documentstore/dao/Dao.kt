@@ -48,16 +48,17 @@ interface Dao
  */
 interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 
-  suspend fun create(entity: A): VersionedEntity<A>
+  suspend fun create(entity: A, handle: Handle? = null): VersionedEntity<A>
 
-  suspend fun get(id: I, forUpdate: Boolean = false): VersionedEntity<A>?
+  suspend fun get(id: I, handle: Handle? = null, forUpdate: Boolean = false): VersionedEntity<A>?
 
   suspend fun <A2 : A> update(
     entity: A2,
     previousVersion: Version,
+    handle: Handle? = null,
   ): VersionedEntity<A2>
 
-  suspend fun delete(id: I, previousVersion: Version): Unit
+  suspend fun delete(id: I, previousVersion: Version, handle: Handle? = null): Unit
 }
 
 class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
@@ -69,10 +70,11 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   private fun fromJson(value: String): A = serializationAdapter.fromJson(value)
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override suspend fun get(id: I, forUpdate: Boolean): VersionedEntity<A>? {
-    val transaction = coroutineContext[CoroutineTransaction]
+  override suspend fun get(id: I, handle: Handle?, forUpdate: Boolean): VersionedEntity<A>? {
+    val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
+
     return if (transaction != null)
-      innerGet(id, transaction.handle, forUpdate)
+      innerGet(id, transaction, forUpdate)
     else
       mapExceptions {
         withContext(Dispatchers.IO + coroutineContext) {
@@ -101,14 +103,11 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
     .map(rowMapper)
     .firstOrNull()
 
-  override suspend fun delete(
-    id: I,
-    previousVersion: Version
-  ) {
-    val transaction = coroutineContext[CoroutineTransaction]
+  override suspend fun delete(id: I, previousVersion: Version, handle: Handle?) {
+    val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
 
     if (transaction != null)
-      innerDelete(id, previousVersion, transaction.handle)
+      innerDelete(id, previousVersion, transaction)
     else
       mapExceptions {
         withContext(Dispatchers.IO + coroutineContext) {
@@ -144,13 +143,11 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * implement its own version if there are special columns that needs to be
    * kept in sync e.g. for indexing purposes.
    */
-  override suspend fun create(
-    entity: A
-  ): VersionedEntity<A> {
-    val transaction = coroutineContext[CoroutineTransaction]
+  override suspend fun create(entity: A, handle: Handle?): VersionedEntity<A> {
+    val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
 
     return if (transaction != null)
-      innerCreate(entity, transaction.handle)
+      innerCreate(entity, transaction)
     else
       mapExceptions {
         withContext(Dispatchers.IO + coroutineContext) {
@@ -186,14 +183,11 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * implement its own version if there are special columns that needs to be
    * kept in sync e.g. for indexing purposes.
    */
-  override suspend fun <A2 : A> update(
-    entity: A2,
-    previousVersion: Version
-  ): VersionedEntity<A2> {
-    val transaction = coroutineContext[CoroutineTransaction]
+  override suspend fun <A2 : A> update(entity: A2, previousVersion: Version, handle: Handle?): VersionedEntity<A2> {
+    val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
 
     return if (transaction != null)
-      innerUpdate(transaction.handle, entity, previousVersion)
+      innerUpdate(transaction, entity, previousVersion)
     else
       mapExceptions {
         withContext(Dispatchers.IO + coroutineContext) {

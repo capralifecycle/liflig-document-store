@@ -164,6 +164,32 @@ class ExampleTest {
   }
 
   @Test
+  fun failedTransactionWithExplicitHandleStartedOutsideRollsBack() {
+    runBlocking {
+      val (initialAgg1, initialVersion1) = dao
+        .create(ExampleEntity.create("One"))
+      val (initialAgg2, initialVersion2) = dao
+        .create(ExampleEntity.create("One"))
+
+      var exceptionThrown = false
+      try {
+        jdbi.open().useTransaction<Exception> { handle ->
+          runBlocking {
+            dao.update(initialAgg1.updateText("Two"), initialVersion1, handle)
+            dao.update(initialAgg2.updateText("Two"), initialVersion2.next(), handle)
+          }
+        }
+      } catch (_: ConflictDaoException) {
+        exceptionThrown = true
+      }
+
+      assert(exceptionThrown)
+      assertEquals("One", dao.get(initialAgg1.id)!!.item.text)
+      assertEquals("One", dao.get(initialAgg2.id)!!.item.text)
+    }
+  }
+
+  @Test
   fun verifySnapshot() {
     val agg = ExampleEntity.create(
       id = ExampleId(UUID.fromString("928f6ef3-6873-454a-a68d-ef3f5d7963b5")),

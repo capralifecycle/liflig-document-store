@@ -15,6 +15,7 @@ internal class CoroutineTransaction(
   override fun toString(): String = "CoroutineTransaction(handle=$handle)"
 }
 
+@Deprecated("Send in explicit handle instead")
 suspend fun <T> transactional(dao: CrudDao<*, *>, block: suspend () -> T): T = when (dao) {
   is CrudDaoJdbi -> {
     mapExceptions {
