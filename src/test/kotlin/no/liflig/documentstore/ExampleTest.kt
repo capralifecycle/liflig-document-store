@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import no.liflig.documentstore.dao.ConflictDaoException
 import no.liflig.documentstore.dao.CrudDaoJdbi
 import no.liflig.documentstore.dao.transactional
+import no.liflig.documentstore.dao.withTransaction
 import no.liflig.documentstore.entity.Version
 import no.liflig.snapshot.verifyJsonSnapshot
 import org.junit.jupiter.api.Test
@@ -114,7 +115,7 @@ class ExampleTest {
   }
 
   @Test
-  fun failedTranasctionRollsBack() {
+  fun failedTransactionRollsBack() {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
         .create(ExampleEntity.create("One"))
@@ -129,6 +130,34 @@ class ExampleTest {
       } catch (_: ConflictDaoException) {
       }
 
+      assertEquals("One", dao.get(initialAgg1.id)!!.item.text)
+      assertEquals("One", dao.get(initialAgg2.id)!!.item.text)
+    }
+  }
+
+  @Test
+  fun failedTransactionWithExplicitHandleRollsBack() {
+    runBlocking {
+      val (initialAgg1, initialVersion1) = dao
+        .create(ExampleEntity.create("One"))
+      val (initialAgg2, initialVersion2) = dao
+        .create(ExampleEntity.create("One"))
+
+      var exceptionThrown = false
+      try {
+        jdbi.open().inTransaction<Unit, Exception> {
+          runBlocking {
+            withTransaction(it) {
+              dao.update(initialAgg1.updateText("Two"), initialVersion1)
+              dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
+            }
+          }
+        }
+      } catch (_: ConflictDaoException) {
+        exceptionThrown = true
+      }
+
+      assert(exceptionThrown)
       assertEquals("One", dao.get(initialAgg1.id)!!.item.text)
       assertEquals("One", dao.get(initialAgg2.id)!!.item.text)
     }
