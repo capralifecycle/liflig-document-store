@@ -50,7 +50,7 @@ interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 
   suspend fun create(entity: A): VersionedEntity<A>
 
-  suspend fun get(id: I): VersionedEntity<A>?
+  suspend fun get(id: I, forUpdate: Boolean = false): VersionedEntity<A>?
 
   suspend fun <A2 : A> update(
     entity: A2,
@@ -69,17 +69,15 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   private fun fromJson(value: String): A = serializationAdapter.fromJson(value)
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override suspend fun get(
-    id: I,
-  ): VersionedEntity<A>? {
+  override suspend fun get(id: I, forUpdate: Boolean): VersionedEntity<A>? {
     val transaction = coroutineContext[CoroutineTransaction]
     return if (transaction != null)
-      innerGet(id, transaction.handle)
+      innerGet(id, transaction.handle, forUpdate)
     else
       mapExceptions {
         withContext(Dispatchers.IO + coroutineContext) {
           jdbi.open().use { handle ->
-            innerGet(id, handle)
+            innerGet(id, handle, forUpdate)
           }
         }
       }
@@ -88,6 +86,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   private fun innerGet(
     id: I,
     handle: Handle,
+    forUpdate: Boolean,
   ): VersionedEntity<A>? = handle
     .select(
       """
@@ -95,6 +94,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
             FROM "$sqlTableName"
             WHERE id = :id
             ORDER BY created_at
+            ${if (forUpdate) " FOR UPDATE" else ""}
       """.trimIndent()
     )
     .bind("id", id)
