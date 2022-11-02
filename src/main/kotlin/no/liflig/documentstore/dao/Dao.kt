@@ -232,8 +232,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
 
 interface SearchRepository<I, A, Q>
   where I : EntityId, A : EntityRoot<I> {
-  suspend fun search(query: Q): List<VersionedEntity<A>>
-  suspend fun listByIds(ids: List<I>): List<VersionedEntity<A>>
+  suspend fun search(query: Q, handle: Handle? = null): List<VersionedEntity<A>>
+  suspend fun listByIds(ids: List<I>, handle: Handle? = null): List<VersionedEntity<A>>
 }
 
 /**
@@ -251,32 +251,42 @@ abstract class AbstractSearchRepository<I, A, Q>(
 
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override suspend fun listByIds(ids: List<I>): List<VersionedEntity<A>> =
+  override suspend fun listByIds(ids: List<I>, handle: Handle?): List<VersionedEntity<A>> =
     getByPredicate("id = ANY (:ids)") {
       bindArray("ids", EntityId::class.java, ids)
     }
 
   protected open suspend fun getByPredicate(
     sqlWhere: String = "TRUE",
+    handle: Handle? = null,
     bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> = mapExceptions {
-    withContext(Dispatchers.IO + coroutineContext) {
+    if (handle != null) {
+      withContext(Dispatchers.IO + coroutineContext) {
+        innerGetByPredicate(sqlWhere, handle, bind)
+      }
+    } else {
       jdbi.open().use { handle ->
-        handle
-          .select(
-            """
+        withContext(Dispatchers.IO + coroutineContext) {
+          innerGetByPredicate(sqlWhere, handle, bind)
+        }
+      }
+    }
+  }
+
+  private fun innerGetByPredicate(sqlWhere: String, handle: Handle, bind: Query.() -> Query = { this }) =
+    handle
+      .select(
+        """
             SELECT id, data, version, created_at, modified_at
             FROM "$sqlTableName"
             WHERE ($sqlWhere)
             ORDER BY created_at
-            """.trimIndent()
-          )
-          .bind()
-          .map(rowMapper)
-          .list()
-      }
-    }
-  }
+        """.trimIndent()
+      )
+      .bind()
+      .map(rowMapper)
+      .list()
 }
 
 /**
