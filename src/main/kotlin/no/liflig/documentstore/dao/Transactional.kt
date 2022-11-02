@@ -19,10 +19,12 @@ internal class CoroutineTransaction(
 suspend fun <T> transactional(dao: CrudDao<*, *>, block: suspend () -> T): T = when (dao) {
   is CrudDaoJdbi -> {
     mapExceptions {
-      dao.jdbi.open().inTransaction<T, Exception> { handle ->
-        runBlocking {
-          withContext(Dispatchers.IO + CoroutineTransaction(handle)) {
-            block()
+      dao.jdbi.open().use {
+        it.inTransaction<T, Exception> { handle ->
+          runBlocking {
+            withContext(Dispatchers.IO + CoroutineTransaction(handle)) {
+              block()
+            }
           }
         }
       }
