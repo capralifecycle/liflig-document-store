@@ -3,7 +3,6 @@ package no.liflig.documentstore
 import kotlinx.coroutines.runBlocking
 import no.liflig.documentstore.dao.ConflictDaoException
 import no.liflig.documentstore.dao.CrudDaoJdbi
-import no.liflig.documentstore.dao.TransactionFactory
 import no.liflig.documentstore.dao.transactional
 import no.liflig.documentstore.entity.Version
 import no.liflig.snapshot.verifyJsonSnapshot
@@ -169,9 +168,8 @@ class ExampleTest {
       val (initialAgg2, initialVersion2) = dao
         .create(ExampleEntity.create("One"))
 
-      val factory = TransactionFactory(jdbi)
       try {
-        factory.transactional {
+        transactional(jdbi) {
           dao.update(initialAgg1.updateText("Two"), initialVersion1)
           dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
         }
