@@ -1,8 +1,5 @@
 package no.liflig.documentstore.dao
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import org.jdbi.v3.core.Handle
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
@@ -15,19 +12,11 @@ internal class CoroutineTransaction(
   override fun toString(): String = "CoroutineTransaction(handle=$handle)"
 }
 
-@Deprecated("Send in explicit handle instead")
+@Deprecated("Use TransactionFactory and explicit handle instead")
 suspend fun <T> transactional(dao: CrudDao<*, *>, block: suspend () -> T): T = when (dao) {
   is CrudDaoJdbi -> {
-    mapExceptions {
-      dao.jdbi.open().use {
-        it.inTransaction<T, Exception> { handle ->
-          runBlocking {
-            withContext(Dispatchers.IO + CoroutineTransaction(handle)) {
-              block()
-            }
-          }
-        }
-      }
+    TransactionFactory(dao.jdbi).transactional {
+      block()
     }
   }
 
