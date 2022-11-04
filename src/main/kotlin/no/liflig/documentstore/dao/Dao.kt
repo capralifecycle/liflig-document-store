@@ -252,7 +252,7 @@ abstract class AbstractSearchRepository<I, A, Q>(
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
   override suspend fun listByIds(ids: List<I>, handle: Handle?): List<VersionedEntity<A>> =
-    getByPredicate("id = ANY (:ids)") {
+    getByPredicate("id = ANY (:ids)", handle) {
       bindArray("ids", EntityId::class.java, ids)
     }
 
