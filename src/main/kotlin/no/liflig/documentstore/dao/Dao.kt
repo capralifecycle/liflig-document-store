@@ -325,16 +325,21 @@ fun <A : EntityRoot<*>> createRowParser(
 /**
  * An exception for an operation on a Repository.
  */
-sealed class DaoException : RuntimeException()
+sealed class DaoException : RuntimeException {
+  // Use two constructors instead of a single constructor with nullable parameter to avoid nulling out
+  // 'cause' further up the hierarchy (in [Throwable]) if no exception is to be passed
+  constructor() : super()
+  constructor(e: Exception) : super(e)
+}
 
-class ConflictDaoException() : DaoException()
+class ConflictDaoException : DaoException()
 data class UnavailableDaoException(
   val e: Exception,
-) : DaoException()
+) : DaoException(e)
 
 data class UnknownDaoException(
   val e: Exception,
-) : DaoException()
+) : DaoException(e)
 
 inline fun <T> mapExceptions(block: () -> T): T {
   try {
