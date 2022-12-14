@@ -15,7 +15,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
-class ExampleTest {
+class TransactionalTest {
   val jdbi = createTestDatabase()
   val serializationAdapter = ExampleSerializationAdapter()
   val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
@@ -178,6 +178,21 @@ class ExampleTest {
 
       assertEquals("One", dao.get(initialAgg1.id)!!.item.text)
       assertEquals("One", dao.get(initialAgg2.id)!!.item.text)
+    }
+  }
+
+  @Test
+  fun getReturnsUpdatedDataWithinTransaction() {
+    runBlocking {
+      val (initialAgg1, initialVersion1) = dao
+        .create(ExampleEntity.create("One"))
+
+      val result = transactional(jdbi) {
+        dao.update(initialAgg1.updateText("Two"), initialVersion1)
+        dao.get(initialAgg1.id)
+      }
+
+      assertEquals("Two", result?.item?.text)
     }
   }
 
