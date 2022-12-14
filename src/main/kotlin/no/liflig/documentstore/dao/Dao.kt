@@ -261,9 +261,11 @@ abstract class AbstractSearchRepository<I, A, Q>(
     handle: Handle? = null,
     bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> = mapExceptions {
-    if (handle != null) {
+    val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
+
+    if (transaction != null) {
       withContext(Dispatchers.IO + coroutineContext) {
-        innerGetByPredicate(sqlWhere, handle, bind)
+        innerGetByPredicate(sqlWhere, transaction, bind)
       }
     } else {
       jdbi.open().use { handle ->
