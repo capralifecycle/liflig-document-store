@@ -15,7 +15,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
-class ExampleTest {
+class TransactionalTest {
   val jdbi = createTestDatabase()
   val serializationAdapter = ExampleSerializationAdapter()
   val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
@@ -114,7 +114,7 @@ class ExampleTest {
   }
 
   @Test
-  fun failedTranasctionRollsBack() {
+  fun failedTransactionRollsBack() {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
         .create(ExampleEntity.create("One"))
@@ -135,6 +135,67 @@ class ExampleTest {
   }
 
   @Test
+  fun failedTransactionWithExplicitHandleStartedOutsideRollsBack() {
+    runBlocking {
+      val (initialAgg1, initialVersion1) = dao
+        .create(ExampleEntity.create("One"))
+      val (initialAgg2, initialVersion2) = dao
+        .create(ExampleEntity.create("One"))
+
+      var exceptionThrown = false
+      try {
+        jdbi.open().useTransaction<Exception> { handle ->
+          runBlocking {
+            dao.update(initialAgg1.updateText("Two"), initialVersion1, handle)
+            dao.update(initialAgg2.updateText("Two"), initialVersion2.next(), handle)
+          }
+        }
+      } catch (_: ConflictDaoException) {
+        exceptionThrown = true
+      }
+
+      assert(exceptionThrown)
+      assertEquals("One", dao.get(initialAgg1.id)!!.item.text)
+      assertEquals("One", dao.get(initialAgg2.id)!!.item.text)
+    }
+  }
+
+  @Test
+  fun failedTransactionFactoryRollsBack() {
+    runBlocking {
+      val (initialAgg1, initialVersion1) = dao
+        .create(ExampleEntity.create("One"))
+      val (initialAgg2, initialVersion2) = dao
+        .create(ExampleEntity.create("One"))
+
+      try {
+        transactional(jdbi) {
+          dao.update(initialAgg1.updateText("Two"), initialVersion1)
+          dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
+        }
+      } catch (_: ConflictDaoException) {
+      }
+
+      assertEquals("One", dao.get(initialAgg1.id)!!.item.text)
+      assertEquals("One", dao.get(initialAgg2.id)!!.item.text)
+    }
+  }
+
+  @Test
+  fun getReturnsUpdatedDataWithinTransaction() {
+    runBlocking {
+      val (initialAgg1, initialVersion1) = dao
+        .create(ExampleEntity.create("One"))
+
+      val result = transactional(jdbi) {
+        dao.update(initialAgg1.updateText("Two"), initialVersion1)
+        dao.get(initialAgg1.id)
+      }
+
+      assertEquals("Two", result?.item?.text)
+    }
+  }
+
   fun verifySnapshot() {
     val agg = ExampleEntity.create(
       id = ExampleId(UUID.fromString("928f6ef3-6873-454a-a68d-ef3f5d7963b5")),

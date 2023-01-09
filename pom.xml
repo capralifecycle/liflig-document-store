@@ -21,7 +21,7 @@
     -->
     <kotlin.code.style>official</kotlin.code.style>
 
-    <kotlin.version>1.7.20</kotlin.version>
+    <kotlin.version>1.7.22</kotlin.version>
     <kotlinx-coroutines.version>1.6.4</kotlinx-coroutines.version>
   </properties>
 
@@ -110,12 +110,12 @@
     <dependency>
       <groupId>org.jdbi</groupId>
       <artifactId>jdbi3-core</artifactId>
-      <version>3.34.0</version>
+      <version>3.36.0</version>
     </dependency>
     <dependency>
       <groupId>org.jdbi</groupId>
       <artifactId>jdbi3-kotlin</artifactId>
-      <version>3.34.0</version>
+      <version>3.36.0</version>
     </dependency>
 
 
@@ -136,7 +136,7 @@
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>42.5.0</version>
+      <version>42.5.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -154,49 +154,49 @@
     <dependency>
       <groupId>org.jdbi</groupId>
       <artifactId>jdbi3-postgres</artifactId>
-      <version>3.34.0</version>
+      <version>3.36.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers</artifactId>
-      <version>1.17.5</version>
+      <version>1.17.6</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>postgresql</artifactId>
-      <version>1.17.5</version>
+      <version>1.17.6</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>no.liflig</groupId>
       <artifactId>snapshot-test</artifactId>
-      <version>1.20221017.213712</version>
+      <version>1.20221201.142041</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.mockk</groupId>
       <artifactId>mockk</artifactId>
-      <version>1.13.2</version>
+      <version>1.13.3</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.kotest</groupId>
       <artifactId>kotest-assertions-core</artifactId>
-      <version>5.5.1</version>
+      <version>5.5.4</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.kotest.extensions</groupId>
       <artifactId>kotest-assertions-arrow</artifactId>
-      <version>1.2.5</version>
+      <version>1.3.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.4.4</version>
+      <version>1.4.5</version>
       <scope>test</scope>
     </dependency>
     <dependency>
