@@ -32,17 +32,6 @@
     <tag>HEAD</tag>
   </scm>
 
-  <distributionManagement>
-    <repository>
-      <id>capra-releases</id>
-      <url>https://mvnrepo.capraconsulting.no/content/repositories/capra-releases</url>
-    </repository>
-    <snapshotRepository>
-      <id>capra-snapshots</id>
-      <url>https://mvnrepo.capraconsulting.no/content/repositories/capra-snapshots</url>
-    </snapshotRepository>
-  </distributionManagement>
-
   <repositories>
     <!-- Check for dependencies in primary repo before checking other repositories -->
     <!-- From super POM, see https://maven.apache.org/pom.html#The_Super_POM -->
@@ -64,9 +53,8 @@
 
     <!-- Internal Liflig -->
     <repository>
-      <id>capra-releases</id>
-      <name>Capra Release Repository</name>
-      <url>https://mvnrepo.capraconsulting.no/content/repositories/capra-releases</url>
+      <id>github</id>
+      <url>https://maven.pkg.github.com/capralifecycle/*</url>
     </repository>
   </repositories>
 
