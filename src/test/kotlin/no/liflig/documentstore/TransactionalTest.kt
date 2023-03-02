@@ -1,5 +1,8 @@
 package no.liflig.documentstore
 
+import io.kotest.matchers.comparables.shouldBeLessThan
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.ints.shouldBeLessThan
 import kotlinx.coroutines.runBlocking
 import no.liflig.documentstore.dao.ConflictDaoException
 import no.liflig.documentstore.dao.CrudDaoJdbi
@@ -19,6 +22,7 @@ class TransactionalTest {
   val jdbi = createTestDatabase()
   val serializationAdapter = ExampleSerializationAdapter()
   val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
+  val searchRepository = ExampleSearchRepository(jdbi, "example", serializationAdapter)
 
   @Test
   fun storeAndRetrieveNewEntity() {
@@ -193,6 +197,46 @@ class TransactionalTest {
       }
 
       assertEquals("Two", result?.item?.text)
+    }
+  }
+
+  @Test
+  fun orderByOrdersByCorrectData() {
+    runBlocking {
+      val (initialAgg1, _) = dao
+        .create(ExampleEntity.create("A"))
+      val (initialAgg2, _) = dao
+        .create(ExampleEntity.create("B"))
+
+      val result1 = searchRepository.search(orderBy = ExampleSearchRepository.OrderBy.TEXT, orderDesc = false)
+        .map { it.item }
+      val result2 = searchRepository.search(orderBy = ExampleSearchRepository.OrderBy.TEXT, orderDesc = true)
+        .map { it.item }
+
+      result1.indexOf(initialAgg1) shouldBeLessThan result1.indexOf(initialAgg2)
+      result2.indexOf(initialAgg1) shouldBeGreaterThan result2.indexOf(initialAgg2)
+    }
+  }
+
+  @Test
+  fun test() {
+    runBlocking {
+      val (initialAgg1, _) = dao
+        .create(ExampleEntity.create("A", now = Instant.now()))
+
+      val (initialAgg2, _) = dao
+        .create(ExampleEntity.create("B", now = Instant.now().minusSeconds(10000)))
+
+      val result1 = searchRepository.search(orderDesc = false)
+        .map { it.item }
+
+      val indexOf1 = result1.indexOf(initialAgg1)
+      val indexOf2 = result1.indexOf(initialAgg2)
+      println(indexOf1)
+      println(indexOf2)
+      indexOf1 shouldBeLessThan indexOf2
+
+      Instant.now().minusMillis(10000) shouldBeLessThan Instant.now()
     }
   }
 

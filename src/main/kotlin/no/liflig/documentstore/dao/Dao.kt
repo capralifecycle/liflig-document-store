@@ -260,35 +260,61 @@ abstract class AbstractSearchRepository<I, A, Q>(
     sqlWhere: String = "TRUE",
     handle: Handle? = null,
     bind: Query.() -> Query = { this }
+  ) = getByPredicate(sqlWhere, handle, null, null, null, false, bind)
+
+  protected open suspend fun getByPredicate(
+    sqlWhere: String = "TRUE",
+    handle: Handle? = null,
+    limit: Int? = null,
+    offset: Int? = null,
+    orderBy: String? = null,
+    orderDesc: Boolean = false,
+    bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> = mapExceptions {
     val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
 
     if (transaction != null) {
       withContext(Dispatchers.IO + coroutineContext) {
-        innerGetByPredicate(sqlWhere, transaction, bind)
+        innerGetByPredicate(sqlWhere, transaction, limit, offset, orderBy, orderDesc, bind)
       }
     } else {
       jdbi.open().use { handle ->
         withContext(Dispatchers.IO + coroutineContext) {
-          innerGetByPredicate(sqlWhere, handle, bind)
+          innerGetByPredicate(sqlWhere, handle, limit, offset, orderBy, orderDesc, bind)
         }
       }
     }
   }
 
-  private fun innerGetByPredicate(sqlWhere: String, handle: Handle, bind: Query.() -> Query = { this }) =
-    handle
+  private fun innerGetByPredicate(
+    sqlWhere: String,
+    handle: Handle,
+    limit: Int? = null,
+    offset: Int? = null,
+    orderBy: String? = null,
+    desc: Boolean = false,
+    bind: Query.() -> Query = { this }
+  ): MutableList<VersionedEntity<A>> {
+    val limitString = limit?.let { "LIMIT $it" } ?: ""
+    val offsetString = offset?.let { "OFFSET $it" } ?: ""
+    val orderDirection = if (desc) "DESC" else "ASC"
+    val orderByString = orderBy ?: "created_at"
+
+    return handle
       .select(
         """
-            SELECT id, data, version, created_at, modified_at
-            FROM "$sqlTableName"
-            WHERE ($sqlWhere)
-            ORDER BY created_at
+              SELECT id, data, version, created_at, modified_at
+              FROM "$sqlTableName"
+              WHERE ($sqlWhere)
+              ORDER BY $orderByString $orderDirection
+              $limitString
+              $offsetString
         """.trimIndent()
       )
       .bind()
       .map(rowMapper)
       .list()
+  }
 }
 
 /**
