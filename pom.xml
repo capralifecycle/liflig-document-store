@@ -183,7 +183,7 @@
     </dependency>
     <dependency>
       <groupId>io.kotest</groupId>
-      <artifactId>kotest-assertions-core</artifactId>
+      <artifactId>kotest-assertions-core-jvm</artifactId>
       <version>5.5.5</version>
       <scope>test</scope>
     </dependency>
