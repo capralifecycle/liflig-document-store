@@ -37,14 +37,9 @@ suspend fun <T> transactional(jdbi: Jdbi, block: suspend (Handle) -> T): T {
     mapExceptions {
       jdbi.open().use { handle ->
         withContext(Dispatchers.IO + CoroutineTransaction(handle)) {
-          try {
-            jdbi.transactionHandler.begin(handle)
-            block(handle)
-              .also { jdbi.transactionHandler.commit(handle) }
-          } catch (t: Throwable) {
-            jdbi.transactionHandler.rollback(handle)
-            throw t
-          }
+          jdbi.transactionHandler.begin(handle)
+          block(handle)
+            .also { jdbi.transactionHandler.commit(handle) }
         }
       }
     }
