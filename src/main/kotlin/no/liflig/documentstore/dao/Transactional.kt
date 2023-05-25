@@ -1,9 +1,9 @@
 package no.liflig.documentstore.dao
 
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import no.liflig.documentstore.CoroutineJdbiWrapper
 import org.jdbi.v3.core.Handle
-import org.jdbi.v3.core.Jdbi
+import java.lang.Exception
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.coroutineContext
@@ -16,18 +16,7 @@ internal class CoroutineTransaction(
   override fun toString(): String = "CoroutineTransaction(handle=$handle)"
 }
 
-@Deprecated("Use transactional with jdbi and explicit handle instead")
-suspend fun <T> transactional(dao: CrudDao<*, *>, block: suspend () -> T): T = when (dao) {
-  is CrudDaoJdbi -> {
-    transactional(dao.jdbi) {
-      block()
-    }
-  }
-
-  else -> throw Error("Transactional requires JDBIDao")
-}
-
-suspend fun <T> transactional(jdbi: Jdbi, block: suspend (Handle) -> T): T {
+suspend fun <T> transactional(limiter: CoroutineJdbiWrapper, block: suspend (Handle) -> T): T {
   val existingHandle = coroutineContext[CoroutineTransaction]?.handle
 
   // We can assume that we're already in a transaction, so we just pass the existing handle into the block
@@ -35,11 +24,17 @@ suspend fun <T> transactional(jdbi: Jdbi, block: suspend (Handle) -> T): T {
     block(existingHandle)
   } else
     mapExceptions {
-      jdbi.open().use { handle ->
-        withContext(Dispatchers.IO + CoroutineTransaction(handle)) {
-          jdbi.transactionHandler.begin(handle)
-          block(handle)
-            .also { jdbi.transactionHandler.commit(handle) }
+      limiter.withHandle { handle ->
+        withContext(CoroutineTransaction(handle)) {
+          handle.begin()
+          try {
+            val result = block(handle)
+            handle.commit()
+            result
+          } catch (e: Exception) {
+            handle.rollback()
+            throw e
+          }
         }
       }
     }

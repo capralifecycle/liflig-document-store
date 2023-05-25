@@ -1,7 +1,6 @@
 package no.liflig.documentstore.dao
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import no.liflig.documentstore.CoroutineJdbiWrapper
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.Version
@@ -9,7 +8,6 @@ import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.CloseException
 import org.jdbi.v3.core.ConnectionException
 import org.jdbi.v3.core.Handle
-import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinMapper
 import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.Query
@@ -62,7 +60,7 @@ interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 }
 
 class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
-  internal val jdbi: Jdbi,
+  internal val jdbi: CoroutineJdbiWrapper,
   protected val sqlTableName: String,
   protected val serializationAdapter: SerializationAdapter<A>,
 ) : CrudDao<I, A> {
@@ -77,10 +75,9 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
       innerGet(id, transaction, forUpdate)
     else
       mapExceptions {
-        withContext(Dispatchers.IO + coroutineContext) {
-          jdbi.open().use { handle ->
-            innerGet(id, handle, forUpdate)
-          }
+
+        jdbi.withHandle { handle ->
+          innerGet(id, handle, forUpdate)
         }
       }
   }
@@ -110,10 +107,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
       innerDelete(id, previousVersion, transaction)
     else
       mapExceptions {
-        withContext(Dispatchers.IO + coroutineContext) {
-          jdbi.open().use { handle ->
-            innerDelete(id, previousVersion, handle)
-          }
+        jdbi.withHandle { handle ->
+          innerDelete(id, previousVersion, handle)
         }
       }
   }
@@ -150,10 +145,9 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
       innerCreate(entity, transaction)
     else
       mapExceptions {
-        withContext(Dispatchers.IO + coroutineContext) {
-          jdbi.open().use { handle ->
-            innerCreate(entity, handle)
-          }
+
+        jdbi.withHandle { handle ->
+          innerCreate(entity, handle)
         }
       }
   }
@@ -190,10 +184,9 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
       innerUpdate(transaction, entity, previousVersion)
     else
       mapExceptions {
-        withContext(Dispatchers.IO + coroutineContext) {
-          jdbi.open().use { handle ->
-            innerUpdate(handle, entity, previousVersion)
-          }
+
+        jdbi.withHandle { handle ->
+          innerUpdate(handle, entity, previousVersion)
         }
       }
   }
@@ -240,7 +233,7 @@ interface SearchRepository<I, A, Q>
  * An abstract Repository to hold common logic for listing.
  */
 abstract class AbstractSearchRepository<I, A, Q>(
-  protected val jdbi: Jdbi,
+  protected val jdbi: CoroutineJdbiWrapper,
   protected val sqlTableName: String,
   protected val serializationAdapter: SerializationAdapter<A>,
 ) : SearchRepository<I, A, Q>
@@ -274,14 +267,12 @@ abstract class AbstractSearchRepository<I, A, Q>(
     val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
 
     if (transaction != null) {
-      withContext(Dispatchers.IO + coroutineContext) {
-        innerGetByPredicate(sqlWhere, transaction, limit, offset, orderBy, orderDesc, bind)
-      }
+
+      innerGetByPredicate(sqlWhere, transaction, limit, offset, orderBy, orderDesc, bind)
     } else {
-      jdbi.open().use { handle ->
-        withContext(Dispatchers.IO + coroutineContext) {
-          innerGetByPredicate(sqlWhere, handle, limit, offset, orderBy, orderDesc, bind)
-        }
+      jdbi.withHandle { handle ->
+
+        innerGetByPredicate(sqlWhere, handle, limit, offset, orderBy, orderDesc, bind)
       }
     }
   }

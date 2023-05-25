@@ -7,12 +7,11 @@ import no.liflig.documentstore.dao.AbstractSearchRepository
 import no.liflig.documentstore.dao.SerializationAdapter
 import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.Handle
-import org.jdbi.v3.core.Jdbi
 
 class ExampleQueryObject
 
 class ExampleSearchRepository(
-  jdbi: Jdbi,
+  jdbi: CoroutineJdbiWrapper,
   sqlTableName: String,
   serializationAdapter: SerializationAdapter<ExampleEntity>
 ) : AbstractSearchRepository<ExampleId, ExampleEntity, ExampleQueryObject>(jdbi, sqlTableName, serializationAdapter) {

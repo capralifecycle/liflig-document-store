@@ -19,10 +19,11 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class TransactionalTest {
-  val jdbi = createTestDatabase()
-  val serializationAdapter = ExampleSerializationAdapter()
-  val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
-  val searchRepository = ExampleSearchRepository(jdbi, "example", serializationAdapter)
+  private val innerJdbi = createTestDatabase()
+  private val jdbi = CoroutineJdbiWrapper.from(innerJdbi, 10)
+  private val serializationAdapter = ExampleSerializationAdapter()
+  private val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
+  private val searchRepository = ExampleSearchRepository(jdbi, "example", serializationAdapter)
 
   @Test
   fun storeAndRetrieveNewEntity() {
@@ -105,7 +106,7 @@ class TransactionalTest {
       val (initialAgg2, initialVersion2) = dao
         .create(ExampleEntity.create("One"))
 
-      transactional(dao) {
+      transactional(jdbi) {
         dao.update(initialAgg1.updateText("Two"), initialVersion1)
         dao.update(initialAgg2.updateText("Two"), initialVersion2)
         dao.get(initialAgg2.id)
@@ -148,7 +149,7 @@ class TransactionalTest {
 
       var exceptionThrown = false
       try {
-        jdbi.open().useTransaction<Exception> { handle ->
+        innerJdbi.open().useTransaction<Exception> { handle ->
           runBlocking {
             dao.update(initialAgg1.updateText("Two"), initialVersion1, handle)
             dao.update(initialAgg2.updateText("Two"), initialVersion2.next(), handle)
