@@ -11,10 +11,10 @@ import org.jdbi.v3.core.Handle
 class ExampleQueryObject
 
 class ExampleSearchRepository(
-  jdbi: CoroutineJdbiWrapper,
+  jdbiWrapper: CoroutineJdbiWrapper,
   sqlTableName: String,
   serializationAdapter: SerializationAdapter<ExampleEntity>
-) : AbstractSearchRepository<ExampleId, ExampleEntity, ExampleQueryObject>(jdbi, sqlTableName, serializationAdapter) {
+) : AbstractSearchRepository<ExampleId, ExampleEntity, ExampleQueryObject>(jdbiWrapper, sqlTableName, serializationAdapter) {
   enum class OrderBy {
     TEXT,
     CREATED_AT,

@@ -60,7 +60,7 @@ interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 }
 
 class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
-  internal val jdbi: CoroutineJdbiWrapper,
+  internal val jdbiWrapper: CoroutineJdbiWrapper,
   protected val sqlTableName: String,
   protected val serializationAdapter: SerializationAdapter<A>,
 ) : CrudDao<I, A> {
@@ -76,7 +76,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
     else
       mapExceptions {
 
-        jdbi.withHandle { handle ->
+        jdbiWrapper.withHandle { handle ->
           innerGet(id, handle, forUpdate)
         }
       }
@@ -107,7 +107,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
       innerDelete(id, previousVersion, transaction)
     else
       mapExceptions {
-        jdbi.withHandle { handle ->
+        jdbiWrapper.withHandle { handle ->
           innerDelete(id, previousVersion, handle)
         }
       }
@@ -146,7 +146,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
     else
       mapExceptions {
 
-        jdbi.withHandle { handle ->
+        jdbiWrapper.withHandle { handle ->
           innerCreate(entity, handle)
         }
       }
@@ -185,7 +185,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
     else
       mapExceptions {
 
-        jdbi.withHandle { handle ->
+        jdbiWrapper.withHandle { handle ->
           innerUpdate(handle, entity, previousVersion)
         }
       }
@@ -233,7 +233,7 @@ interface SearchRepository<I, A, Q>
  * An abstract Repository to hold common logic for listing.
  */
 abstract class AbstractSearchRepository<I, A, Q>(
-  protected val jdbi: CoroutineJdbiWrapper,
+  protected val jdbiWrapper: CoroutineJdbiWrapper,
   protected val sqlTableName: String,
   protected val serializationAdapter: SerializationAdapter<A>,
 ) : SearchRepository<I, A, Q>
@@ -270,7 +270,7 @@ abstract class AbstractSearchRepository<I, A, Q>(
 
       innerGetByPredicate(sqlWhere, transaction, limit, offset, orderBy, orderDesc, bind)
     } else {
-      jdbi.withHandle { handle ->
+      jdbiWrapper.withHandle { handle ->
 
         innerGetByPredicate(sqlWhere, handle, limit, offset, orderBy, orderDesc, bind)
       }
