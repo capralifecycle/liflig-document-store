@@ -105,7 +105,7 @@ class TransactionalTest {
       val (initialAgg2, initialVersion2) = dao
         .create(ExampleEntity.create("One"))
 
-      transactional(dao) {
+      transactional(jdbi) {
         dao.update(initialAgg1.updateText("Two"), initialVersion1)
         dao.update(initialAgg2.updateText("Two"), initialVersion2)
         dao.get(initialAgg2.id)

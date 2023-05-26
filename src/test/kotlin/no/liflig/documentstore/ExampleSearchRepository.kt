@@ -21,14 +21,14 @@ class ExampleSearchRepository(
     CREATED_AT,
   }
 
-  override suspend fun listByIds(ids: List<ExampleId>, handle: Handle?): List<VersionedEntity<ExampleEntity>> {
+  override fun listByIds(ids: List<ExampleId>, handle: Handle?): List<VersionedEntity<ExampleEntity>> {
     TODO("Not yet implemented")
   }
 
-  override suspend fun search(query: ExampleQueryObject, handle: Handle?): List<VersionedEntity<ExampleEntity>> =
+  override fun search(query: ExampleQueryObject, handle: Handle?): List<VersionedEntity<ExampleEntity>> =
     TODO("Not yet implemented")
 
-  suspend fun search(limit: Int? = null, offset: Int? = null, orderBy: OrderBy? = null, orderDesc: Boolean = false) =
+  fun search(limit: Int? = null, offset: Int? = null, orderBy: OrderBy? = null, orderDesc: Boolean = false) =
     getByPredicate(
       limit = limit, offset = offset, orderDesc = orderDesc,
       orderBy = when (orderBy) {

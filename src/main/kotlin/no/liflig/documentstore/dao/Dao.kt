@@ -1,7 +1,5 @@
 package no.liflig.documentstore.dao
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.Version
@@ -17,7 +15,6 @@ import java.io.InterruptedIOException
 import java.sql.SQLTransientException
 import java.time.Instant
 import java.util.UUID
-import kotlin.coroutines.coroutineContext
 
 // TODO: update docs
 /**
@@ -48,17 +45,17 @@ interface Dao
  */
 interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 
-  suspend fun create(entity: A, handle: Handle? = null): VersionedEntity<A>
+  fun create(entity: A, handle: Handle? = null): VersionedEntity<A>
 
-  suspend fun get(id: I, handle: Handle? = null, forUpdate: Boolean = false): VersionedEntity<A>?
+  fun get(id: I, handle: Handle? = null, forUpdate: Boolean = false): VersionedEntity<A>?
 
-  suspend fun <A2 : A> update(
+  fun <A2 : A> update(
     entity: A2,
     previousVersion: Version,
     handle: Handle? = null,
   ): VersionedEntity<A2>
 
-  suspend fun delete(id: I, previousVersion: Version, handle: Handle? = null): Unit
+  fun delete(id: I, previousVersion: Version, handle: Handle? = null): Unit
 }
 
 class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
@@ -70,17 +67,16 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   private fun fromJson(value: String): A = serializationAdapter.fromJson(value)
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override suspend fun get(id: I, handle: Handle?, forUpdate: Boolean): VersionedEntity<A>? {
-    val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
+  override fun get(id: I, handle: Handle?, forUpdate: Boolean): VersionedEntity<A>? {
+    val transaction = handle ?: transactionHandle.get()
 
     return if (transaction != null)
       innerGet(id, transaction, forUpdate)
     else
       mapExceptions {
-        withContext(Dispatchers.IO + coroutineContext) {
-          jdbi.open().use { handle ->
-            innerGet(id, handle, forUpdate)
-          }
+
+        jdbi.open().use { handle ->
+          innerGet(id, handle, forUpdate)
         }
       }
   }
@@ -103,17 +99,16 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
     .map(rowMapper)
     .firstOrNull()
 
-  override suspend fun delete(id: I, previousVersion: Version, handle: Handle?) {
-    val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
+  override fun delete(id: I, previousVersion: Version, handle: Handle?) {
+    val transaction = handle ?: transactionHandle.get()
 
     if (transaction != null)
       innerDelete(id, previousVersion, transaction)
     else
       mapExceptions {
-        withContext(Dispatchers.IO + coroutineContext) {
-          jdbi.open().use { handle ->
-            innerDelete(id, previousVersion, handle)
-          }
+
+        jdbi.open().use { handle ->
+          innerDelete(id, previousVersion, handle)
         }
       }
   }
@@ -143,17 +138,16 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * implement its own version if there are special columns that needs to be
    * kept in sync e.g. for indexing purposes.
    */
-  override suspend fun create(entity: A, handle: Handle?): VersionedEntity<A> {
-    val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
+  override fun create(entity: A, handle: Handle?): VersionedEntity<A> {
+    val transaction = handle ?: transactionHandle.get()
 
     return if (transaction != null)
       innerCreate(entity, transaction)
     else
       mapExceptions {
-        withContext(Dispatchers.IO + coroutineContext) {
-          jdbi.open().use { handle ->
-            innerCreate(entity, handle)
-          }
+
+        jdbi.open().use { handle ->
+          innerCreate(entity, handle)
         }
       }
   }
@@ -183,17 +177,16 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * implement its own version if there are special columns that needs to be
    * kept in sync e.g. for indexing purposes.
    */
-  override suspend fun <A2 : A> update(entity: A2, previousVersion: Version, handle: Handle?): VersionedEntity<A2> {
-    val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
+  override fun <A2 : A> update(entity: A2, previousVersion: Version, handle: Handle?): VersionedEntity<A2> {
+    val transaction = handle ?: transactionHandle.get()
 
     return if (transaction != null)
       innerUpdate(transaction, entity, previousVersion)
     else
       mapExceptions {
-        withContext(Dispatchers.IO + coroutineContext) {
-          jdbi.open().use { handle ->
-            innerUpdate(handle, entity, previousVersion)
-          }
+
+        jdbi.open().use { handle ->
+          innerUpdate(handle, entity, previousVersion)
         }
       }
   }
@@ -232,8 +225,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
 
 interface SearchRepository<I, A, Q>
   where I : EntityId, A : EntityRoot<I> {
-  suspend fun search(query: Q, handle: Handle? = null): List<VersionedEntity<A>>
-  suspend fun listByIds(ids: List<I>, handle: Handle? = null): List<VersionedEntity<A>>
+  fun search(query: Q, handle: Handle? = null): List<VersionedEntity<A>>
+  fun listByIds(ids: List<I>, handle: Handle? = null): List<VersionedEntity<A>>
 }
 
 /**
@@ -251,18 +244,18 @@ abstract class AbstractSearchRepository<I, A, Q>(
 
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override suspend fun listByIds(ids: List<I>, handle: Handle?): List<VersionedEntity<A>> =
+  override fun listByIds(ids: List<I>, handle: Handle?): List<VersionedEntity<A>> =
     getByPredicate("id = ANY (:ids)", handle) {
       bindArray("ids", EntityId::class.java, ids)
     }
 
-  protected open suspend fun getByPredicate(
+  protected open fun getByPredicate(
     sqlWhere: String = "TRUE",
     handle: Handle? = null,
     bind: Query.() -> Query = { this }
   ) = getByPredicate(sqlWhere, handle, null, null, null, false, bind)
 
-  protected open suspend fun getByPredicate(
+  protected open fun getByPredicate(
     sqlWhere: String = "TRUE",
     handle: Handle? = null,
     limit: Int? = null,
@@ -271,17 +264,15 @@ abstract class AbstractSearchRepository<I, A, Q>(
     orderDesc: Boolean = false,
     bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> = mapExceptions {
-    val transaction = handle ?: coroutineContext[CoroutineTransaction]?.handle
+    val transaction = handle ?: transactionHandle.get()
 
     if (transaction != null) {
-      withContext(Dispatchers.IO + coroutineContext) {
-        innerGetByPredicate(sqlWhere, transaction, limit, offset, orderBy, orderDesc, bind)
-      }
+
+      innerGetByPredicate(sqlWhere, transaction, limit, offset, orderBy, orderDesc, bind)
     } else {
       jdbi.open().use { handle ->
-        withContext(Dispatchers.IO + coroutineContext) {
-          innerGetByPredicate(sqlWhere, handle, limit, offset, orderBy, orderDesc, bind)
-        }
+
+        innerGetByPredicate(sqlWhere, handle, limit, offset, orderBy, orderDesc, bind)
       }
     }
   }
