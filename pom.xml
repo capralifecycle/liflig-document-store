@@ -12,6 +12,8 @@
   <properties>
     <major-version>1</major-version>
     <revision>${major-version}.local-SNAPSHOT</revision>
+    <maven.compiler.target>17</maven.compiler.target>
+    <maven.compiler.source>17</maven.compiler.source>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
@@ -266,7 +268,7 @@
             <arg>-Xjsr305=strict</arg>
             <arg>-Xopt-in=kotlin.RequiresOptIn</arg>
           </args>
-          <jvmTarget>11</jvmTarget>
+          <jvmTarget>17</jvmTarget>
           <compilerPlugins>
             <plugin>kotlinx-serialization</plugin>
           </compilerPlugins>

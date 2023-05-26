@@ -12,12 +12,15 @@ import no.liflig.documentstore.entity.Version
 import no.liflig.snapshot.verifyJsonSnapshot
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
+import org.junit.jupiter.api.Named
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.time.Instant
 import java.util.UUID
+import java.util.stream.Stream
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
@@ -25,6 +28,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 typealias Transactional = suspend (jdbi: Jdbi, block: suspend (Handle) -> Any?) -> Any?
+
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TransactionalTest {
   val jdbi = createTestDatabase()
@@ -32,11 +36,13 @@ class TransactionalTest {
   val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
   val searchRepository = ExampleSearchRepository(jdbi, "example", serializationAdapter)
 
-  private fun getTransactionMethods(): List<Transactional> {
-    val x: Transactional =
-      { a, b -> transactional(a) { runBlocking { b(it) } } }
-    val y: Transactional = ::coTransactional
-    return listOf(x, y)
+  private fun getTransactionFunctions(): Stream<Arguments> {
+    val co: Transactional = ::coTransactional
+    val normal: Transactional = { a, b -> transactional(a) { runBlocking { b(it) } } }
+    return Stream.of(
+      Arguments.of(Named.of("Non-suspending", normal)),
+      Arguments.of(Named.of("Suspending", co))
+    )
   }
 
   @Test
@@ -113,7 +119,7 @@ class TransactionalTest {
   }
 
   @ParameterizedTest
-  @MethodSource("getTransactionMethods")
+  @MethodSource("getTransactionFunctions")
   fun completeTransactionSucceeds(transactionBlock: Transactional) {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
@@ -133,8 +139,8 @@ class TransactionalTest {
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("getTransactionMethods")
+  @ParameterizedTest()
+  @MethodSource("getTransactionFunctions")
   fun failedTransactionRollsBack(transactionBlock: Transactional) {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
@@ -156,7 +162,7 @@ class TransactionalTest {
   }
 
   @ParameterizedTest
-  @MethodSource("getTransactionMethods")
+  @MethodSource("getTransactionFunctions")
   fun failedTransactionWithExplicitHandleStartedOutsideRollsBack(transactionBlock: Transactional) {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
@@ -183,7 +189,7 @@ class TransactionalTest {
   }
 
   @ParameterizedTest
-  @MethodSource("getTransactionMethods")
+  @MethodSource("getTransactionFunctions")
   fun failedTransactionFactoryRollsBack(transactionBlock: Transactional) {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
@@ -205,7 +211,7 @@ class TransactionalTest {
   }
 
   @ParameterizedTest
-  @MethodSource("getTransactionMethods")
+  @MethodSource("getTransactionFunctions")
   fun transactionWithinTransactionRollsBackAsExpected(transactionBlock: Transactional) {
     runBlocking {
       val initialValue = "Initial"
@@ -232,7 +238,7 @@ class TransactionalTest {
   }
 
   @ParameterizedTest
-  @MethodSource("getTransactionMethods")
+  @MethodSource("getTransactionFunctions")
   fun getReturnsUpdatedDataWithinTransaction(transactionBlock: Transactional) {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
@@ -286,6 +292,7 @@ class TransactionalTest {
       Instant.now().minusMillis(10000) shouldBeLessThan Instant.now()
     }
   }
+
   @Test
   fun verifySnapshot() {
     val agg = ExampleEntity.create(
