@@ -1,34 +1,13 @@
 package no.liflig.documentstore.dao
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
-import kotlin.coroutines.AbstractCoroutineContextElement
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.coroutineContext
+import java.lang.Exception
 
-internal class CoroutineTransaction(
-  val handle: Handle,
-) : AbstractCoroutineContextElement(CoroutineTransaction) {
-  companion object Key : CoroutineContext.Key<CoroutineTransaction>
+val transactionHandle = ThreadLocal<Handle?>()
 
-  override fun toString(): String = "CoroutineTransaction(handle=$handle)"
-}
-
-@Deprecated("Use transactional with jdbi and explicit handle instead")
-suspend fun <T> transactional(dao: CrudDao<*, *>, block: suspend () -> T): T = when (dao) {
-  is CrudDaoJdbi -> {
-    transactional(dao.jdbi) {
-      block()
-    }
-  }
-
-  else -> throw Error("Transactional requires JDBIDao")
-}
-
-suspend fun <T> transactional(jdbi: Jdbi, block: suspend (Handle) -> T): T {
-  val existingHandle = coroutineContext[CoroutineTransaction]?.handle
+fun <T> transactional(jdbi: Jdbi, block: (Handle) -> T): T {
+  val existingHandle = transactionHandle.get()
 
   // We can assume that we're already in a transaction, so we just pass the existing handle into the block
   return if (existingHandle != null) {
@@ -36,10 +15,33 @@ suspend fun <T> transactional(jdbi: Jdbi, block: suspend (Handle) -> T): T {
   } else
     mapExceptions {
       jdbi.open().use { handle ->
-        withContext(Dispatchers.IO + CoroutineTransaction(handle)) {
-          jdbi.transactionHandler.begin(handle)
-          block(handle)
-            .also { jdbi.transactionHandler.commit(handle) }
+        try {
+          transactionHandle.set(handle)
+          handle.inTransaction<T, Exception> { block(handle) }
+        } finally {
+          transactionHandle.remove()
+        }
+      }
+    }
+}
+
+suspend fun <T> coTransactional(jdbi: Jdbi, block: suspend (Handle) -> T): T {
+  val existingHandle = transactionHandle.get()
+
+  // We can assume that we're already in a transaction, so we just pass the existing handle into the block
+  return if (existingHandle != null) {
+    block(existingHandle)
+  } else
+    mapExceptions {
+      jdbi.open().use { handle ->
+        try {
+          transactionHandle.set(handle)
+          handle.begin()
+          block(handle).also {
+            handle.commit()
+          }
+        } finally {
+          transactionHandle.remove()
         }
       }
     }

@@ -6,23 +6,44 @@ import io.kotest.matchers.ints.shouldBeLessThan
 import kotlinx.coroutines.runBlocking
 import no.liflig.documentstore.dao.ConflictDaoException
 import no.liflig.documentstore.dao.CrudDaoJdbi
+import no.liflig.documentstore.dao.coTransactional
 import no.liflig.documentstore.dao.transactional
 import no.liflig.documentstore.entity.Version
 import no.liflig.snapshot.verifyJsonSnapshot
+import org.jdbi.v3.core.Handle
+import org.jdbi.v3.core.Jdbi
+import org.junit.jupiter.api.Named
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import java.time.Instant
 import java.util.UUID
+import java.util.stream.Stream
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
+typealias Transactional = suspend (jdbi: Jdbi, block: suspend (Handle) -> Any?) -> Any?
+
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TransactionalTest {
   val jdbi = createTestDatabase()
   val serializationAdapter = ExampleSerializationAdapter()
   val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
   val searchRepository = ExampleSearchRepository(jdbi, "example", serializationAdapter)
+
+  private fun getTransactionFunctions(): Stream<Arguments> {
+    val co: Transactional = ::coTransactional
+    val normal: Transactional = { a, b -> transactional(a) { runBlocking { b(it) } } }
+    return Stream.of(
+      Arguments.of(Named.of("Non-suspending", normal)),
+      Arguments.of(Named.of("Suspending", co))
+    )
+  }
 
   @Test
   fun storeAndRetrieveNewEntity() {
@@ -97,15 +118,16 @@ class TransactionalTest {
     }
   }
 
-  @Test
-  fun completeTransactionSucceeds() {
+  @ParameterizedTest
+  @MethodSource("getTransactionFunctions")
+  fun completeTransactionSucceeds(transactionBlock: Transactional) {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
         .create(ExampleEntity.create("One"))
       val (initialAgg2, initialVersion2) = dao
         .create(ExampleEntity.create("One"))
 
-      transactional(dao) {
+      transactionBlock(jdbi) {
         dao.update(initialAgg1.updateText("Two"), initialVersion1)
         dao.update(initialAgg2.updateText("Two"), initialVersion2)
         dao.get(initialAgg2.id)
@@ -117,8 +139,9 @@ class TransactionalTest {
     }
   }
 
-  @Test
-  fun failedTransactionRollsBack() {
+  @ParameterizedTest()
+  @MethodSource("getTransactionFunctions")
+  fun failedTransactionRollsBack(transactionBlock: Transactional) {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
         .create(ExampleEntity.create("One"))
@@ -126,7 +149,7 @@ class TransactionalTest {
         .create(ExampleEntity.create("One"))
 
       try {
-        transactional(jdbi) {
+        transactionBlock(jdbi) {
           dao.update(initialAgg1.updateText("Two"), initialVersion1)
           dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
         }
@@ -138,8 +161,9 @@ class TransactionalTest {
     }
   }
 
-  @Test
-  fun failedTransactionWithExplicitHandleStartedOutsideRollsBack() {
+  @ParameterizedTest
+  @MethodSource("getTransactionFunctions")
+  fun failedTransactionWithExplicitHandleStartedOutsideRollsBack(transactionBlock: Transactional) {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
         .create(ExampleEntity.create("One"))
@@ -148,7 +172,7 @@ class TransactionalTest {
 
       var exceptionThrown = false
       try {
-        jdbi.open().useTransaction<Exception> { handle ->
+        transactionBlock(jdbi) { handle ->
           runBlocking {
             dao.update(initialAgg1.updateText("Two"), initialVersion1, handle)
             dao.update(initialAgg2.updateText("Two"), initialVersion2.next(), handle)
@@ -164,8 +188,9 @@ class TransactionalTest {
     }
   }
 
-  @Test
-  fun failedTransactionFactoryRollsBack() {
+  @ParameterizedTest
+  @MethodSource("getTransactionFunctions")
+  fun failedTransactionFactoryRollsBack(transactionBlock: Transactional) {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
         .create(ExampleEntity.create("One"))
@@ -173,7 +198,7 @@ class TransactionalTest {
         .create(ExampleEntity.create("One"))
 
       try {
-        transactional(jdbi) {
+        transactionBlock(jdbi) {
           dao.update(initialAgg1.updateText("Two"), initialVersion1)
           dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
         }
@@ -185,8 +210,9 @@ class TransactionalTest {
     }
   }
 
-  @Test
-  fun transactionWithinTransactionRollsBackAsExpected() {
+  @ParameterizedTest
+  @MethodSource("getTransactionFunctions")
+  fun transactionWithinTransactionRollsBackAsExpected(transactionBlock: Transactional) {
     runBlocking {
       val initialValue = "Initial"
       val updatedVaue = "Updated value"
@@ -196,9 +222,9 @@ class TransactionalTest {
         .create(ExampleEntity.create(initialValue))
 
       try {
-        transactional(jdbi) {
+        transactionBlock(jdbi) {
           dao.update(initialAgg1.updateText(updatedVaue), initialVersion1)
-          transactional(jdbi) {
+          transactionBlock(jdbi) {
             dao.update(initialAgg2.updateText(updatedVaue), initialVersion2)
           }
           throw ConflictDaoException()
@@ -211,18 +237,19 @@ class TransactionalTest {
     }
   }
 
-  @Test
-  fun getReturnsUpdatedDataWithinTransaction() {
+  @ParameterizedTest
+  @MethodSource("getTransactionFunctions")
+  fun getReturnsUpdatedDataWithinTransaction(transactionBlock: Transactional) {
     runBlocking {
       val (initialAgg1, initialVersion1) = dao
         .create(ExampleEntity.create("One"))
 
-      val result = transactional(jdbi) {
+      val result = transactionBlock(jdbi) {
         dao.update(initialAgg1.updateText("Two"), initialVersion1)
-        dao.get(initialAgg1.id)
+        dao.get(initialAgg1.id)?.item?.text
       }
 
-      assertEquals("Two", result?.item?.text)
+      assertEquals("Two", result)
     }
   }
 
@@ -266,6 +293,7 @@ class TransactionalTest {
     }
   }
 
+  @Test
   fun verifySnapshot() {
     val agg = ExampleEntity.create(
       id = ExampleId(UUID.fromString("928f6ef3-6873-454a-a68d-ef3f5d7963b5")),
