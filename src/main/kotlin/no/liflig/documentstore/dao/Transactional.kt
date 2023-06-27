@@ -6,18 +6,18 @@ import java.lang.Exception
 
 val transactionHandle = ThreadLocal<Handle?>()
 
-fun <T> transactional(jdbi: Jdbi, block: (Handle) -> T): T {
+fun <T> transactional(jdbi: Jdbi, block: () -> T): T {
   val existingHandle = transactionHandle.get()
 
-  // We can assume that we're already in a transaction, so we just pass the existing handle into the block
+  // We can assume that we're already in a transaction, so we do not start a new one
   return if (existingHandle != null) {
-    block(existingHandle)
+    block()
   } else
     mapExceptions {
       jdbi.open().use { handle ->
         try {
           transactionHandle.set(handle)
-          handle.inTransaction<T, Exception> { block(handle) }
+          handle.inTransaction<T, Exception> { block() }
         } finally {
           transactionHandle.remove()
         }
@@ -25,19 +25,19 @@ fun <T> transactional(jdbi: Jdbi, block: (Handle) -> T): T {
     }
 }
 
-suspend fun <T> coTransactional(jdbi: Jdbi, block: suspend (Handle) -> T): T {
+suspend fun <T> coTransactional(jdbi: Jdbi, block: suspend () -> T): T {
   val existingHandle = transactionHandle.get()
 
-  // We can assume that we're already in a transaction, so we just pass the existing handle into the block
+  // We can assume that we're already in a transaction, so we do not start a new one
   return if (existingHandle != null) {
-    block(existingHandle)
+    block()
   } else
     mapExceptions {
       jdbi.open().use { handle ->
         try {
           transactionHandle.set(handle)
           handle.begin()
-          block(handle).also {
+          block().also {
             handle.commit()
           }
         } finally {

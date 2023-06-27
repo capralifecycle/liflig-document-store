@@ -10,7 +10,6 @@ import no.liflig.documentstore.dao.coTransactional
 import no.liflig.documentstore.dao.transactional
 import no.liflig.documentstore.entity.Version
 import no.liflig.snapshot.verifyJsonSnapshot
-import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Named
 import org.junit.jupiter.api.Test
@@ -27,7 +26,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
-typealias Transactional = suspend (jdbi: Jdbi, block: suspend (Handle) -> Any?) -> Any?
+typealias Transactional = suspend (jdbi: Jdbi, block: suspend () -> Any?) -> Any?
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TransactionalTest {
@@ -38,7 +37,7 @@ class TransactionalTest {
 
   private fun getTransactionFunctions(): Stream<Arguments> {
     val co: Transactional = ::coTransactional
-    val normal: Transactional = { a, b -> transactional(a) { runBlocking { b(it) } } }
+    val normal: Transactional = { a, b -> transactional(a) { runBlocking { b() } } }
     return Stream.of(
       Arguments.of(Named.of("Non-suspending", normal)),
       Arguments.of(Named.of("Suspending", co))
@@ -172,10 +171,10 @@ class TransactionalTest {
 
       var exceptionThrown = false
       try {
-        transactionBlock(jdbi) { handle ->
+        transactionBlock(jdbi) {
           runBlocking {
-            dao.update(initialAgg1.updateText("Two"), initialVersion1, handle)
-            dao.update(initialAgg2.updateText("Two"), initialVersion2.next(), handle)
+            dao.update(initialAgg1.updateText("Two"), initialVersion1)
+            dao.update(initialAgg2.updateText("Two"), initialVersion2.next())
           }
         }
       } catch (_: ConflictDaoException) {

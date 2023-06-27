@@ -6,7 +6,6 @@ import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.dao.AbstractSearchRepository
 import no.liflig.documentstore.dao.SerializationAdapter
 import no.liflig.documentstore.entity.VersionedEntity
-import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 
 class ExampleQueryObject
@@ -21,11 +20,11 @@ class ExampleSearchRepository(
     CREATED_AT,
   }
 
-  override fun listByIds(ids: List<ExampleId>, handle: Handle?): List<VersionedEntity<ExampleEntity>> {
+  override fun listByIds(ids: List<ExampleId>): List<VersionedEntity<ExampleEntity>> {
     TODO("Not yet implemented")
   }
 
-  override fun search(query: ExampleQueryObject, handle: Handle?): List<VersionedEntity<ExampleEntity>> =
+  override fun search(query: ExampleQueryObject): List<VersionedEntity<ExampleEntity>> =
     TODO("Not yet implemented")
 
   fun search(limit: Int? = null, offset: Int? = null, orderBy: OrderBy? = null, orderDesc: Boolean = false) =

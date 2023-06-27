@@ -45,17 +45,16 @@ interface Dao
  */
 interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 
-  fun create(entity: A, handle: Handle? = null): VersionedEntity<A>
+  fun create(entity: A,): VersionedEntity<A>
 
-  fun get(id: I, handle: Handle? = null, forUpdate: Boolean = false): VersionedEntity<A>?
+  fun get(id: I, forUpdate: Boolean = false): VersionedEntity<A>?
 
   fun <A2 : A> update(
     entity: A2,
     previousVersion: Version,
-    handle: Handle? = null,
   ): VersionedEntity<A2>
 
-  fun delete(id: I, previousVersion: Version, handle: Handle? = null): Unit
+  fun delete(id: I, previousVersion: Version): Unit
 }
 
 class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
@@ -67,8 +66,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   private fun fromJson(value: String): A = serializationAdapter.fromJson(value)
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override fun get(id: I, handle: Handle?, forUpdate: Boolean): VersionedEntity<A>? {
-    val transaction = handle ?: transactionHandle.get()
+  override fun get(id: I, forUpdate: Boolean): VersionedEntity<A>? {
+    val transaction = transactionHandle.get()
 
     return if (transaction != null)
       innerGet(id, transaction, forUpdate)
@@ -99,8 +98,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
     .map(rowMapper)
     .firstOrNull()
 
-  override fun delete(id: I, previousVersion: Version, handle: Handle?) {
-    val transaction = handle ?: transactionHandle.get()
+  override fun delete(id: I, previousVersion: Version) {
+    val transaction = transactionHandle.get()
 
     if (transaction != null)
       innerDelete(id, previousVersion, transaction)
@@ -138,8 +137,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * implement its own version if there are special columns that needs to be
    * kept in sync e.g. for indexing purposes.
    */
-  override fun create(entity: A, handle: Handle?): VersionedEntity<A> {
-    val transaction = handle ?: transactionHandle.get()
+  override fun create(entity: A): VersionedEntity<A> {
+    val transaction = transactionHandle.get()
 
     return if (transaction != null)
       innerCreate(entity, transaction)
@@ -177,8 +176,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * implement its own version if there are special columns that needs to be
    * kept in sync e.g. for indexing purposes.
    */
-  override fun <A2 : A> update(entity: A2, previousVersion: Version, handle: Handle?): VersionedEntity<A2> {
-    val transaction = handle ?: transactionHandle.get()
+  override fun <A2 : A> update(entity: A2, previousVersion: Version): VersionedEntity<A2> {
+    val transaction = transactionHandle.get()
 
     return if (transaction != null)
       innerUpdate(transaction, entity, previousVersion)
@@ -225,8 +224,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
 
 interface SearchRepository<I, A, Q>
   where I : EntityId, A : EntityRoot<I> {
-  fun search(query: Q, handle: Handle? = null): List<VersionedEntity<A>>
-  fun listByIds(ids: List<I>, handle: Handle? = null): List<VersionedEntity<A>>
+  fun search(query: Q): List<VersionedEntity<A>>
+  fun listByIds(ids: List<I>): List<VersionedEntity<A>>
 }
 
 /**
@@ -244,34 +243,25 @@ abstract class AbstractSearchRepository<I, A, Q>(
 
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override fun listByIds(ids: List<I>, handle: Handle?): List<VersionedEntity<A>> =
-    getByPredicate("id = ANY (:ids)", handle) {
+  override fun listByIds(ids: List<I>): List<VersionedEntity<A>> =
+    getByPredicate("id = ANY (:ids)") {
       bindArray("ids", EntityId::class.java, ids)
     }
 
   protected open fun getByPredicate(
     sqlWhere: String = "TRUE",
-    handle: Handle? = null,
-    bind: Query.() -> Query = { this }
-  ) = getByPredicate(sqlWhere, handle, null, null, null, false, bind)
-
-  protected open fun getByPredicate(
-    sqlWhere: String = "TRUE",
-    handle: Handle? = null,
     limit: Int? = null,
     offset: Int? = null,
     orderBy: String? = null,
     orderDesc: Boolean = false,
     bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> = mapExceptions {
-    val transaction = handle ?: transactionHandle.get()
+    val transaction = transactionHandle.get()
 
     if (transaction != null) {
-
       innerGetByPredicate(sqlWhere, transaction, limit, offset, orderBy, orderDesc, bind)
     } else {
       jdbi.open().use { handle ->
-
         innerGetByPredicate(sqlWhere, handle, limit, offset, orderBy, orderDesc, bind)
       }
     }
