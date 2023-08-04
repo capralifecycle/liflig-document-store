@@ -360,6 +360,7 @@ inline fun <T> mapExceptions(block: () -> T): T {
       is InterruptedIOException,
       is ConnectionException,
       is CloseException -> throw UnavailableDaoException(e)
+      is NoCountReceivedFromSearchQueryException -> throw e
 
       else -> throw UnknownDaoException(e)
     }
