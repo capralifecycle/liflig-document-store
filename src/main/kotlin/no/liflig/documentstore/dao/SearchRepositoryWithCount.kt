@@ -19,8 +19,7 @@ EntityT : EntityRoot<EntityIdT> {
 }
 
 /**
- * Extends the [AbstractSearchRepository] from liflig-document-store with methods for getting the
- * count of rows in the database table.
+ * Extends [AbstractSearchRepository] with functionality for getting the count of objects in the database table.
  */
 abstract class AbstractSearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT>(
   jdbi: Jdbi,
@@ -38,6 +37,12 @@ EntityT : EntityRoot<EntityIdT> {
   protected open val rowMapperWithCount =
     createRowMapperWithCount(createRowParserWithCount(::fromJson))
 
+  /**
+   * Gets database objects matching the given parameters, and the total count of objects in the database.
+   *
+   * This can be used for pagination: for example, if passing e.g. `limit = 10` to display 10 items in a page at a time,
+   * the count can be used to display the number of pages.
+   */
   protected open fun getByPredicateWithCount(
     sqlWhere: String = "TRUE",
     limit: Int? = null,
