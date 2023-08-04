@@ -34,7 +34,9 @@ class TransactionalTest {
   val serializationAdapter = ExampleSerializationAdapter()
   val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
   val searchRepository = ExampleSearchRepository(jdbi, "example", serializationAdapter)
-  val countDao = CrudDaoJdbi(jdbi, "example_with_count", serializationAdapter)
+
+  // Separate DAOs to avoid other tests interfering with the count returned by SearchRepositoryWithCount
+  val daoWithCount = CrudDaoJdbi(jdbi, "example_with_count", serializationAdapter)
   val searchRepositoryWithCount =
     ExampleSearchRepositoryWithCount(jdbi, "example_with_count", serializationAdapter)
 
@@ -300,9 +302,9 @@ class TransactionalTest {
   @Test
   fun testSearchRepositoryWithCount() {
     runBlocking {
-      countDao.create(ExampleEntity.create("A"))
-      countDao.create(ExampleEntity.create("B"))
-      countDao.create(ExampleEntity.create("C"))
+      daoWithCount.create(ExampleEntity.create("A"))
+      daoWithCount.create(ExampleEntity.create("B"))
+      daoWithCount.create(ExampleEntity.create("C"))
 
       val query = ExampleQueryObject(limit = 2, offset = 0)
       val (entities, count) = searchRepositoryWithCount.searchWithCount(query)

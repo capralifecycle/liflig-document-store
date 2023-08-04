@@ -6,7 +6,7 @@ CREATE TABLE example (
   data jsonb NOT NULL
 );
 
--- Separate table to make SearchRepositoryWithCount tests independent
+-- Separate table to avoid other tests interfering with the count returned by SearchRepositoryWithCount
 CREATE TABLE example_with_count
 (
   id          uuid        NOT NULL PRIMARY KEY,
