@@ -6,7 +6,7 @@ CREATE TABLE example (
   data jsonb NOT NULL
 );
 
--- Separate table to ensure no
+-- Separate table to make SearchRepositoryWithCount tests independent
 CREATE TABLE example_with_count
 (
   id          uuid        NOT NULL PRIMARY KEY,
