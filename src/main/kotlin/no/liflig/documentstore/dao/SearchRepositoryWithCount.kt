@@ -148,7 +148,7 @@ fun <EntityT : EntityRoot<*>> createRowParserWithCount(
   return { row ->
     /** @see EntityRowWithCount */
     val entity =
-      if (row.data != null && row.version != null)
+      if (row.id != null && row.data != null && row.version != null)
         VersionedEntity(fromJson(row.data), Version(row.version))
       else null
 
