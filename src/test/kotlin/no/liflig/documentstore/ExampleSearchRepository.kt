@@ -3,9 +3,7 @@
 package no.liflig.documentstore
 
 import kotlinx.serialization.UseSerializers
-import no.liflig.documentstore.dao.AbstractSearchRepository
-import no.liflig.documentstore.dao.AbstractSearchRepositoryWithCount
-import no.liflig.documentstore.dao.SerializationAdapter
+import no.liflig.documentstore.dao.*
 import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.Jdbi
 
@@ -63,7 +61,7 @@ class ExampleSearchRepositoryWithCount(
 
   override fun searchWithCount(
     query: ExampleQueryObject
-  ): Pair<List<VersionedEntity<ExampleEntity>>, Long> {
+  ): EntitiesWithCount<ExampleEntity> {
     return getByPredicateWithCount(
       limit = query.limit,
       offset = query.offset,

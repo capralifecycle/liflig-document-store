@@ -307,10 +307,10 @@ class TransactionalTest {
       daoWithCount.create(ExampleEntity.create("C"))
 
       val query = ExampleQueryObject(limit = 2, offset = 0)
-      val (entities, count) = searchRepositoryWithCount.searchWithCount(query)
+      val result = searchRepositoryWithCount.searchWithCount(query)
 
-      assertEquals(entities.size, query.limit)
-      assertEquals(count, 3)
+      assertEquals(result.entities.size, query.limit)
+      assertEquals(result.count, 3)
     }
   }
 

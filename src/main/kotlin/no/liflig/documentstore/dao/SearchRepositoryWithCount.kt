@@ -15,8 +15,13 @@ interface SearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT> :
   SearchRepository<EntityIdT, EntityT, SearchQueryT> where
 EntityIdT : EntityId,
 EntityT : EntityRoot<EntityIdT> {
-  fun searchWithCount(query: SearchQueryT): Pair<List<VersionedEntity<EntityT>>, Long>
+  fun searchWithCount(query: SearchQueryT): EntitiesWithCount<EntityT>
 }
+
+data class EntitiesWithCount<EntityT : EntityRoot<*>> (
+  val entities: List<VersionedEntity<EntityT>>,
+  val count: Long,
+)
 
 /**
  * Extends [AbstractSearchRepository] with functionality for getting the count of objects in the database table.
@@ -50,7 +55,7 @@ EntityT : EntityRoot<EntityIdT> {
     orderBy: String? = null,
     orderDesc: Boolean = false,
     bind: Query.() -> Query = { this }
-  ): Pair<List<VersionedEntity<EntityT>>, Long> = mapExceptions {
+  ): EntitiesWithCount<EntityT> = mapExceptions {
     val transaction = transactionHandle.get()
 
     if (transaction != null) {
@@ -70,7 +75,7 @@ EntityT : EntityRoot<EntityIdT> {
     orderBy: String? = null,
     desc: Boolean = false,
     bind: Query.() -> Query = { this }
-  ): Pair<List<VersionedEntity<EntityT>>, Long> {
+  ): EntitiesWithCount<EntityT> {
     val limitString = limit?.let { "LIMIT $it" } ?: ""
     val offsetString = offset?.let { "OFFSET $it" } ?: ""
     val orderDirection = if (desc) "DESC" else "ASC"
@@ -104,9 +109,9 @@ EntityT : EntityRoot<EntityIdT> {
         .map(rowMapperWithCount)
         .list()
 
-    val entities = rows.mapNotNull { row -> row.first }
-    val count = rows.firstOrNull()?.second ?: throw NoCountReceivedFromSearchQueryException
-    return Pair(entities, count)
+    val entities = rows.mapNotNull { row -> row.entity }
+    val count = rows.firstOrNull()?.count ?: throw NoCountReceivedFromSearchQueryException
+    return EntitiesWithCount(entities, count)
   }
 }
 
@@ -121,9 +126,14 @@ data class EntityRowWithCount(
   val count: Long,
 )
 
+data class MappedEntityWithCount<EntityT : EntityRoot<*>> (
+  val entity: VersionedEntity<EntityT>?,
+  val count: Long,
+)
+
 fun <EntityT : EntityRoot<*>> createRowMapperWithCount(
-  fromRow: (row: EntityRowWithCount) -> Pair<VersionedEntity<EntityT>?, Long>
-): RowMapper<Pair<VersionedEntity<EntityT>?, Long>> {
+  fromRow: (row: EntityRowWithCount) -> MappedEntityWithCount<EntityT>
+): RowMapper<MappedEntityWithCount<EntityT>> {
   val kotlinMapper = KotlinMapper(EntityRowWithCount::class.java)
 
   return RowMapper { rs, ctx ->
@@ -134,7 +144,7 @@ fun <EntityT : EntityRoot<*>> createRowMapperWithCount(
 
 fun <EntityT : EntityRoot<*>> createRowParserWithCount(
   fromJson: (String) -> EntityT
-): (row: EntityRowWithCount) -> Pair<VersionedEntity<EntityT>?, Long> {
+): (row: EntityRowWithCount) -> MappedEntityWithCount<EntityT> {
   return { row ->
     /** @see EntityRowWithCount */
     val entity =
@@ -142,7 +152,7 @@ fun <EntityT : EntityRoot<*>> createRowParserWithCount(
         VersionedEntity(fromJson(row.data), Version(row.version))
       else null
 
-    Pair(entity, row.count)
+    MappedEntityWithCount(entity, row.count)
   }
 }
 
