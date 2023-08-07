@@ -157,3 +157,82 @@ fun <EntityT : EntityRoot<*>> createRowParserWithCount(
 }
 
 data object NoCountReceivedFromSearchQueryException : RuntimeException()
+
+/**
+ * Extend this class with your custom queries to use [SearchRepositoryWithCountJdbi]. Override
+ * fields to customize the query. Use a sealed class to support multiple different query types.
+ *
+ * NB: if using `sqlWhere`, remember to bind your parameters with `bindSqlParameters`!
+ *
+ * Example for an entity with a `text` field:
+ * ```
+ * data class ExampleSearchQuery(
+ *   val text: String,
+ *   override val limit: Int,
+ *   override val offset: Int,
+ * ) : SearchRepositoryQuery() {
+ *   override val sqlWhere: String = "(data->>'text' ILIKE '%' || :text || '%')"
+ *
+ *   override val bindSqlParameters: Query.() -> Query = { bind("text", text) }
+ * }
+ *
+ * fun main() {
+ *   ...
+ *   val searchRepo = SearchRepositoryWithCountJdbi<ExampleId, ExampleEntity, ExampleSearchQuery>(
+ *     jdbi, "example", exampleSerializationAdapter,
+ *   )
+ *
+ *   val (entities, count) = searchRepo.searchWithCount(
+ *     ExampleTextSearchQuery(text = "Example text", limit = 10, offset = 0)
+ *   )
+ * }
+ * ```
+ */
+open class SearchRepositoryQuery {
+  open val sqlWhere: String = "TRUE"
+  open val bindSqlParameters: Query.() -> Query = { this } // Default no-op
+  open val limit: Int? = null
+  open val offset: Int? = null
+  open val orderBy: String? = null
+  open val orderDesc: Boolean = false
+}
+
+/**
+ * Generic implementation of [AbstractSearchRepositoryWithCount] for queries that extend
+ * [SearchRepositoryQuery].
+ */
+open class SearchRepositoryWithCountJdbi<EntityIdT, EntityT, SearchQueryT>(
+  jdbi: Jdbi,
+  sqlTableName: String,
+  serializationAdapter: SerializationAdapter<EntityT>
+) :
+  AbstractSearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT>(
+    jdbi,
+    sqlTableName,
+    serializationAdapter,
+  ) where
+EntityIdT : EntityId,
+EntityT : EntityRoot<EntityIdT>,
+SearchQueryT : SearchRepositoryQuery {
+  override fun search(query: SearchQueryT): List<VersionedEntity<EntityT>> {
+    return getByPredicate(
+      sqlWhere = query.sqlWhere,
+      limit = query.limit,
+      offset = query.offset,
+      orderBy = query.orderBy,
+      orderDesc = query.orderDesc,
+      bind = query.bindSqlParameters,
+    )
+  }
+
+  override fun searchWithCount(query: SearchQueryT): EntitiesWithCount<EntityT> {
+    return getByPredicateWithCount(
+      sqlWhere = query.sqlWhere,
+      limit = query.limit,
+      offset = query.offset,
+      orderBy = query.orderBy,
+      orderDesc = query.orderDesc,
+      bind = query.bindSqlParameters,
+    )
+  }
+}

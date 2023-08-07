@@ -6,9 +6,11 @@ import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.dao.AbstractSearchRepository
 import no.liflig.documentstore.dao.AbstractSearchRepositoryWithCount
 import no.liflig.documentstore.dao.EntitiesWithCount
+import no.liflig.documentstore.dao.SearchRepositoryQuery
 import no.liflig.documentstore.dao.SerializationAdapter
 import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.statement.Query
 
 data class ExampleQueryObject(
   val limit: Int? = null,
@@ -77,4 +79,14 @@ class ExampleSearchRepositoryWithCount(
       }
     )
   }
+}
+
+data class ExampleTextSearchQuery(
+  val text: String,
+  override val limit: Int? = null,
+  override val offset: Int? = null
+) : SearchRepositoryQuery() {
+  override val sqlWhere: String = "(data->>'text' ILIKE '%' || :text || '%')"
+
+  override val bindSqlParameters: Query.() -> Query = { bind("text", text) }
 }
