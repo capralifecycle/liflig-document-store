@@ -6,6 +6,7 @@ import io.kotest.matchers.ints.shouldBeLessThan
 import kotlinx.coroutines.runBlocking
 import no.liflig.documentstore.dao.ConflictDaoException
 import no.liflig.documentstore.dao.CrudDaoJdbi
+import no.liflig.documentstore.dao.SearchRepositoryWithCountJdbi
 import no.liflig.documentstore.dao.coTransactional
 import no.liflig.documentstore.dao.transactional
 import no.liflig.documentstore.entity.Version
@@ -34,6 +35,9 @@ class TransactionalTest {
   val serializationAdapter = ExampleSerializationAdapter()
   val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
   val searchRepository = ExampleSearchRepository(jdbi, "example", serializationAdapter)
+  val searchRepositoryWithCountJdbi = SearchRepositoryWithCountJdbi<ExampleId, ExampleEntity, ExampleTextSearchQuery>(
+    jdbi, "example", serializationAdapter,
+  )
 
   // Separate DAOs to avoid other tests interfering with the count returned by SearchRepositoryWithCount
   val daoWithCount = CrudDaoJdbi(jdbi, "example_with_count", serializationAdapter)
@@ -313,6 +317,30 @@ class TransactionalTest {
 
       val queryWithOffsetHigherThanCount = ExampleQueryObject(limit = 2, offset = 1000)
       val result2 = searchRepositoryWithCount.searchWithCount(queryWithOffsetHigherThanCount)
+      assertEquals(result2.count, 3)
+    }
+  }
+
+  @Test
+  fun testSearchRepositoryWithCountJdbi() {
+    runBlocking {
+      dao.create(ExampleEntity.create("Very specific name for text search 1"))
+      dao.create(ExampleEntity.create("Very specific name for text search 2"))
+      dao.create(ExampleEntity.create("Very specific name for text search 3"))
+
+      val result1 = searchRepositoryWithCountJdbi.search(
+        ExampleTextSearchQuery(text = "Very specific name for text search")
+      )
+      assertEquals(result1.size, 3)
+
+      val result2 = searchRepositoryWithCountJdbi.searchWithCount(
+        ExampleTextSearchQuery(
+          text = "Very specific name for text search",
+          limit = 2,
+          offset = 0,
+        )
+      )
+      assertEquals(result2.entities.size, 2)
       assertEquals(result2.count, 3)
     }
   }
