@@ -35,6 +35,11 @@ class TransactionalTest {
   val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
   val searchRepository = ExampleSearchRepository(jdbi, "example", serializationAdapter)
 
+  // Separate DAOs to avoid other tests interfering with the count returned by SearchRepositoryWithCount
+  val daoWithCount = CrudDaoJdbi(jdbi, "example_with_count", serializationAdapter)
+  val searchRepositoryWithCount =
+    ExampleSearchRepositoryWithCount(jdbi, "example_with_count", serializationAdapter)
+
   private fun getTransactionFunctions(): Stream<Arguments> {
     val co: Transactional = ::coTransactional
     val normal: Transactional = { a, b -> transactional(a) { runBlocking { b() } } }
@@ -260,9 +265,11 @@ class TransactionalTest {
       val (initialAgg2, _) = dao
         .create(ExampleEntity.create("B"))
 
-      val result1 = searchRepository.search(orderBy = ExampleSearchRepository.OrderBy.TEXT, orderDesc = false)
+      val result1 = searchRepository
+        .search(ExampleQueryObject(orderBy = OrderBy.TEXT, orderDesc = false))
         .map { it.item }
-      val result2 = searchRepository.search(orderBy = ExampleSearchRepository.OrderBy.TEXT, orderDesc = true)
+      val result2 = searchRepository
+        .search(ExampleQueryObject(orderBy = OrderBy.TEXT, orderDesc = true))
         .map { it.item }
 
       result1.indexOf(initialAgg1) shouldBeLessThan result1.indexOf(initialAgg2)
@@ -279,7 +286,7 @@ class TransactionalTest {
       val (initialAgg2, _) = dao
         .create(ExampleEntity.create("B", now = Instant.now().minusSeconds(10000)))
 
-      val result1 = searchRepository.search(orderDesc = false)
+      val result1 = searchRepository.search(ExampleQueryObject(orderDesc = false))
         .map { it.item }
 
       val indexOf1 = result1.indexOf(initialAgg1)
@@ -289,6 +296,24 @@ class TransactionalTest {
       indexOf1 shouldBeLessThan indexOf2
 
       Instant.now().minusMillis(10000) shouldBeLessThan Instant.now()
+    }
+  }
+
+  @Test
+  fun testSearchRepositoryWithCount() {
+    runBlocking {
+      daoWithCount.create(ExampleEntity.create("A"))
+      daoWithCount.create(ExampleEntity.create("B"))
+      daoWithCount.create(ExampleEntity.create("C"))
+
+      val queryWithLimitLessThanCount = ExampleQueryObject(limit = 2, offset = 0)
+      val result1 = searchRepositoryWithCount.searchWithCount(queryWithLimitLessThanCount)
+      assertEquals(result1.entities.size, queryWithLimitLessThanCount.limit)
+      assertEquals(result1.count, 3)
+
+      val queryWithOffsetHigherThanCount = ExampleQueryObject(limit = 2, offset = 1000)
+      val result2 = searchRepositoryWithCount.searchWithCount(queryWithOffsetHigherThanCount)
+      assertEquals(result2.count, 3)
     }
   }
 
