@@ -1,4 +1,4 @@
-package no.liflig.documentstore
+package no.liflig.documentstore.examples
 
 import kotlinx.serialization.json.Json
 import no.liflig.documentstore.dao.SerializationAdapter

@@ -45,7 +45,7 @@ interface Dao
  */
 interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 
-  fun create(entity: A,): VersionedEntity<A>
+  fun create(entity: A): VersionedEntity<A>
 
   fun get(id: I, forUpdate: Boolean = false): VersionedEntity<A>?
 
@@ -298,6 +298,32 @@ abstract class AbstractSearchRepository<I, A, Q>(
   }
 }
 
+abstract class QueryObject {
+  open val sqlWhere: String = "TRUE"
+  open val bindSqlParameters: Query.() -> Query = { this } // Default no-op
+  open val limit: Int? = null
+  open val offset: Int? = null
+  open val orderBy: String? = null
+  open val orderDesc: Boolean = false
+}
+
+class SearchRepositoryJdbi<I, A, Q>(
+  jdbi: Jdbi,
+  sqlTableName: String,
+  serializationAdapter: SerializationAdapter<A>,
+) : AbstractSearchRepository<I, A, Q>(jdbi, sqlTableName, serializationAdapter) where I : EntityId,
+                                                                                      A : EntityRoot<I>,
+                                                                                      Q : QueryObject {
+  override fun search(query: Q): List<VersionedEntity<A>> = getByPredicate(
+    sqlWhere = query.sqlWhere,
+    limit = query.limit,
+    offset = query.offset,
+    orderBy = query.orderBy,
+    orderDesc = query.orderDesc,
+    bind = query.bindSqlParameters,
+  )
+}
+
 /**
  * A data class that represents fields for a database row that holds an entity instance.
  *
@@ -360,6 +386,7 @@ inline fun <T> mapExceptions(block: () -> T): T {
       is InterruptedIOException,
       is ConnectionException,
       is CloseException -> throw UnavailableDaoException(e)
+
       is NoCountReceivedFromSearchQueryException -> throw e
 
       else -> throw UnknownDaoException(e)

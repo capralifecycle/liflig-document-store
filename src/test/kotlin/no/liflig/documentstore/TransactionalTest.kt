@@ -10,6 +10,14 @@ import no.liflig.documentstore.dao.SearchRepositoryWithCountJdbi
 import no.liflig.documentstore.dao.coTransactional
 import no.liflig.documentstore.dao.transactional
 import no.liflig.documentstore.entity.Version
+import no.liflig.documentstore.examples.ExampleEntity
+import no.liflig.documentstore.examples.ExampleId
+import no.liflig.documentstore.examples.ExampleQueryObject
+import no.liflig.documentstore.examples.ExampleSearchRepository
+import no.liflig.documentstore.examples.ExampleSearchRepositoryWithCount
+import no.liflig.documentstore.examples.ExampleSerializationAdapter
+import no.liflig.documentstore.examples.ExampleTextSearchQuery
+import no.liflig.documentstore.examples.OrderBy
 import no.liflig.snapshot.verifyJsonSnapshot
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Named

@@ -1,6 +1,6 @@
 @file:UseSerializers(InstantSerializer::class)
 
-package no.liflig.documentstore
+package no.liflig.documentstore.examples
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -10,6 +10,7 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import no.liflig.documentstore.InstantSerializer
 import no.liflig.documentstore.entity.AbstractEntityRoot
 import no.liflig.documentstore.entity.EntityTimestamps
 import no.liflig.documentstore.entity.UuidEntityId

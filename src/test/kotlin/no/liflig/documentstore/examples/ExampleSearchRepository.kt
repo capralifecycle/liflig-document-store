@@ -1,8 +1,9 @@
 @file:UseSerializers(InstantSerializer::class)
 
-package no.liflig.documentstore
+package no.liflig.documentstore.examples
 
 import kotlinx.serialization.UseSerializers
+import no.liflig.documentstore.InstantSerializer
 import no.liflig.documentstore.dao.AbstractSearchRepository
 import no.liflig.documentstore.dao.AbstractSearchRepositoryWithCount
 import no.liflig.documentstore.dao.EntitiesWithCount
