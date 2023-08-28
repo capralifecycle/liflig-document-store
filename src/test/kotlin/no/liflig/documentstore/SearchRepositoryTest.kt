@@ -12,6 +12,7 @@ import no.liflig.documentstore.examples.ExampleSerializationAdapter
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import no.liflig.documentstore.examples.ExampleEntity.Companion.create as createEntity
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SearchRepositoryTest {
@@ -30,10 +31,10 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun testWhere() {
+  fun whereWorks() {
     runBlocking {
-      dao.create(ExampleEntity.create("hello world"))
-      dao.create(ExampleEntity.create("world"))
+      dao.create(createEntity("hello world"))
+      dao.create(createEntity("world"))
 
       val result = searchRepository.search(ExampleQuery(text = "hello world"))
 
@@ -42,11 +43,11 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun testLimit() {
+  fun limitWorks() {
     runBlocking {
-      dao.create(ExampleEntity.create("1"))
-      dao.create(ExampleEntity.create("2"))
-      dao.create(ExampleEntity.create("3"))
+      dao.create(createEntity("1"))
+      dao.create(createEntity("2"))
+      dao.create(createEntity("3"))
 
       val result = searchRepository.search(ExampleQuery(limit = 2))
 
@@ -55,11 +56,11 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun testOffsett() {
+  fun offSetWorks() {
     runBlocking {
-      dao.create(ExampleEntity.create("hello world"))
-      dao.create(ExampleEntity.create("world"))
-      dao.create(ExampleEntity.create("world"))
+      dao.create(createEntity("hello world"))
+      dao.create(createEntity("world"))
+      dao.create(createEntity("world"))
 
       val result = searchRepository.search(ExampleQuery(offset = 1))
 
@@ -68,11 +69,26 @@ class SearchRepositoryTest {
   }
 
   @Test
+  fun offsetAndLimitWorks() {
+    runBlocking {
+      dao.create(createEntity("A"))
+      dao.create(createEntity("B"))
+      dao.create(createEntity("C"))
+      dao.create(createEntity("D"))
+
+      val result = searchRepository.search(ExampleQuery(offset = 1, limit = 2)).map { it.item.text }
+
+      result shouldHaveSize 2
+      result shouldBeEqual listOf("B", "C")
+    }
+  }
+
+  @Test
   fun emptySearchReturnsAllElements() {
     runBlocking {
-      dao.create(ExampleEntity.create("A"))
-      dao.create(ExampleEntity.create("B"))
-      dao.create(ExampleEntity.create("C"))
+      dao.create(createEntity("A"))
+      dao.create(createEntity("B"))
+      dao.create(createEntity("C"))
 
       val result = searchRepository.search(ExampleQuery())
 
@@ -83,9 +99,9 @@ class SearchRepositoryTest {
   @Test
   fun orderAscWorks() {
     runBlocking {
-      dao.create(ExampleEntity.create("A"))
-      dao.create(ExampleEntity.create("B"))
-      dao.create(ExampleEntity.create("C"))
+      dao.create(createEntity("A"))
+      dao.create(createEntity("B"))
+      dao.create(createEntity("C"))
 
       val result = searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)).map { it.item.text }
 
@@ -95,9 +111,9 @@ class SearchRepositoryTest {
   @Test
   fun orderDescWorksBothWays() {
     runBlocking {
-      dao.create(ExampleEntity.create("A"))
-      dao.create(ExampleEntity.create("B"))
-      dao.create(ExampleEntity.create("C"))
+      dao.create(createEntity("A"))
+      dao.create(createEntity("B"))
+      dao.create(createEntity("C"))
 
       val result = searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)).map { it.item.id }
       val resul2 = searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = true)).map { it.item.id }
@@ -109,9 +125,9 @@ class SearchRepositoryTest {
   @Test
   fun domainFilterWorks() {
     runBlocking {
-      dao.create(ExampleEntity.create("A"))
-      dao.create(ExampleEntity.create("B"))
-      dao.create(ExampleEntity.create("C"))
+      dao.create(createEntity("A"))
+      dao.create(createEntity("B"))
+      dao.create(createEntity("C"))
 
       val result = searchRepository.search(ExampleQuery(domainFilter = { it.text == "B" }))
 
