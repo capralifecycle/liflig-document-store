@@ -2,6 +2,9 @@ package no.liflig.documentstore
 
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.equals.shouldBeEqual
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import no.liflig.documentstore.dao.CrudDaoJdbi
 import no.liflig.documentstore.dao.SearchRepositoryJdbi
@@ -23,6 +26,11 @@ class SearchRepositoryTest {
   val searchRepository =
     SearchRepositoryJdbi<ExampleId, ExampleEntity, ExampleQuery>(jdbi, "example", serializationAdapter)
 
+  val mockAdapter: ExampleSerializationAdapter = mockk {
+    every { fromJson(any()) } returns createEntity("")
+  }
+  val searchRepositoryWithMock = SearchRepositoryJdbi(jdbi, "example", mockAdapter)
+
   @BeforeEach
   fun clearDatabase() {
     searchRepository.search(ExampleQuery()).forEach {
@@ -31,7 +39,7 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun whereWorks() {
+  fun exampleQueryWorks() {
     runBlocking {
       dao.create(createEntity("hello world"))
       dao.create(createEntity("world"))
@@ -43,7 +51,7 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun limitWorks() {
+  fun `limit returns correct amount of items`() {
     runBlocking {
       dao.create(createEntity("1"))
       dao.create(createEntity("2"))
@@ -56,7 +64,7 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun offSetWorks() {
+  fun `offset skips right amount of items`() {
     runBlocking {
       dao.create(createEntity("hello world"))
       dao.create(createEntity("world"))
@@ -69,7 +77,7 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun offsetAndLimitWorks() {
+  fun `offset and limit returns correct items`() {
     runBlocking {
       dao.create(createEntity("A"))
       dao.create(createEntity("B"))
@@ -84,7 +92,7 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun emptySearchReturnsAllElements() {
+  fun `empty search returns all items`() {
     runBlocking {
       dao.create(createEntity("A"))
       dao.create(createEntity("B"))
@@ -97,7 +105,7 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun orderAscWorks() {
+  fun `orderBy orders correctly`() {
     runBlocking {
       dao.create(createEntity("A"))
       dao.create(createEntity("B"))
@@ -109,7 +117,7 @@ class SearchRepositoryTest {
     }
   }
   @Test
-  fun orderDescWorksBothWays() {
+  fun `orderDesc flips direction`() {
     runBlocking {
       dao.create(createEntity("A"))
       dao.create(createEntity("B"))
@@ -123,7 +131,7 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun domainFilterWorks() {
+  fun `domain filter returns correct items`() {
     runBlocking {
       dao.create(createEntity("A"))
       dao.create(createEntity("B"))
@@ -133,6 +141,43 @@ class SearchRepositoryTest {
 
       result shouldHaveSize 1
       result.first().item.text shouldBeEqual "B"
+    }
+  }
+
+  @Test
+  fun `deserializer runs until limit is reached`() {
+    runBlocking {
+      dao.create(createEntity("Hello Tes"))
+      dao.create(createEntity("Hello Alfred"))
+      dao.create(createEntity("Bye Ted"))
+      dao.create(createEntity("Bye Alfred"))
+
+      val result = searchRepositoryWithMock.search(
+        ExampleQuery(
+          limit = 1
+        )
+      )
+
+      result shouldHaveSize 1
+      verify(exactly = 1) { mockAdapter.fromJson(any()) }
+    }
+  }
+
+  @Test
+  fun `offset skips correct amount of items`() {
+    runBlocking {
+      dao.create(createEntity("Hello Tes"))
+      dao.create(createEntity("Hello Alfred"))
+      dao.create(createEntity("Bye Ted"))
+      dao.create(createEntity("Bye Alfred"))
+
+      val result = searchRepository.search(
+        ExampleQuery(
+          offset = 3
+        )
+      )
+
+      result shouldHaveSize 1
     }
   }
 }
