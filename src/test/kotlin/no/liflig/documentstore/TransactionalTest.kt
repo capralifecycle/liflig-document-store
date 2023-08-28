@@ -10,6 +10,14 @@ import no.liflig.documentstore.dao.SearchRepositoryWithCountJdbi
 import no.liflig.documentstore.dao.coTransactional
 import no.liflig.documentstore.dao.transactional
 import no.liflig.documentstore.entity.Version
+import no.liflig.documentstore.testexamples.ExampleEntity
+import no.liflig.documentstore.testexamples.ExampleId
+import no.liflig.documentstore.testexamples.ExampleQueryObject
+import no.liflig.documentstore.testexamples.ExampleSearchRepository
+import no.liflig.documentstore.testexamples.ExampleSearchRepositoryWithCount
+import no.liflig.documentstore.testexamples.ExampleSerializationAdapter
+import no.liflig.documentstore.testexamples.ExampleTextSearchQuery
+import no.liflig.documentstore.testexamples.OrderBy
 import no.liflig.snapshot.verifyJsonSnapshot
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Named
@@ -310,12 +318,12 @@ class TransactionalTest {
       daoWithCount.create(ExampleEntity.create("B"))
       daoWithCount.create(ExampleEntity.create("C"))
 
-      val queryWithLimitLessThanCount = ExampleQueryObject(limit = 2, offset = 0)
+      val queryWithLimitLessThanCount = ExampleQueryObject<ExampleEntity>(limit = 2, offset = 0)
       val result1 = searchRepositoryWithCount.searchWithCount(queryWithLimitLessThanCount)
       assertEquals(result1.entities.size, queryWithLimitLessThanCount.limit)
       assertEquals(result1.count, 3)
 
-      val queryWithOffsetHigherThanCount = ExampleQueryObject(limit = 2, offset = 1000)
+      val queryWithOffsetHigherThanCount = ExampleQueryObject<ExampleEntity>(limit = 2, offset = 1000)
       val result2 = searchRepositoryWithCount.searchWithCount(queryWithOffsetHigherThanCount)
       assertEquals(result2.count, 3)
     }

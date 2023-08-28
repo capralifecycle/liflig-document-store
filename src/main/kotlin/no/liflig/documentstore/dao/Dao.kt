@@ -45,7 +45,7 @@ interface Dao
  */
 interface CrudDao<I : EntityId, A : EntityRoot<I>> : Dao {
 
-  fun create(entity: A,): VersionedEntity<A>
+  fun create(entity: A): VersionedEntity<A>
 
   fun get(id: I, forUpdate: Boolean = false): VersionedEntity<A>?
 
@@ -252,6 +252,7 @@ abstract class AbstractSearchRepository<I, A, Q>(
     sqlWhere: String = "TRUE",
     limit: Int? = null,
     offset: Int? = null,
+    domainPredicate: ((A) -> Boolean)? = null,
     orderBy: String? = null,
     orderDesc: Boolean = false,
     bind: Query.() -> Query = { this }
@@ -259,10 +260,10 @@ abstract class AbstractSearchRepository<I, A, Q>(
     val transaction = transactionHandle.get()
 
     if (transaction != null) {
-      innerGetByPredicate(sqlWhere, transaction, limit, offset, orderBy, orderDesc, bind)
+      innerGetByPredicate(sqlWhere, transaction, limit, offset, domainPredicate, orderBy, orderDesc, bind)
     } else {
       jdbi.open().use { handle ->
-        innerGetByPredicate(sqlWhere, handle, limit, offset, orderBy, orderDesc, bind)
+        innerGetByPredicate(sqlWhere, handle, limit, offset, domainPredicate, orderBy, orderDesc, bind)
       }
     }
   }
@@ -272,12 +273,11 @@ abstract class AbstractSearchRepository<I, A, Q>(
     handle: Handle,
     limit: Int? = null,
     offset: Int? = null,
+    domainPredicate: ((A) -> Boolean)? = null,
     orderBy: String? = null,
     desc: Boolean = false,
     bind: Query.() -> Query = { this }
   ): MutableList<VersionedEntity<A>> {
-    val limitString = limit?.let { "LIMIT $it" } ?: ""
-    val offsetString = offset?.let { "OFFSET $it" } ?: ""
     val orderDirection = if (desc) "DESC" else "ASC"
     val orderByString = orderBy ?: "created_at"
 
@@ -288,13 +288,15 @@ abstract class AbstractSearchRepository<I, A, Q>(
               FROM "$sqlTableName"
               WHERE ($sqlWhere)
               ORDER BY $orderByString $orderDirection
-              $limitString
-              $offsetString
         """.trimIndent()
       )
       .bind()
       .map(rowMapper)
-      .list()
+      .stream()
+      .run { domainPredicate?.let { filter { agg -> it(agg.item) } } ?: this }
+      .run { offset?.let { skip(it.toLong()) } ?: this }
+      .run { limit?.let{ limit(it.toLong()) } ?: this }
+      .toList()
   }
 }
 
@@ -360,6 +362,7 @@ inline fun <T> mapExceptions(block: () -> T): T {
       is InterruptedIOException,
       is ConnectionException,
       is CloseException -> throw UnavailableDaoException(e)
+
       is NoCountReceivedFromSearchQueryException -> throw e
 
       else -> throw UnknownDaoException(e)

@@ -1,6 +1,6 @@
 @file:UseSerializers(InstantSerializer::class)
 
-package no.liflig.documentstore
+package no.liflig.documentstore.testexamples
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
