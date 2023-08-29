@@ -29,7 +29,8 @@ class SearchRepositoryTest {
   val mockAdapter: ExampleSerializationAdapter = mockk {
     every { fromJson(any()) } returns createEntity("")
   }
-  val searchRepositoryWithMock = SearchRepositoryJdbi<ExampleId, ExampleEntity, ExampleQuery>(jdbi, "example", mockAdapter)
+  val searchRepositoryWithMock =
+    SearchRepositoryJdbi<ExampleId, ExampleEntity, ExampleQuery>(jdbi, "example", mockAdapter)
 
   @BeforeEach
   fun clearDatabase() {
@@ -145,6 +146,21 @@ class SearchRepositoryTest {
   }
 
   @Test
+  fun `orderBy orders correctly for domain filtered search`() {
+    runBlocking {
+      dao.create(createEntity("A"))
+      dao.create(createEntity("B"))
+      dao.create(createEntity("C"))
+
+      val result =
+        searchRepository.searchDomainFiltered(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)) { true }
+          .map { it.item.text }
+
+      result shouldBeEqual listOf("A", "B", "C")
+    }
+  }
+
+  @Test
   fun `orderDesc flips direction`() {
     runBlocking {
       dao.create(createEntity("A"))
@@ -154,6 +170,24 @@ class SearchRepositoryTest {
       val result =
         searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)).map { it.item.id }
       val resul2 = searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = true)).map { it.item.id }
+
+      result shouldBeEqual resul2.asReversed()
+    }
+  }
+
+  @Test
+  fun `orderDesc flips direction in fomain filtered search`() {
+    runBlocking {
+      dao.create(createEntity("A"))
+      dao.create(createEntity("B"))
+      dao.create(createEntity("C"))
+
+      val result =
+        searchRepository.searchDomainFiltered(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)) { true }
+          .map { it.item.id }
+      val resul2 =
+        searchRepository.searchDomainFiltered(ExampleQuery(orderBy = "data->>'text'", orderDesc = true)) { true }
+          .map { it.item.id }
 
       result shouldBeEqual resul2.asReversed()
     }
@@ -174,18 +208,20 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun `deserializer runs until limit is reached`() {
+  fun `deserializer runs exactly once when one match is found`() {
     runBlocking {
       dao.create(createEntity("Hello Tes"))
       dao.create(createEntity("Hello Alfred"))
       dao.create(createEntity("Bye Ted"))
       dao.create(createEntity("Bye Alfred"))
 
-      val result = searchRepositoryWithMock.search(
+      val result = searchRepositoryWithMock.searchDomainFiltered(
         ExampleQuery(
           limit = 1
         )
-      )
+      ) {
+        true
+      }
 
       result shouldHaveSize 1
       verify(exactly = 1) { mockAdapter.fromJson(any()) }
@@ -193,7 +229,7 @@ class SearchRepositoryTest {
   }
 
   @Test
-  fun `offset skips correct amount of items`() {
+  fun `offset works as intended`() {
     runBlocking {
       dao.create(createEntity("Hello Tes"))
       dao.create(createEntity("Hello Alfred"))
@@ -205,6 +241,26 @@ class SearchRepositoryTest {
           offset = 3
         )
       )
+
+      result shouldHaveSize 1
+    }
+  }
+
+  @Test
+  fun `offset works as intended for search with domain filter`() {
+    runBlocking {
+      dao.create(createEntity("Hello Tes"))
+      dao.create(createEntity("Hello Alfred"))
+      dao.create(createEntity("Bye Ted"))
+      dao.create(createEntity("Bye Alfred"))
+
+      val result = searchRepository.searchDomainFiltered(
+        ExampleQuery(
+          offset = 3
+        )
+      ) {
+        true
+      }
 
       result shouldHaveSize 1
     }
