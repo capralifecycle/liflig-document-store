@@ -108,7 +108,8 @@ class SearchRepositoryTest {
           ExampleQuery(
             offset = 1,
             limit = 2,
-            domainFilter = { it.text.startsWith("this") })
+            domainFilter = { it.text.startsWith("this") }
+          )
         )
           .map { it.item.text }
 
