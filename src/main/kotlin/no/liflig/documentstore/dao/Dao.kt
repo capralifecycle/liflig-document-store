@@ -256,45 +256,60 @@ abstract class AbstractSearchRepository<I, A, Q>(
     orderDesc: Boolean = false,
     bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> = mapExceptions {
-    val transaction = transactionHandle.get()
+    inTransaction(jdbi) { handle ->
+      val orderDirection = if (orderDesc) "DESC" else "ASC"
+      val orderByString = orderBy ?: "created_at"
 
-    if (transaction != null) {
-      innerGetByPredicate(sqlWhere, transaction, limit, offset, orderBy, orderDesc, bind)
-    } else {
-      jdbi.open().use { handle ->
-        innerGetByPredicate(sqlWhere, handle, limit, offset, orderBy, orderDesc, bind)
-      }
-    }
-  }
+      val limitString = limit?.let { "LIMIT $it" } ?: ""
+      val offsetString = offset?.let { "OFFSET $it" } ?: ""
 
-  private fun innerGetByPredicate(
-    sqlWhere: String,
-    handle: Handle,
-    limit: Int? = null,
-    offset: Int? = null,
-    orderBy: String? = null,
-    desc: Boolean = false,
-    bind: Query.() -> Query = { this }
-  ): MutableList<VersionedEntity<A>> {
-    val limitString = limit?.let { "LIMIT $it" } ?: ""
-    val offsetString = offset?.let { "OFFSET $it" } ?: ""
-    val orderDirection = if (desc) "DESC" else "ASC"
-    val orderByString = orderBy ?: "created_at"
-
-    return handle
-      .select(
-        """
+      handle
+        .select(
+          """
               SELECT id, data, version, created_at, modified_at
               FROM "$sqlTableName"
               WHERE ($sqlWhere)
               ORDER BY $orderByString $orderDirection
               $limitString
               $offsetString
-        """.trimIndent()
-      )
-      .bind()
-      .map(rowMapper)
-      .list()
+          """.trimIndent()
+        )
+        .bind()
+        .map(rowMapper)
+        .list()
+    }
+  }
+
+  protected open fun getByPredicateDomainFiltered(
+    sqlWhere: String = "TRUE",
+    limit: Int? = null,
+    offset: Int? = null,
+    orderBy: String? = null,
+    orderDesc: Boolean = false,
+    domainFilter: (A) -> Boolean = { true },
+    bind: Query.() -> Query = { this }
+  ): List<VersionedEntity<A>> = mapExceptions {
+    inTransaction(jdbi) { handle ->
+      val orderDirection = if (orderDesc) "DESC" else "ASC"
+      val orderByString = orderBy ?: "created_at"
+
+      handle
+        .select(
+          """
+              SELECT id, data, version, created_at, modified_at
+              FROM "$sqlTableName"
+              WHERE ($sqlWhere)
+              ORDER BY $orderByString $orderDirection
+          """.trimIndent()
+        )
+        .bind()
+        .map(rowMapper)
+        .asSequence()
+        .filter { domainFilter(it.item) }
+        .run { offset?.let { drop(it) } ?: this }
+        .run { limit?.let { take(it) } ?: this }
+        .toList()
+    }
   }
 }
 
@@ -312,8 +327,8 @@ class SearchRepositoryJdbi<I, A, Q>(
   sqlTableName: String,
   serializationAdapter: SerializationAdapter<A>,
 ) : AbstractSearchRepository<I, A, Q>(jdbi, sqlTableName, serializationAdapter) where I : EntityId,
-                                                                                      A : EntityRoot<I>,
-                                                                                      Q : QueryObject {
+                                                                                                    A : EntityRoot<I>,
+                                                                                                    Q : QueryObject {
   override fun search(query: Q): List<VersionedEntity<A>> = getByPredicate(
     sqlWhere = query.sqlWhere,
     limit = query.limit,
@@ -322,6 +337,20 @@ class SearchRepositoryJdbi<I, A, Q>(
     orderDesc = query.orderDesc,
     bind = query.bindSqlParameters,
   )
+
+  /**
+   * A slightly slower version of [search], but with the possibility to filter based on the domain entities.
+   */
+  fun searchDomainFiltered(query: Q, domainFilter: (A) -> Boolean): List<VersionedEntity<A>> =
+    getByPredicateDomainFiltered(
+      sqlWhere = query.sqlWhere,
+      limit = query.limit,
+      offset = query.offset,
+      orderBy = query.orderBy,
+      orderDesc = query.orderDesc,
+      domainFilter = domainFilter,
+      bind = query.bindSqlParameters,
+    )
 }
 
 /**
