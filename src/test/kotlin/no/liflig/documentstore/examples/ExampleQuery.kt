@@ -8,7 +8,7 @@ class ExampleQuery(
   override val offset: Int? = null,
   override val orderBy: String? = null,
   override val orderDesc: Boolean = false,
-  override val domainFilter: ((ExampleEntity) -> Boolean) = { true },
+  override val domainFilter: ((ExampleEntity) -> Boolean)? = null,
 
   val text: String? = null,
 

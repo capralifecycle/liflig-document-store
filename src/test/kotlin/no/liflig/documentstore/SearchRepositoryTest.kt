@@ -92,6 +92,32 @@ class SearchRepositoryTest {
   }
 
   @Test
+  fun `offset and limit works with domain filter`() {
+    runBlocking {
+      dao.create(createEntity("A"))
+      dao.create(createEntity("B"))
+      dao.create(createEntity("C"))
+      dao.create(createEntity("D"))
+      dao.create(createEntity("this-A"))
+      dao.create(createEntity("this-B"))
+      dao.create(createEntity("this-C"))
+      dao.create(createEntity("this-D"))
+
+      val result =
+        searchRepository.search(
+          ExampleQuery(
+            offset = 1,
+            limit = 2,
+            domainFilter = { it.text.startsWith("this") })
+        )
+          .map { it.item.text }
+
+      result shouldHaveSize 2
+      result shouldBeEqual listOf("this-B", "this-C")
+    }
+  }
+
+  @Test
   fun `empty search returns all items`() {
     runBlocking {
       dao.create(createEntity("A"))
@@ -111,11 +137,13 @@ class SearchRepositoryTest {
       dao.create(createEntity("B"))
       dao.create(createEntity("C"))
 
-      val result = searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)).map { it.item.text }
+      val result =
+        searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)).map { it.item.text }
 
       result shouldBeEqual listOf("A", "B", "C")
     }
   }
+
   @Test
   fun `orderDesc flips direction`() {
     runBlocking {
@@ -123,7 +151,8 @@ class SearchRepositoryTest {
       dao.create(createEntity("B"))
       dao.create(createEntity("C"))
 
-      val result = searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)).map { it.item.id }
+      val result =
+        searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)).map { it.item.id }
       val resul2 = searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = true)).map { it.item.id }
 
       result shouldBeEqual resul2.asReversed()

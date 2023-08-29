@@ -15,7 +15,6 @@ import java.io.InterruptedIOException
 import java.sql.SQLTransientException
 import java.time.Instant
 import java.util.UUID
-import kotlin.streams.asSequence
 
 // TODO: update docs
 /**
@@ -255,7 +254,7 @@ abstract class AbstractSearchRepository<I, A, Q>(
     offset: Int? = null,
     orderBy: String? = null,
     orderDesc: Boolean = false,
-    domainFilter: ((A) -> Boolean) = { true },
+    domainFilter: ((A) -> Boolean)? = null,
     bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> = mapExceptions {
     val transaction = transactionHandle.get()
@@ -276,29 +275,40 @@ abstract class AbstractSearchRepository<I, A, Q>(
     offset: Int? = null,
     orderBy: String? = null,
     desc: Boolean = false,
-    domainFilter: ((A) -> Boolean) = { true },
+    domainFilter: ((A) -> Boolean)? = null,
     bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> {
 
     val orderDirection = if (desc) "DESC" else "ASC"
     val orderByString = orderBy ?: "created_at"
 
-    return handle
+    // only use if domainFilter is null
+    val limitString = limit?.let { "LIMIT $it" }?.takeIf { domainFilter == null } ?: ""
+    val offsetString = offset?.let { "OFFSET $it" }?.takeIf { domainFilter == null } ?: ""
+
+    val result = handle
       .select(
         """
               SELECT id, data, version, created_at, modified_at
               FROM "$sqlTableName"
               WHERE ($sqlWhere)
               ORDER BY $orderByString $orderDirection
+              $limitString
+              $offsetString
         """.trimIndent()
       )
       .bind()
       .map(rowMapper)
-      .asSequence()
-      .filter { domainFilter(it.item) }
-      .run { offset?.let { drop(it) } ?: this }
-      .run { limit?.let { take(it) } ?: this }
-      .toList()
+
+    return if (domainFilter == null)
+      result.list()
+    else {
+      result.asSequence()
+        .filter { domainFilter(it.item) }
+        .run { offset?.let { drop(it) } ?: this }
+        .run { limit?.let { take(it) } ?: this }
+        .toList()
+    }
   }
 }
 
@@ -309,7 +319,7 @@ abstract class QueryObject<A> {
   open val offset: Int? = null
   open val orderBy: String? = null
   open val orderDesc: Boolean = false
-  open val domainFilter: ((A) -> Boolean) = { true }
+  open val domainFilter: ((A) -> Boolean)? = null
 }
 
 class SearchRepositoryJdbi<I, A, Q>(
