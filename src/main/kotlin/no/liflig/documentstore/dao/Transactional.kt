@@ -12,8 +12,10 @@ internal fun <T> inTransaction(jdbi: Jdbi, useHandle: (Handle) -> T): T {
   return if (transactionHandle != null) {
     useHandle(transactionHandle)
   } else {
-    jdbi.open().use { handle ->
-      useHandle(handle)
+    mapExceptions {
+      jdbi.open().use { handle ->
+        useHandle(handle)
+      }
     }
   }
 }

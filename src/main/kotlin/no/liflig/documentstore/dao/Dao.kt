@@ -6,7 +6,6 @@ import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.CloseException
 import org.jdbi.v3.core.ConnectionException
-import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinMapper
 import org.jdbi.v3.core.mapper.RowMapper
@@ -66,69 +65,35 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   private fun fromJson(value: String): A = serializationAdapter.fromJson(value)
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override fun get(id: I, forUpdate: Boolean): VersionedEntity<A>? {
-    val transaction = transactionHandle.get()
-
-    return if (transaction != null)
-      innerGet(id, transaction, forUpdate)
-    else
-      mapExceptions {
-
-        jdbi.open().use { handle ->
-          innerGet(id, handle, forUpdate)
-        }
-      }
+  override fun get(id: I, forUpdate: Boolean): VersionedEntity<A>? = inTransaction(jdbi) { handle ->
+    handle
+      .select(
+        """
+          SELECT id, data, version, created_at, modified_at
+          FROM "$sqlTableName"
+          WHERE id = :id
+          ORDER BY created_at
+          ${if (forUpdate) " FOR UPDATE" else ""}
+        """.trimIndent()
+      )
+      .bind("id", id)
+      .map(rowMapper)
+      .firstOrNull()
   }
 
-  private fun innerGet(
-    id: I,
-    handle: Handle,
-    forUpdate: Boolean,
-  ): VersionedEntity<A>? = handle
-    .select(
-      """
-            SELECT id, data, version, created_at, modified_at
-            FROM "$sqlTableName"
-            WHERE id = :id
-            ORDER BY created_at
-            ${if (forUpdate) " FOR UPDATE" else ""}
-      """.trimIndent()
-    )
-    .bind("id", id)
-    .map(rowMapper)
-    .firstOrNull()
-
-  override fun delete(id: I, previousVersion: Version) {
-    val transaction = transactionHandle.get()
-
-    if (transaction != null)
-      innerDelete(id, previousVersion, transaction)
-    else
-      mapExceptions {
-
-        jdbi.open().use { handle ->
-          innerDelete(id, previousVersion, handle)
-        }
-      }
-  }
-
-  private fun innerDelete(
-    id: I,
-    previousVersion: Version,
-    handle: Handle,
-  ) {
+  override fun delete(id: I, previousVersion: Version) = inTransaction(jdbi) { handle ->
     val deleted = handle
       .createUpdate(
         """
-            DELETE FROM "$sqlTableName"
-            WHERE id = :id AND version = :previousVersion
+          DELETE FROM "$sqlTableName"
+          WHERE id = :id AND version = :previousVersion
         """.trimIndent()
       )
       .bind("id", id)
       .bind("previousVersion", previousVersion)
       .execute()
 
-    return if (deleted == 0) throw ConflictDaoException()
+    if (deleted == 0) throw ConflictDaoException()
     else Unit
   }
 
@@ -137,38 +102,23 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * implement its own version if there are special columns that needs to be
    * kept in sync e.g. for indexing purposes.
    */
-  override fun create(entity: A): VersionedEntity<A> {
-    val transaction = transactionHandle.get()
-
-    return if (transaction != null)
-      innerCreate(entity, transaction)
-    else
-      mapExceptions {
-
-        jdbi.open().use { handle ->
-          innerCreate(entity, handle)
-        }
-      }
-  }
-
-  private fun innerCreate(
-    entity: A,
-    handle: Handle
-  ): VersionedEntity<A> = VersionedEntity(entity, Version.initial()).also {
-    val now = Instant.now()
-    handle
-      .createUpdate(
-        """
+  override fun create(entity: A): VersionedEntity<A> = inTransaction(jdbi) { handle ->
+    VersionedEntity(entity, Version.initial()).also {
+      val now = Instant.now()
+      handle
+        .createUpdate(
+          """
             INSERT INTO "$sqlTableName" (id, version, data, modified_at, created_at)
             VALUES (:id, :version, :data::jsonb, :modifiedAt, :createdAt)
-        """.trimIndent()
-      )
-      .bind("id", entity.id)
-      .bind("version", it.version)
-      .bind("data", toJson(entity))
-      .bind("modifiedAt", now)
-      .bind("createdAt", now)
-      .execute()
+          """.trimIndent()
+        )
+        .bind("id", entity.id)
+        .bind("version", it.version)
+        .bind("data", toJson(entity))
+        .bind("modifiedAt", now)
+        .bind("createdAt", now)
+        .execute()
+    }
   }
 
   /**
@@ -176,30 +126,13 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * implement its own version if there are special columns that needs to be
    * kept in sync e.g. for indexing purposes.
    */
-  override fun <A2 : A> update(entity: A2, previousVersion: Version): VersionedEntity<A2> {
-    val transaction = transactionHandle.get()
-
-    return if (transaction != null)
-      innerUpdate(transaction, entity, previousVersion)
-    else
-      mapExceptions {
-
-        jdbi.open().use { handle ->
-          innerUpdate(handle, entity, previousVersion)
-        }
-      }
-  }
-
-  private fun <A2 : A> innerUpdate(
-    handle: Handle,
-    entity: A2,
-    previousVersion: Version
-  ): VersionedEntity<A2> {
-    val result = VersionedEntity(entity, previousVersion.next())
-    val updated =
-      handle
-        .createUpdate(
-          """
+  override fun <A2 : A> update(entity: A2, previousVersion: Version): VersionedEntity<A2> =
+    inTransaction(jdbi) { handle ->
+      val result = VersionedEntity(entity, previousVersion.next())
+      val updated =
+        handle
+          .createUpdate(
+            """
               UPDATE "$sqlTableName"
               SET
                 version = :nextVersion,
@@ -208,18 +141,18 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
               WHERE
                 id = :id AND
                 version = :previousVersion
-          """.trimIndent()
-        )
-        .bind("nextVersion", result.version)
-        .bind("data", toJson(entity))
-        .bind("id", entity.id)
-        .bind("modifiedAt", Instant.now())
-        .bind("previousVersion", previousVersion)
-        .execute()
+            """.trimIndent()
+          )
+          .bind("nextVersion", result.version)
+          .bind("data", toJson(entity))
+          .bind("id", entity.id)
+          .bind("modifiedAt", Instant.now())
+          .bind("previousVersion", previousVersion)
+          .execute()
 
-    return if (updated == 0) throw ConflictDaoException()
-    else result
-  }
+      if (updated == 0) throw ConflictDaoException()
+      else result
+    }
 }
 
 interface SearchRepository<I, A, Q>
@@ -327,8 +260,8 @@ class SearchRepositoryJdbi<I, A, Q>(
   sqlTableName: String,
   serializationAdapter: SerializationAdapter<A>,
 ) : AbstractSearchRepository<I, A, Q>(jdbi, sqlTableName, serializationAdapter) where I : EntityId,
-                                                                                                    A : EntityRoot<I>,
-                                                                                                    Q : QueryObject {
+                                                                                      A : EntityRoot<I>,
+                                                                                      Q : QueryObject {
   override fun search(query: Q): List<VersionedEntity<A>> = getByPredicate(
     sqlWhere = query.sqlWhere,
     limit = query.limit,

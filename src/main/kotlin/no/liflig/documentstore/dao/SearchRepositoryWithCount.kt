@@ -4,7 +4,6 @@ import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.VersionedEntity
-import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinMapper
 import org.jdbi.v3.core.mapper.RowMapper
@@ -18,7 +17,7 @@ EntityT : EntityRoot<EntityIdT> {
   fun searchWithCount(query: SearchQueryT): EntitiesWithCount<EntityT>
 }
 
-data class EntitiesWithCount<EntityT : EntityRoot<*>> (
+data class EntitiesWithCount<EntityT : EntityRoot<*>>(
   val entities: List<VersionedEntity<EntityT>>,
   val count: Long,
 )
@@ -56,38 +55,19 @@ EntityT : EntityRoot<EntityIdT> {
     orderDesc: Boolean = false,
     bind: Query.() -> Query = { this }
   ): EntitiesWithCount<EntityT> = mapExceptions {
-    val transaction = transactionHandle.get()
+    inTransaction(jdbi) { handle ->
+      val limitString = limit?.let { "LIMIT $it" } ?: ""
+      val offsetString = offset?.let { "OFFSET $it" } ?: ""
+      val orderDirection = if (orderDesc) "DESC" else "ASC"
+      val orderByString = orderBy ?: "created_at"
 
-    if (transaction != null) {
-      innerGetByPredicateWithCount(sqlWhere, transaction, limit, offset, orderBy, orderDesc, bind)
-    } else {
-      jdbi.open().use { handle ->
-        innerGetByPredicateWithCount(sqlWhere, handle, limit, offset, orderBy, orderDesc, bind)
-      }
-    }
-  }
-
-  private fun innerGetByPredicateWithCount(
-    sqlWhere: String,
-    handle: Handle,
-    limit: Int? = null,
-    offset: Int? = null,
-    orderBy: String? = null,
-    desc: Boolean = false,
-    bind: Query.() -> Query = { this }
-  ): EntitiesWithCount<EntityT> {
-    val limitString = limit?.let { "LIMIT $it" } ?: ""
-    val offsetString = offset?.let { "OFFSET $it" } ?: ""
-    val orderDirection = if (desc) "DESC" else "ASC"
-    val orderByString = orderBy ?: "created_at"
-
-    val rows =
-      handle
-        .select(
-          // SQL query based on https://stackoverflow.com/a/28888696
-          // Uses a RIGHT JOIN with the count in order to still get the count when no rows are
-          // returned.
-          """
+      val rows =
+        handle
+          .select(
+            // SQL query based on https://stackoverflow.com/a/28888696
+            // Uses a RIGHT JOIN with the count in order to still get the count when no rows are
+            // returned.
+            """
               WITH base_query AS (
                   SELECT id, data, version, created_at, modified_at
                   FROM "$sqlTableName"
@@ -103,15 +83,17 @@ EntityT : EntityRoot<EntityIdT> {
               RIGHT JOIN (
                   SELECT count(*) FROM base_query
               ) c(count) ON true
-          """.trimIndent()
-        )
-        .bind()
-        .map(rowMapperWithCount)
-        .list()
+            """.trimIndent()
+          )
+          .bind()
+          .map(rowMapperWithCount)
+          .list()
 
-    val entities = rows.mapNotNull { row -> row.entity }
-    val count = rows.firstOrNull()?.count ?: throw NoCountReceivedFromSearchQueryException
-    return EntitiesWithCount(entities, count)
+      val entities = rows.mapNotNull { row -> row.entity }
+      val count = rows.firstOrNull()?.count ?: throw NoCountReceivedFromSearchQueryException
+
+      EntitiesWithCount(entities, count)
+    }
   }
 }
 
@@ -126,7 +108,7 @@ data class EntityRowWithCount(
   val count: Long,
 )
 
-data class MappedEntityWithCount<EntityT : EntityRoot<*>> (
+data class MappedEntityWithCount<EntityT : EntityRoot<*>>(
   val entity: VersionedEntity<EntityT>?,
   val count: Long,
 )
