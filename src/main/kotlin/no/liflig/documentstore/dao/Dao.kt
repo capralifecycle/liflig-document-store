@@ -254,56 +254,57 @@ abstract class AbstractSearchRepository<I, A, Q>(
     offset: Int? = null,
     orderBy: String? = null,
     orderDesc: Boolean = false,
-    domainFilter: ((A) -> Boolean)? = null,
     bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> = mapExceptions {
-    val transaction = transactionHandle.get()
+    inTransaction(jdbi) { handle ->
+      val orderDirection = if (orderDesc) "DESC" else "ASC"
+      val orderByString = orderBy ?: "created_at"
 
-    if (transaction != null) {
-      innerGetByPredicate(sqlWhere, transaction, limit, offset, orderBy, orderDesc, domainFilter, bind)
-    } else {
-      jdbi.open().use { handle ->
-        innerGetByPredicate(sqlWhere, handle, limit, offset, orderBy, orderDesc, domainFilter, bind)
-      }
-    }
-  }
+      val limitString = limit?.let { "LIMIT $it" } ?: ""
+      val offsetString = offset?.let { "OFFSET $it" } ?: ""
 
-  private fun innerGetByPredicate(
-    sqlWhere: String,
-    handle: Handle,
-    limit: Int? = null,
-    offset: Int? = null,
-    orderBy: String? = null,
-    desc: Boolean = false,
-    domainFilter: ((A) -> Boolean)? = null,
-    bind: Query.() -> Query = { this }
-  ): List<VersionedEntity<A>> {
-
-    val orderDirection = if (desc) "DESC" else "ASC"
-    val orderByString = orderBy ?: "created_at"
-
-    // only use if domainFilter is null
-    val limitString = limit?.let { "LIMIT $it" }?.takeIf { domainFilter == null } ?: ""
-    val offsetString = offset?.let { "OFFSET $it" }?.takeIf { domainFilter == null } ?: ""
-
-    val result = handle
-      .select(
-        """
+      handle
+        .select(
+          """
               SELECT id, data, version, created_at, modified_at
               FROM "$sqlTableName"
               WHERE ($sqlWhere)
               ORDER BY $orderByString $orderDirection
               $limitString
               $offsetString
-        """.trimIndent()
-      )
-      .bind()
-      .map(rowMapper)
+          """.trimIndent()
+        )
+        .bind()
+        .map(rowMapper)
+        .list()
+    }
+  }
 
-    return if (domainFilter == null)
-      result.list()
-    else {
-      result.asSequence()
+  protected open fun getByPredicateDomainFiltered(
+    sqlWhere: String = "TRUE",
+    limit: Int? = null,
+    offset: Int? = null,
+    orderBy: String? = null,
+    orderDesc: Boolean = false,
+    domainFilter: (A) -> Boolean = { true },
+    bind: Query.() -> Query = { this }
+  ): List<VersionedEntity<A>> = mapExceptions {
+    inTransaction(jdbi) { handle ->
+      val orderDirection = if (orderDesc) "DESC" else "ASC"
+      val orderByString = orderBy ?: "created_at"
+
+      handle
+        .select(
+          """
+              SELECT id, data, version, created_at, modified_at
+              FROM "$sqlTableName"
+              WHERE ($sqlWhere)
+              ORDER BY $orderByString $orderDirection
+          """.trimIndent()
+        )
+        .bind()
+        .map(rowMapper)
+        .asSequence()
         .filter { domainFilter(it.item) }
         .run { offset?.let { drop(it) } ?: this }
         .run { limit?.let { take(it) } ?: this }
@@ -312,14 +313,13 @@ abstract class AbstractSearchRepository<I, A, Q>(
   }
 }
 
-abstract class QueryObject<A> {
+abstract class QueryObject {
   open val sqlWhere: String = "TRUE"
   open val bindSqlParameters: Query.() -> Query = { this } // Default no-op
   open val limit: Int? = null
   open val offset: Int? = null
   open val orderBy: String? = null
   open val orderDesc: Boolean = false
-  open val domainFilter: ((A) -> Boolean)? = null
 }
 
 class SearchRepositoryJdbi<I, A, Q>(
@@ -327,17 +327,30 @@ class SearchRepositoryJdbi<I, A, Q>(
   sqlTableName: String,
   serializationAdapter: SerializationAdapter<A>,
 ) : AbstractSearchRepository<I, A, Q>(jdbi, sqlTableName, serializationAdapter) where I : EntityId,
-                                                                                      A : EntityRoot<I>,
-                                                                                      Q : QueryObject<A> {
+                                                                                                    A : EntityRoot<I>,
+                                                                                                    Q : QueryObject {
   override fun search(query: Q): List<VersionedEntity<A>> = getByPredicate(
     sqlWhere = query.sqlWhere,
     limit = query.limit,
     offset = query.offset,
     orderBy = query.orderBy,
     orderDesc = query.orderDesc,
-    domainFilter = query.domainFilter,
     bind = query.bindSqlParameters,
   )
+
+  /**
+   * A slightly slower version of [search], but with the possibility to filter based on the domain entities.
+   */
+  fun searchDomainFiltered(query: Q, domainFilter: (A) -> Boolean): List<VersionedEntity<A>> =
+    getByPredicateDomainFiltered(
+      sqlWhere = query.sqlWhere,
+      limit = query.limit,
+      offset = query.offset,
+      orderBy = query.orderBy,
+      orderDesc = query.orderDesc,
+      domainFilter = domainFilter,
+      bind = query.bindSqlParameters,
+    )
 }
 
 /**

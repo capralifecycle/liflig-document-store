@@ -29,7 +29,7 @@ class SearchRepositoryTest {
   val mockAdapter: ExampleSerializationAdapter = mockk {
     every { fromJson(any()) } returns createEntity("")
   }
-  val searchRepositoryWithMock = SearchRepositoryJdbi(jdbi, "example", mockAdapter)
+  val searchRepositoryWithMock = SearchRepositoryJdbi<ExampleId, ExampleEntity, ExampleQuery>(jdbi, "example", mockAdapter)
 
   @BeforeEach
   fun clearDatabase() {
@@ -104,13 +104,12 @@ class SearchRepositoryTest {
       dao.create(createEntity("this-D"))
 
       val result =
-        searchRepository.search(
+        searchRepository.searchDomainFiltered(
           ExampleQuery(
             offset = 1,
             limit = 2,
-            domainFilter = { it.text.startsWith("this") }
           )
-        )
+        ) { it.text.startsWith("this") }
           .map { it.item.text }
 
       result shouldHaveSize 2
@@ -167,7 +166,7 @@ class SearchRepositoryTest {
       dao.create(createEntity("B"))
       dao.create(createEntity("C"))
 
-      val result = searchRepository.search(ExampleQuery(domainFilter = { it.text == "B" }))
+      val result = searchRepository.searchDomainFiltered(ExampleQuery()) { it.text == "B" }
 
       result shouldHaveSize 1
       result.first().item.text shouldBeEqual "B"

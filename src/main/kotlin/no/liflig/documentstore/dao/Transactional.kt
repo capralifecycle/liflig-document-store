@@ -6,6 +6,18 @@ import java.lang.Exception
 
 val transactionHandle = ThreadLocal<Handle?>()
 
+internal fun <T> inTransaction(jdbi: Jdbi, useHandle: (Handle) -> T): T {
+  val transactionHandle = transactionHandle.get()
+
+  return if (transactionHandle != null) {
+    useHandle(transactionHandle)
+  } else {
+    jdbi.open().use { handle ->
+      useHandle(handle)
+    }
+  }
+}
+
 fun <T> transactional(jdbi: Jdbi, block: () -> T): T {
   val existingHandle = transactionHandle.get()
 
