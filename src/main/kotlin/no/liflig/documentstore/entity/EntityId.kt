@@ -1,19 +1,15 @@
 package no.liflig.documentstore.entity
 
+import java.sql.Types
+import java.util.UUID
 import org.jdbi.v3.core.argument.AbstractArgumentFactory
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.config.ConfigRegistry
-import java.sql.Types
-import java.util.UUID
 
-/**
- * EntityId represents the ID pointing to a specific [Entity].
- */
+/** EntityId represents the ID pointing to a specific [Entity]. */
 interface EntityId
 
-/**
- * UUID-version of an EntityId.
- */
+/** UUID-version of an EntityId. */
 interface UuidEntityId : EntityId {
   val id: UUID
 }
@@ -35,12 +31,10 @@ interface UuidEntityId : EntityId {
 //    factory(UUID.fromString(decoder.decodeString()))
 // }
 
-/**
- * An argument factory for JDBI so that we can use a [UuidEntityId] as a bind argument.
- */
+/** An argument factory for JDBI so that we can use a [UuidEntityId] as a bind argument. */
 class UuidEntityIdArgumentFactory : AbstractArgumentFactory<UuidEntityId>(Types.OTHER) {
   override fun build(value: UuidEntityId, config: ConfigRegistry?): Argument =
-    Argument { position, statement, _ ->
-      statement.setObject(position, value.id)
-    }
+      Argument { position, statement, _ ->
+        statement.setObject(position, value.id)
+      }
 }
