@@ -65,7 +65,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
   private fun fromJson(value: String): A = serializationAdapter.fromJson(value)
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override fun get(id: I, forUpdate: Boolean): VersionedEntity<A>? = inTransaction(jdbi) { handle ->
+  override fun get(id: I, forUpdate: Boolean): VersionedEntity<A>? = getHandle(jdbi) { handle ->
     handle
       .select(
         """
@@ -81,7 +81,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
       .firstOrNull()
   }
 
-  override fun delete(id: I, previousVersion: Version) = inTransaction(jdbi) { handle ->
+  override fun delete(id: I, previousVersion: Version) = getHandle(jdbi) { handle ->
     val deleted = handle
       .createUpdate(
         """
@@ -102,7 +102,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * implement its own version if there are special columns that needs to be
    * kept in sync e.g. for indexing purposes.
    */
-  override fun create(entity: A): VersionedEntity<A> = inTransaction(jdbi) { handle ->
+  override fun create(entity: A): VersionedEntity<A> = getHandle(jdbi) { handle ->
     VersionedEntity(entity, Version.initial()).also {
       val now = Instant.now()
       handle
@@ -127,7 +127,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * kept in sync e.g. for indexing purposes.
    */
   override fun <A2 : A> update(entity: A2, previousVersion: Version): VersionedEntity<A2> =
-    inTransaction(jdbi) { handle ->
+    getHandle(jdbi) { handle ->
       val result = VersionedEntity(entity, previousVersion.next())
       val updated =
         handle
@@ -189,7 +189,7 @@ abstract class AbstractSearchRepository<I, A, Q>(
     orderDesc: Boolean = false,
     bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> = mapExceptions {
-    inTransaction(jdbi) { handle ->
+    getHandle(jdbi) { handle ->
       val orderDirection = if (orderDesc) "DESC" else "ASC"
       val orderByString = orderBy ?: "created_at"
 
@@ -222,7 +222,7 @@ abstract class AbstractSearchRepository<I, A, Q>(
     domainFilter: (A) -> Boolean = { true },
     bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> = mapExceptions {
-    inTransaction(jdbi) { handle ->
+    getHandle(jdbi) { handle ->
       val orderDirection = if (orderDesc) "DESC" else "ASC"
       val orderByString = orderBy ?: "created_at"
 

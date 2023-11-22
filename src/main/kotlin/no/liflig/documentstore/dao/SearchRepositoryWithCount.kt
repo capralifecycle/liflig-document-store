@@ -55,7 +55,7 @@ EntityT : EntityRoot<EntityIdT> {
     orderDesc: Boolean = false,
     bind: Query.() -> Query = { this }
   ): EntitiesWithCount<EntityT> = mapExceptions {
-    inTransaction(jdbi) { handle ->
+    getHandle(jdbi) { handle ->
       val limitString = limit?.let { "LIMIT $it" } ?: ""
       val offsetString = offset?.let { "OFFSET $it" } ?: ""
       val orderDirection = if (orderDesc) "DESC" else "ASC"
