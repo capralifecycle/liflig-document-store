@@ -13,7 +13,7 @@ import org.jdbi.v3.postgres.PostgresPlugin
 import org.testcontainers.containers.PostgreSQLContainer
 import javax.sql.DataSource
 
-class AppPostgresSQLContainer : PostgreSQLContainer<AppPostgresSQLContainer>("postgres:12")
+class AppPostgresSQLContainer : PostgreSQLContainer<AppPostgresSQLContainer>("postgres:16")
 
 private fun createDataSource(
   jdbcUrl: String,
