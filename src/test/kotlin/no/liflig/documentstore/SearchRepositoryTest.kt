@@ -9,13 +9,13 @@ import kotlinx.coroutines.runBlocking
 import no.liflig.documentstore.dao.CrudDaoJdbi
 import no.liflig.documentstore.dao.SearchRepositoryJdbi
 import no.liflig.documentstore.examples.ExampleEntity
+import no.liflig.documentstore.examples.ExampleEntity.Companion.create as createEntity
 import no.liflig.documentstore.examples.ExampleId
 import no.liflig.documentstore.examples.ExampleQuery
 import no.liflig.documentstore.examples.ExampleSerializationAdapter
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import no.liflig.documentstore.examples.ExampleEntity.Companion.create as createEntity
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SearchRepositoryTest {
@@ -24,19 +24,18 @@ class SearchRepositoryTest {
   val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
 
   val searchRepository =
-    SearchRepositoryJdbi<ExampleId, ExampleEntity, ExampleQuery>(jdbi, "example", serializationAdapter)
+      SearchRepositoryJdbi<ExampleId, ExampleEntity, ExampleQuery>(
+          jdbi, "example", serializationAdapter)
 
   val mockAdapter: ExampleSerializationAdapter = mockk {
     every { fromJson(any()) } returns createEntity("")
   }
   val searchRepositoryWithMock =
-    SearchRepositoryJdbi<ExampleId, ExampleEntity, ExampleQuery>(jdbi, "example", mockAdapter)
+      SearchRepositoryJdbi<ExampleId, ExampleEntity, ExampleQuery>(jdbi, "example", mockAdapter)
 
   @BeforeEach
   fun clearDatabase() {
-    searchRepository.search(ExampleQuery()).forEach {
-      dao.delete(it.item.id, it.version)
-    }
+    searchRepository.search(ExampleQuery()).forEach { dao.delete(it.item.id, it.version) }
   }
 
   @Test
@@ -105,13 +104,15 @@ class SearchRepositoryTest {
       dao.create(createEntity("this-D"))
 
       val result =
-        searchRepository.searchDomainFiltered(
-          ExampleQuery(
-            offset = 1,
-            limit = 2,
-          )
-        ) { it.text.startsWith("this") }
-          .map { it.item.text }
+          searchRepository
+              .searchDomainFiltered(
+                  ExampleQuery(
+                      offset = 1,
+                      limit = 2,
+                  )) {
+                    it.text.startsWith("this")
+                  }
+              .map { it.item.text }
 
       result shouldHaveSize 2
       result shouldBeEqual listOf("this-B", "this-C")
@@ -139,7 +140,9 @@ class SearchRepositoryTest {
       dao.create(createEntity("C"))
 
       val result =
-        searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)).map { it.item.text }
+          searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)).map {
+            it.item.text
+          }
 
       result shouldBeEqual listOf("A", "B", "C")
     }
@@ -153,8 +156,11 @@ class SearchRepositoryTest {
       dao.create(createEntity("C"))
 
       val result =
-        searchRepository.searchDomainFiltered(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)) { true }
-          .map { it.item.text }
+          searchRepository
+              .searchDomainFiltered(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)) {
+                true
+              }
+              .map { it.item.text }
 
       result shouldBeEqual listOf("A", "B", "C")
     }
@@ -168,8 +174,13 @@ class SearchRepositoryTest {
       dao.create(createEntity("C"))
 
       val result =
-        searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)).map { it.item.id }
-      val resul2 = searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = true)).map { it.item.id }
+          searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)).map {
+            it.item.id
+          }
+      val resul2 =
+          searchRepository.search(ExampleQuery(orderBy = "data->>'text'", orderDesc = true)).map {
+            it.item.id
+          }
 
       result shouldBeEqual resul2.asReversed()
     }
@@ -183,11 +194,17 @@ class SearchRepositoryTest {
       dao.create(createEntity("C"))
 
       val result =
-        searchRepository.searchDomainFiltered(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)) { true }
-          .map { it.item.id }
+          searchRepository
+              .searchDomainFiltered(ExampleQuery(orderBy = "data->>'text'", orderDesc = false)) {
+                true
+              }
+              .map { it.item.id }
       val resul2 =
-        searchRepository.searchDomainFiltered(ExampleQuery(orderBy = "data->>'text'", orderDesc = true)) { true }
-          .map { it.item.id }
+          searchRepository
+              .searchDomainFiltered(ExampleQuery(orderBy = "data->>'text'", orderDesc = true)) {
+                true
+              }
+              .map { it.item.id }
 
       result shouldBeEqual resul2.asReversed()
     }
@@ -215,13 +232,7 @@ class SearchRepositoryTest {
       dao.create(createEntity("Bye Ted"))
       dao.create(createEntity("Bye Alfred"))
 
-      val result = searchRepositoryWithMock.searchDomainFiltered(
-        ExampleQuery(
-          limit = 1
-        )
-      ) {
-        true
-      }
+      val result = searchRepositoryWithMock.searchDomainFiltered(ExampleQuery(limit = 1)) { true }
 
       result shouldHaveSize 1
       verify(exactly = 1) { mockAdapter.fromJson(any()) }
@@ -236,11 +247,7 @@ class SearchRepositoryTest {
       dao.create(createEntity("Bye Ted"))
       dao.create(createEntity("Bye Alfred"))
 
-      val result = searchRepository.search(
-        ExampleQuery(
-          offset = 3
-        )
-      )
+      val result = searchRepository.search(ExampleQuery(offset = 3))
 
       result shouldHaveSize 1
     }
@@ -254,13 +261,7 @@ class SearchRepositoryTest {
       dao.create(createEntity("Bye Ted"))
       dao.create(createEntity("Bye Alfred"))
 
-      val result = searchRepository.searchDomainFiltered(
-        ExampleQuery(
-          offset = 3
-        )
-      ) {
-        true
-      }
+      val result = searchRepository.searchDomainFiltered(ExampleQuery(offset = 3)) { true }
 
       result shouldHaveSize 1
     }

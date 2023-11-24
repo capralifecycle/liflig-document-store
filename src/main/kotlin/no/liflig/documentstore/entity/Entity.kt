@@ -26,7 +26,5 @@ abstract class AbstractEntity<I : EntityId> : Entity<I> {
   override fun hashCode(): Int = id.hashCode()
 }
 
-/**
- * Base class for the root Entity.
- */
+/** Base class for the root Entity. */
 abstract class AbstractEntityRoot<I : EntityId> : AbstractEntity<I>(), EntityRoot<I>

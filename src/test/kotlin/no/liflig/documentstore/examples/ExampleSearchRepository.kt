@@ -14,10 +14,10 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.statement.Query
 
 data class ExampleQueryObject(
-  val limit: Int? = null,
-  val offset: Int? = null,
-  val orderBy: OrderBy? = null,
-  val orderDesc: Boolean = false,
+    val limit: Int? = null,
+    val offset: Int? = null,
+    val orderBy: OrderBy? = null,
+    val orderDesc: Boolean = false,
 )
 
 enum class OrderBy {
@@ -26,66 +26,61 @@ enum class OrderBy {
 }
 
 class ExampleSearchRepository(
-  jdbi: Jdbi,
-  sqlTableName: String,
-  serializationAdapter: SerializationAdapter<ExampleEntity>
+    jdbi: Jdbi,
+    sqlTableName: String,
+    serializationAdapter: SerializationAdapter<ExampleEntity>
 ) :
-  AbstractSearchRepository<ExampleId, ExampleEntity, ExampleQueryObject>(
-    jdbi, sqlTableName, serializationAdapter
-  ) {
+    AbstractSearchRepository<ExampleId, ExampleEntity, ExampleQueryObject>(
+        jdbi, sqlTableName, serializationAdapter) {
   override fun listByIds(ids: List<ExampleId>): List<VersionedEntity<ExampleEntity>> {
     TODO("Not yet implemented")
   }
 
   override fun search(query: ExampleQueryObject): List<VersionedEntity<ExampleEntity>> =
-    getByPredicate(
-      limit = query.limit,
-      offset = query.offset,
-      orderDesc = query.orderDesc,
-      orderBy =
-      when (query.orderBy) {
-        OrderBy.TEXT -> "data->>'text'"
-        OrderBy.CREATED_AT -> "createdAt"
-        null -> null
-      }
-    )
+      getByPredicate(
+          limit = query.limit,
+          offset = query.offset,
+          orderDesc = query.orderDesc,
+          orderBy =
+              when (query.orderBy) {
+                OrderBy.TEXT -> "data->>'text'"
+                OrderBy.CREATED_AT -> "createdAt"
+                null -> null
+              })
 }
 
 class ExampleSearchRepositoryWithCount(
-  jdbi: Jdbi,
-  sqlTableName: String,
-  serializationAdapter: SerializationAdapter<ExampleEntity>
+    jdbi: Jdbi,
+    sqlTableName: String,
+    serializationAdapter: SerializationAdapter<ExampleEntity>
 ) :
-  AbstractSearchRepositoryWithCount<ExampleId, ExampleEntity, ExampleQueryObject>(
-    jdbi,
-    sqlTableName,
-    serializationAdapter,
-  ) {
+    AbstractSearchRepositoryWithCount<ExampleId, ExampleEntity, ExampleQueryObject>(
+        jdbi,
+        sqlTableName,
+        serializationAdapter,
+    ) {
   override fun search(query: ExampleQueryObject): List<VersionedEntity<ExampleEntity>> {
     TODO("Not yet implemented")
   }
 
-  override fun searchWithCount(
-    query: ExampleQueryObject
-  ): EntitiesWithCount<ExampleEntity> {
+  override fun searchWithCount(query: ExampleQueryObject): EntitiesWithCount<ExampleEntity> {
     return getByPredicateWithCount(
-      limit = query.limit,
-      offset = query.offset,
-      orderDesc = query.orderDesc,
-      orderBy =
-      when (query.orderBy) {
-        OrderBy.TEXT -> "data->>'text'"
-        OrderBy.CREATED_AT -> "createdAt"
-        null -> null
-      }
-    )
+        limit = query.limit,
+        offset = query.offset,
+        orderDesc = query.orderDesc,
+        orderBy =
+            when (query.orderBy) {
+              OrderBy.TEXT -> "data->>'text'"
+              OrderBy.CREATED_AT -> "createdAt"
+              null -> null
+            })
   }
 }
 
 data class ExampleTextSearchQuery(
-  val text: String,
-  override val limit: Int? = null,
-  override val offset: Int? = null
+    val text: String,
+    override val limit: Int? = null,
+    override val offset: Int? = null
 ) : SearchRepositoryQuery() {
   override val sqlWhere: String = "(data->>'text' ILIKE '%' || :text || '%')"
 
