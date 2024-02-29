@@ -11,6 +11,9 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import no.liflig.documentstore.dao.ConflictDaoException
 import no.liflig.documentstore.dao.CrudDaoJdbi
@@ -228,6 +231,32 @@ class TransactionalTest {
 
       assertEquals(initialValue, dao.get(initialAgg1.id)!!.item.text)
       assertEquals(initialValue, dao.get(initialAgg2.id)!!.item.text)
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("getTransactionFunctions")
+  fun transactionWithForUpdateLocksRows(transactionBlock: Transactional) {
+    runBlocking {
+      val initialValue = "Initial"
+      val (initialAgg1, _) = dao.create(ExampleEntity.create(initialValue))
+
+      // Without locking, we should be getting ConflictDaoException when concurrent processes
+      // attempt to update the same row. With locking, each transaction will wait until lock
+      // is released before reading
+      (1 until 100)
+          .map {
+            async(Dispatchers.IO) {
+              transactionBlock(jdbi) {
+                val first = dao.get(initialAgg1.id, true)!!
+                val updated = first.item.updateText(it.toString())
+                dao.update(updated, first.version)
+              }
+            }
+          }
+          .awaitAll()
+
+      assertEquals(100, dao.get(initialAgg1.id)!!.version.value)
     }
   }
 

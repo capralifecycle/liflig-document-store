@@ -176,6 +176,7 @@ abstract class AbstractSearchRepository<I, A, Q>(
       offset: Int? = null,
       orderBy: String? = null,
       orderDesc: Boolean = false,
+      forUpdate: Boolean = false,
       bind: Query.() -> Query = { this }
   ): List<VersionedEntity<A>> = mapExceptions {
     getHandle(jdbi) { handle ->
@@ -184,6 +185,7 @@ abstract class AbstractSearchRepository<I, A, Q>(
 
       val limitString = limit?.let { "LIMIT $it" } ?: ""
       val offsetString = offset?.let { "OFFSET $it" } ?: ""
+      val forUpdateString = if (forUpdate) " FOR UPDATE" else ""
 
       handle
           .select(
@@ -194,6 +196,7 @@ abstract class AbstractSearchRepository<I, A, Q>(
               ORDER BY $orderByString $orderDirection
               $limitString
               $offsetString
+              $forUpdateString
           """
                   .trimIndent())
           .bind()
