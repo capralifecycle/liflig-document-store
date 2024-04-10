@@ -11,8 +11,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.time.Duration
-import kotlin.time.measureTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -374,30 +372,5 @@ class TransactionalTest {
         )
 
     verifyJsonSnapshot("Example.json", serializationAdapter.toJson(agg))
-  }
-
-  @Test
-  fun benchmarkSearchRepositoryWithAndWithoutCount() {
-    for (i in 0 until 1000) {
-      val entity = ExampleEntity.create("A")
-      dao.create(entity)
-      daoWithCount.create(entity)
-    }
-
-    val withoutCountTimes: MutableList<Duration> = mutableListOf()
-    val withCountTimes: MutableList<Duration> = mutableListOf()
-
-    for (i in 0 until 10) {
-      val query = ExampleQueryObject(limit = 100, offset = i * 100)
-      withoutCountTimes.add(
-          measureTime { searchRepository.search(query) },
-      )
-      withCountTimes.add(
-          measureTime { searchRepositoryWithCount.search(query) },
-      )
-    }
-
-    println("Without count: ${withoutCountTimes}")
-    println("   With count: ${withCountTimes}")
   }
 }
