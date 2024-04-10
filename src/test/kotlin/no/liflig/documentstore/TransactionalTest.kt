@@ -4,13 +4,15 @@ import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.ints.shouldBeLessThan
 import java.time.Instant
-import java.util.UUID
+import java.util.*
 import java.util.stream.Stream
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.time.Duration
+import kotlin.time.measureTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -63,7 +65,9 @@ class TransactionalTest {
     val co: Transactional = ::coTransactional
     val normal: Transactional = { a, b -> transactional(a) { runBlocking { b() } } }
     return Stream.of(
-        Arguments.of(Named.of("Non-suspending", normal)), Arguments.of(Named.of("Suspending", co)))
+        Arguments.of(Named.of("Non-suspending", normal)),
+        Arguments.of(Named.of("Suspending", co)),
+    )
   }
 
   @Test
@@ -343,7 +347,8 @@ class TransactionalTest {
 
       val result1 =
           searchRepositoryWithCountJdbi.search(
-              ExampleTextSearchQuery(text = "Very specific name for text search"))
+              ExampleTextSearchQuery(text = "Very specific name for text search"),
+          )
       assertEquals(result1.size, 3)
 
       val result2 =
@@ -352,7 +357,8 @@ class TransactionalTest {
                   text = "Very specific name for text search",
                   limit = 2,
                   offset = 0,
-              ))
+              ),
+          )
       assertEquals(result2.entities.size, 2)
       assertEquals(result2.count, 3)
     }
@@ -364,8 +370,34 @@ class TransactionalTest {
         ExampleEntity.create(
             id = ExampleId(UUID.fromString("928f6ef3-6873-454a-a68d-ef3f5d7963b5")),
             text = "hello world",
-            now = Instant.parse("2020-10-11T23:25:00Z"))
+            now = Instant.parse("2020-10-11T23:25:00Z"),
+        )
 
     verifyJsonSnapshot("Example.json", serializationAdapter.toJson(agg))
+  }
+
+  @Test
+  fun benchmarkSearchRepositoryWithAndWithoutCount() {
+    for (i in 0 until 1000) {
+      val entity = ExampleEntity.create("A")
+      dao.create(entity)
+      daoWithCount.create(entity)
+    }
+
+    val withoutCountTimes: MutableList<Duration> = mutableListOf()
+    val withCountTimes: MutableList<Duration> = mutableListOf()
+
+    for (i in 0 until 10) {
+      val query = ExampleQueryObject(limit = 100, offset = i * 100)
+      withoutCountTimes.add(
+          measureTime { searchRepository.search(query) },
+      )
+      withCountTimes.add(
+          measureTime { searchRepositoryWithCount.search(query) },
+      )
+    }
+
+    println("Without count: ${withoutCountTimes}")
+    println("   With count: ${withCountTimes}")
   }
 }
