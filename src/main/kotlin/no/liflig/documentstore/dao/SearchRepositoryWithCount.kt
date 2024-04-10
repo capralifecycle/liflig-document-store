@@ -1,6 +1,6 @@
 package no.liflig.documentstore.dao
 
-import java.util.UUID
+import java.util.*
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.Version
@@ -10,30 +10,27 @@ import org.jdbi.v3.core.kotlin.KotlinMapper
 import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.Query
 
-interface SearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT> :
-    SearchRepository<EntityIdT, EntityT, SearchQueryT> where
+interface SearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT> where
 EntityIdT : EntityId,
 EntityT : EntityRoot<EntityIdT> {
-  fun searchWithCount(query: SearchQueryT): EntitiesWithCount<EntityT>
+  fun search(query: SearchQueryT): ListWithTotalCount<VersionedEntity<EntityT>>
+  fun listByIds(ids: List<EntityIdT>): List<VersionedEntity<EntityT>>
 }
 
-data class EntitiesWithCount<EntityT : EntityRoot<*>>(
-    val entities: List<VersionedEntity<EntityT>>,
-    val count: Long,
+data class ListWithTotalCount<T>(
+    val list: List<T>,
+    val totalCount: Long,
 )
 
 /**
- * Extends [AbstractSearchRepository] with functionality for getting the count of objects in the
- * database table.
+ * An alternative to [AbstractSearchRepository] for when you pass a `limit` but still want the total
+ * count of database objects matching your query, e.g. for pagination.
  */
 abstract class AbstractSearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT>(
-    jdbi: Jdbi,
-    sqlTableName: String,
-    serializationAdapter: SerializationAdapter<EntityT>,
-) :
-    SearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT>,
-    AbstractSearchRepository<EntityIdT, EntityT, SearchQueryT>(
-        jdbi, sqlTableName, serializationAdapter) where
+    protected val jdbi: Jdbi,
+    protected val sqlTableName: String,
+    protected val serializationAdapter: SerializationAdapter<EntityT>,
+) : SearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT> where
 EntityIdT : EntityId,
 EntityT : EntityRoot<EntityIdT> {
   private fun fromJson(value: String): EntityT = serializationAdapter.fromJson(value)
@@ -41,21 +38,24 @@ EntityT : EntityRoot<EntityIdT> {
   protected open val rowMapperWithCount =
       createRowMapperWithCount(createRowParserWithCount(::fromJson))
 
+  override fun listByIds(ids: List<EntityIdT>): List<VersionedEntity<EntityT>> =
+      getByPredicate("id = ANY (:ids)") { bindArray("ids", EntityId::class.java, ids) }.list
+
   /**
-   * Gets database objects matching the given parameters, and the total count of objects in the
-   * database.
+   * Gets database objects matching the given parameters, and the total count of objects matching
+   * your WHERE clause without `limit`.
    *
    * This can be used for pagination: for example, if passing e.g. `limit = 10` to display 10 items
-   * in a page at a time, the count can be used to display the number of pages.
+   * in a page at a time, the total count can be used to display the number of pages.
    */
-  protected open fun getByPredicateWithCount(
+  protected open fun getByPredicate(
       sqlWhere: String = "TRUE",
       limit: Int? = null,
       offset: Int? = null,
       orderBy: String? = null,
       orderDesc: Boolean = false,
       bind: Query.() -> Query = { this }
-  ): EntitiesWithCount<EntityT> = mapExceptions {
+  ): ListWithTotalCount<VersionedEntity<EntityT>> = mapExceptions {
     getHandle(jdbi) { handle ->
       val limitString = limit?.let { "LIMIT $it" } ?: ""
       val offsetString = offset?.let { "OFFSET $it" } ?: ""
@@ -67,26 +67,26 @@ EntityT : EntityRoot<EntityIdT> {
               .select(
                   // SQL query based on https://stackoverflow.com/a/28888696
                   // Uses a RIGHT JOIN with the count in order to still get the count when no rows
-                  // are
-                  // returned.
+                  // are returned.
                   """
-              WITH base_query AS (
-                  SELECT id, data, version, created_at, modified_at
-                  FROM "$sqlTableName"
-                  WHERE ($sqlWhere)
+                    WITH base_query AS (
+                        SELECT id, data, version, created_at, modified_at
+                        FROM "$sqlTableName"
+                        WHERE ($sqlWhere)
+                    )
+                    SELECT id, data, version, created_at, modified_at, count
+                    FROM (
+                        TABLE base_query
+                        ORDER BY $orderByString $orderDirection
+                        $limitString
+                        $offsetString
+                    ) sub_query
+                    RIGHT JOIN (
+                        SELECT count(*) FROM base_query
+                    ) c(count) ON true
+                  """
+                      .trimIndent(),
               )
-              SELECT id, data, version, created_at, modified_at, count
-              FROM (
-                  TABLE base_query
-                  ORDER BY $orderByString $orderDirection
-                  $limitString
-                  $offsetString
-              ) sub_query
-              RIGHT JOIN (
-                  SELECT count(*) FROM base_query
-              ) c(count) ON true
-            """
-                      .trimIndent())
               .bind()
               .map(rowMapperWithCount)
               .list()
@@ -94,7 +94,7 @@ EntityT : EntityRoot<EntityIdT> {
       val entities = rows.mapNotNull { row -> row.entity }
       val count = rows.firstOrNull()?.count ?: throw NoCountReceivedFromSearchQueryException
 
-      EntitiesWithCount(entities, count)
+      ListWithTotalCount(entities, count)
     }
   }
 }
@@ -141,82 +141,3 @@ fun <EntityT : EntityRoot<*>> createRowParserWithCount(
 }
 
 data object NoCountReceivedFromSearchQueryException : RuntimeException()
-
-/**
- * Extend this class with your custom queries to use [SearchRepositoryWithCountJdbi]. Override
- * fields to customize the query. Use a sealed class to support multiple different query types.
- *
- * NB: if using `sqlWhere`, remember to bind your parameters with `bindSqlParameters`!
- *
- * Example for an entity with a `text` field:
- * ```
- * data class ExampleSearchQuery(
- *   val text: String,
- *   override val limit: Int,
- *   override val offset: Int,
- * ) : SearchRepositoryQuery() {
- *   override val sqlWhere: String = "(data->>'text' ILIKE '%' || :text || '%')"
- *
- *   override val bindSqlParameters: Query.() -> Query = { bind("text", text) }
- * }
- *
- * fun main() {
- *   ...
- *   val searchRepo = SearchRepositoryWithCountJdbi<ExampleId, ExampleEntity, ExampleSearchQuery>(
- *     jdbi, "example", exampleSerializationAdapter,
- *   )
- *
- *   val (entities, count) = searchRepo.searchWithCount(
- *     ExampleTextSearchQuery(text = "Example text", limit = 10, offset = 0)
- *   )
- * }
- * ```
- */
-open class SearchRepositoryQuery {
-  open val sqlWhere: String = "TRUE"
-  open val bindSqlParameters: Query.() -> Query = { this } // Default no-op
-  open val limit: Int? = null
-  open val offset: Int? = null
-  open val orderBy: String? = null
-  open val orderDesc: Boolean = false
-}
-
-/**
- * Generic implementation of [AbstractSearchRepositoryWithCount] for queries that extend
- * [SearchRepositoryQuery].
- */
-open class SearchRepositoryWithCountJdbi<EntityIdT, EntityT, SearchQueryT>(
-    jdbi: Jdbi,
-    sqlTableName: String,
-    serializationAdapter: SerializationAdapter<EntityT>
-) :
-    AbstractSearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT>(
-        jdbi,
-        sqlTableName,
-        serializationAdapter,
-    ) where
-EntityIdT : EntityId,
-EntityT : EntityRoot<EntityIdT>,
-SearchQueryT : SearchRepositoryQuery {
-  override fun search(query: SearchQueryT): List<VersionedEntity<EntityT>> {
-    return getByPredicate(
-        sqlWhere = query.sqlWhere,
-        limit = query.limit,
-        offset = query.offset,
-        orderBy = query.orderBy,
-        orderDesc = query.orderDesc,
-        bind = query.bindSqlParameters,
-    )
-  }
-
-  override fun searchWithCount(query: SearchQueryT): EntitiesWithCount<EntityT> {
-    return getByPredicateWithCount(
-        sqlWhere = query.sqlWhere,
-        limit = query.limit,
-        offset = query.offset,
-        orderBy = query.orderBy,
-        orderDesc = query.orderDesc,
-        bind = query.bindSqlParameters,
-    )
-  }
-}

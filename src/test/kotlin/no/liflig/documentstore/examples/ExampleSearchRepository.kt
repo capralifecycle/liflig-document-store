@@ -6,12 +6,10 @@ import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.InstantSerializer
 import no.liflig.documentstore.dao.AbstractSearchRepository
 import no.liflig.documentstore.dao.AbstractSearchRepositoryWithCount
-import no.liflig.documentstore.dao.EntitiesWithCount
-import no.liflig.documentstore.dao.SearchRepositoryQuery
+import no.liflig.documentstore.dao.ListWithTotalCount
 import no.liflig.documentstore.dao.SerializationAdapter
 import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.statement.Query
 
 data class ExampleQueryObject(
     val limit: Int? = null,
@@ -31,7 +29,10 @@ class ExampleSearchRepository(
     serializationAdapter: SerializationAdapter<ExampleEntity>
 ) :
     AbstractSearchRepository<ExampleId, ExampleEntity, ExampleQueryObject>(
-        jdbi, sqlTableName, serializationAdapter) {
+        jdbi,
+        sqlTableName,
+        serializationAdapter,
+    ) {
   override fun listByIds(ids: List<ExampleId>): List<VersionedEntity<ExampleEntity>> {
     TODO("Not yet implemented")
   }
@@ -46,7 +47,8 @@ class ExampleSearchRepository(
                 OrderBy.TEXT -> "data->>'text'"
                 OrderBy.CREATED_AT -> "createdAt"
                 null -> null
-              })
+              },
+      )
 }
 
 class ExampleSearchRepositoryWithCount(
@@ -59,12 +61,10 @@ class ExampleSearchRepositoryWithCount(
         sqlTableName,
         serializationAdapter,
     ) {
-  override fun search(query: ExampleQueryObject): List<VersionedEntity<ExampleEntity>> {
-    TODO("Not yet implemented")
-  }
-
-  override fun searchWithCount(query: ExampleQueryObject): EntitiesWithCount<ExampleEntity> {
-    return getByPredicateWithCount(
+  override fun search(
+      query: ExampleQueryObject
+  ): ListWithTotalCount<VersionedEntity<ExampleEntity>> {
+    return getByPredicate(
         limit = query.limit,
         offset = query.offset,
         orderDesc = query.orderDesc,
@@ -73,16 +73,7 @@ class ExampleSearchRepositoryWithCount(
               OrderBy.TEXT -> "data->>'text'"
               OrderBy.CREATED_AT -> "createdAt"
               null -> null
-            })
+            },
+    )
   }
-}
-
-data class ExampleTextSearchQuery(
-    val text: String,
-    override val limit: Int? = null,
-    override val offset: Int? = null
-) : SearchRepositoryQuery() {
-  override val sqlWhere: String = "(data->>'text' ILIKE '%' || :text || '%')"
-
-  override val bindSqlParameters: Query.() -> Query = { bind("text", text) }
 }

@@ -3,7 +3,7 @@ package no.liflig.documentstore.dao
 import java.io.InterruptedIOException
 import java.sql.SQLTransientException
 import java.time.Instant
-import java.util.UUID
+import java.util.*
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.Version
@@ -72,7 +72,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
           ORDER BY created_at
           ${if (forUpdate) " FOR UPDATE" else ""}
         """
-                    .trimIndent())
+                    .trimIndent(),
+            )
             .bind("id", id)
             .map(rowMapper)
             .firstOrNull()
@@ -87,7 +88,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
           DELETE FROM "$sqlTableName"
           WHERE id = :id AND version = :previousVersion
         """
-                        .trimIndent())
+                        .trimIndent(),
+                )
                 .bind("id", id)
                 .bind("previousVersion", previousVersion)
                 .execute()
@@ -109,7 +111,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
             INSERT INTO "$sqlTableName" (id, version, data, modified_at, created_at)
             VALUES (:id, :version, :data::jsonb, :modifiedAt, :createdAt)
           """
-                      .trimIndent())
+                      .trimIndent(),
+              )
               .bind("id", entity.id)
               .bind("version", it.version)
               .bind("data", toJson(entity))
@@ -139,7 +142,8 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
                 id = :id AND
                 version = :previousVersion
             """
-                        .trimIndent())
+                        .trimIndent(),
+                )
                 .bind("nextVersion", result.version)
                 .bind("data", toJson(entity))
                 .bind("id", entity.id)
@@ -198,7 +202,8 @@ abstract class AbstractSearchRepository<I, A, Q>(
               $offsetString
               $forUpdateString
           """
-                  .trimIndent())
+                  .trimIndent(),
+          )
           .bind()
           .map(rowMapper)
           .list()
@@ -226,7 +231,8 @@ abstract class AbstractSearchRepository<I, A, Q>(
               WHERE ($sqlWhere)
               ORDER BY $orderByString $orderDirection
           """
-                  .trimIndent())
+                  .trimIndent(),
+          )
           .bind()
           .map(rowMapper)
           .asSequence()
@@ -236,49 +242,6 @@ abstract class AbstractSearchRepository<I, A, Q>(
           .toList()
     }
   }
-}
-
-abstract class QueryObject {
-  open val sqlWhere: String = "TRUE"
-  open val bindSqlParameters: Query.() -> Query = { this } // Default no-op
-  open val limit: Int? = null
-  open val offset: Int? = null
-  open val orderBy: String? = null
-  open val orderDesc: Boolean = false
-}
-
-class SearchRepositoryJdbi<I, A, Q>(
-    jdbi: Jdbi,
-    sqlTableName: String,
-    serializationAdapter: SerializationAdapter<A>,
-) : AbstractSearchRepository<I, A, Q>(jdbi, sqlTableName, serializationAdapter) where
-I : EntityId,
-A : EntityRoot<I>,
-Q : QueryObject {
-  override fun search(query: Q): List<VersionedEntity<A>> =
-      getByPredicate(
-          sqlWhere = query.sqlWhere,
-          limit = query.limit,
-          offset = query.offset,
-          orderBy = query.orderBy,
-          orderDesc = query.orderDesc,
-          bind = query.bindSqlParameters,
-      )
-
-  /**
-   * A slightly slower version of [search], but with the possibility to filter based on the domain
-   * entities.
-   */
-  fun searchDomainFiltered(query: Q, domainFilter: (A) -> Boolean): List<VersionedEntity<A>> =
-      getByPredicateDomainFiltered(
-          sqlWhere = query.sqlWhere,
-          limit = query.limit,
-          offset = query.offset,
-          orderBy = query.orderBy,
-          orderDesc = query.orderDesc,
-          domainFilter = domainFilter,
-          bind = query.bindSqlParameters,
-      )
 }
 
 /**

@@ -17,7 +17,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import no.liflig.documentstore.dao.ConflictDaoException
 import no.liflig.documentstore.dao.CrudDaoJdbi
-import no.liflig.documentstore.dao.SearchRepositoryWithCountJdbi
 import no.liflig.documentstore.dao.coTransactional
 import no.liflig.documentstore.dao.transactional
 import no.liflig.documentstore.entity.Version
@@ -27,7 +26,6 @@ import no.liflig.documentstore.examples.ExampleQueryObject
 import no.liflig.documentstore.examples.ExampleSearchRepository
 import no.liflig.documentstore.examples.ExampleSearchRepositoryWithCount
 import no.liflig.documentstore.examples.ExampleSerializationAdapter
-import no.liflig.documentstore.examples.ExampleTextSearchQuery
 import no.liflig.documentstore.examples.OrderBy
 import no.liflig.snapshot.verifyJsonSnapshot
 import org.jdbi.v3.core.Jdbi
@@ -46,12 +44,6 @@ class TransactionalTest {
   val serializationAdapter = ExampleSerializationAdapter()
   val dao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
   val searchRepository = ExampleSearchRepository(jdbi, "example", serializationAdapter)
-  val searchRepositoryWithCountJdbi =
-      SearchRepositoryWithCountJdbi<ExampleId, ExampleEntity, ExampleTextSearchQuery>(
-          jdbi,
-          "example",
-          serializationAdapter,
-      )
 
   // Separate DAOs to avoid other tests interfering with the count returned by
   // SearchRepositoryWithCount
@@ -326,39 +318,13 @@ class TransactionalTest {
       daoWithCount.create(ExampleEntity.create("C"))
 
       val queryWithLimitLessThanCount = ExampleQueryObject(limit = 2, offset = 0)
-      val result1 = searchRepositoryWithCount.searchWithCount(queryWithLimitLessThanCount)
-      assertEquals(result1.entities.size, queryWithLimitLessThanCount.limit)
-      assertEquals(result1.count, 3)
+      val result1 = searchRepositoryWithCount.search(queryWithLimitLessThanCount)
+      assertEquals(result1.list.size, queryWithLimitLessThanCount.limit)
+      assertEquals(result1.totalCount, 3)
 
       val queryWithOffsetHigherThanCount = ExampleQueryObject(limit = 2, offset = 1000)
-      val result2 = searchRepositoryWithCount.searchWithCount(queryWithOffsetHigherThanCount)
-      assertEquals(result2.count, 3)
-    }
-  }
-
-  @Test
-  fun testSearchRepositoryWithCountJdbi() {
-    runBlocking {
-      dao.create(ExampleEntity.create("Very specific name for text search 1"))
-      dao.create(ExampleEntity.create("Very specific name for text search 2"))
-      dao.create(ExampleEntity.create("Very specific name for text search 3"))
-
-      val result1 =
-          searchRepositoryWithCountJdbi.search(
-              ExampleTextSearchQuery(text = "Very specific name for text search"),
-          )
-      assertEquals(result1.size, 3)
-
-      val result2 =
-          searchRepositoryWithCountJdbi.searchWithCount(
-              ExampleTextSearchQuery(
-                  text = "Very specific name for text search",
-                  limit = 2,
-                  offset = 0,
-              ),
-          )
-      assertEquals(result2.entities.size, 2)
-      assertEquals(result2.count, 3)
+      val result2 = searchRepositoryWithCount.search(queryWithOffsetHigherThanCount)
+      assertEquals(result2.totalCount, 3)
     }
   }
 
