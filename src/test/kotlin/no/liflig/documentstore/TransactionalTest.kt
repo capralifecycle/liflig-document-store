@@ -22,7 +22,7 @@ import no.liflig.documentstore.dao.transactional
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.examples.ExampleEntity
 import no.liflig.documentstore.examples.ExampleId
-import no.liflig.documentstore.examples.ExampleQueryObject
+import no.liflig.documentstore.examples.ExampleSearchQuery
 import no.liflig.documentstore.examples.ExampleSearchRepository
 import no.liflig.documentstore.examples.ExampleSearchRepositoryWithCount
 import no.liflig.documentstore.examples.ExampleSerializationAdapter
@@ -271,6 +271,28 @@ class TransactionalTest {
   }
 
   @Test
+  fun searchRepositoryTextQuery() {
+    runBlocking {
+      val entity1 = ExampleEntity.create("Very specific name for text query test 1")
+      dao.create(entity1)
+      val entity2 = ExampleEntity.create("Very specific name for text query test 2")
+      dao.create(entity2)
+      dao.create(ExampleEntity.create("Other entity"))
+
+      val result =
+          searchRepository.search(
+              ExampleSearchQuery(
+                  text = "Very specific name for text query test",
+                  orderBy = OrderBy.TEXT,
+              ),
+          )
+      assertEquals(result.size, 2)
+      assertEquals(result[0].item.text, entity1.text)
+      assertEquals(result[1].item.text, entity2.text)
+    }
+  }
+
+  @Test
   fun orderByOrdersByCorrectData() {
     runBlocking {
       val (initialAgg1, _) = dao.create(ExampleEntity.create("A"))
@@ -278,11 +300,11 @@ class TransactionalTest {
 
       val result1 =
           searchRepository
-              .search(ExampleQueryObject(orderBy = OrderBy.TEXT, orderDesc = false))
+              .search(ExampleSearchQuery(orderBy = OrderBy.TEXT, orderDesc = false))
               .map { it.item }
       val result2 =
           searchRepository
-              .search(ExampleQueryObject(orderBy = OrderBy.TEXT, orderDesc = true))
+              .search(ExampleSearchQuery(orderBy = OrderBy.TEXT, orderDesc = true))
               .map { it.item }
 
       result1.indexOf(initialAgg1) shouldBeLessThan result1.indexOf(initialAgg2)
@@ -298,7 +320,7 @@ class TransactionalTest {
       val (initialAgg2, _) =
           dao.create(ExampleEntity.create("B", now = Instant.now().minusSeconds(10000)))
 
-      val result1 = searchRepository.search(ExampleQueryObject(orderDesc = false)).map { it.item }
+      val result1 = searchRepository.search(ExampleSearchQuery(orderDesc = false)).map { it.item }
 
       val indexOf1 = result1.indexOf(initialAgg1)
       val indexOf2 = result1.indexOf(initialAgg2)
@@ -313,18 +335,31 @@ class TransactionalTest {
   @Test
   fun testSearchRepositoryWithCount() {
     runBlocking {
-      daoWithCount.create(ExampleEntity.create("A"))
-      daoWithCount.create(ExampleEntity.create("B"))
-      daoWithCount.create(ExampleEntity.create("C"))
+      val entity1 = ExampleEntity.create("Very specific name for text query test 1")
+      daoWithCount.create(entity1)
+      daoWithCount.create(ExampleEntity.create("Very specific name for text query test 2"))
+      daoWithCount.create(ExampleEntity.create("Other entity"))
 
-      val queryWithLimitLessThanCount = ExampleQueryObject(limit = 2, offset = 0)
+      val queryWithLimitLessThanCount = ExampleSearchQuery(limit = 2, offset = 0)
       val result1 = searchRepositoryWithCount.search(queryWithLimitLessThanCount)
       assertEquals(result1.list.size, queryWithLimitLessThanCount.limit)
       assertEquals(result1.totalCount, 3)
 
-      val queryWithOffsetHigherThanCount = ExampleQueryObject(limit = 2, offset = 1000)
+      val queryWithOffsetHigherThanCount = ExampleSearchQuery(limit = 2, offset = 1000)
       val result2 = searchRepositoryWithCount.search(queryWithOffsetHigherThanCount)
       assertEquals(result2.totalCount, 3)
+
+      val textQuery =
+          ExampleSearchQuery(
+              text = "Very specific name for text query test",
+              limit = 1,
+              offset = 0,
+              orderBy = OrderBy.TEXT,
+          )
+      val result3 = searchRepositoryWithCount.search(textQuery)
+      assertEquals(result3.list.size, textQuery.limit)
+      assertEquals(result3.totalCount, 2)
+      assertEquals(result3.list[0].item.text, entity1.text)
     }
   }
 

@@ -11,7 +11,8 @@ import no.liflig.documentstore.dao.SerializationAdapter
 import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.Jdbi
 
-data class ExampleQueryObject(
+data class ExampleSearchQuery(
+    val text: String? = null,
     val limit: Int? = null,
     val offset: Int? = null,
     val orderBy: OrderBy? = null,
@@ -28,7 +29,7 @@ class ExampleSearchRepository(
     sqlTableName: String,
     serializationAdapter: SerializationAdapter<ExampleEntity>
 ) :
-    AbstractSearchRepository<ExampleId, ExampleEntity, ExampleQueryObject>(
+    AbstractSearchRepository<ExampleId, ExampleEntity, ExampleSearchQuery>(
         jdbi,
         sqlTableName,
         serializationAdapter,
@@ -37,8 +38,13 @@ class ExampleSearchRepository(
     TODO("Not yet implemented")
   }
 
-  override fun search(query: ExampleQueryObject): List<VersionedEntity<ExampleEntity>> =
+  override fun search(query: ExampleSearchQuery): List<VersionedEntity<ExampleEntity>> =
       getByPredicate(
+          sqlWhere =
+              """
+                (:textQuery IS NULL OR (data ->>'text' ILIKE '%' || :textQuery || '%'))
+              """
+                  .trimIndent(),
           limit = query.limit,
           offset = query.offset,
           orderDesc = query.orderDesc,
@@ -48,7 +54,9 @@ class ExampleSearchRepository(
                 OrderBy.CREATED_AT -> "createdAt"
                 null -> null
               },
-      )
+      ) {
+        bind("textQuery", query.text)
+      }
 }
 
 class ExampleSearchRepositoryWithCount(
@@ -56,15 +64,20 @@ class ExampleSearchRepositoryWithCount(
     sqlTableName: String,
     serializationAdapter: SerializationAdapter<ExampleEntity>
 ) :
-    AbstractSearchRepositoryWithCount<ExampleId, ExampleEntity, ExampleQueryObject>(
+    AbstractSearchRepositoryWithCount<ExampleId, ExampleEntity, ExampleSearchQuery>(
         jdbi,
         sqlTableName,
         serializationAdapter,
     ) {
   override fun search(
-      query: ExampleQueryObject
+      query: ExampleSearchQuery
   ): ListWithTotalCount<VersionedEntity<ExampleEntity>> {
     return getByPredicate(
+        sqlWhere =
+            """
+              (:textQuery IS NULL OR (data ->>'text' ILIKE '%' || :textQuery || '%'))
+            """
+                .trimIndent(),
         limit = query.limit,
         offset = query.offset,
         orderDesc = query.orderDesc,
@@ -74,6 +87,8 @@ class ExampleSearchRepositoryWithCount(
               OrderBy.CREATED_AT -> "createdAt"
               null -> null
             },
-    )
+    ) {
+      bind("textQuery", query.text)
+    }
   }
 }
