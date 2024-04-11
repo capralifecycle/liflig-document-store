@@ -11,30 +11,32 @@ import org.jdbi.v3.core.Jdbi
  * A DAO (Data Access Object) for CRUD (Create, Read, Update, Delete) operations on entities in a
  * database table.
  */
-interface CrudDao<I : EntityId, A : EntityRoot<I>> {
-  fun create(entity: A): VersionedEntity<A>
+interface CrudDao<EntityIdT : EntityId, EntityT : EntityRoot<EntityIdT>> {
+  fun create(entity: EntityT): VersionedEntity<EntityT>
 
-  fun get(id: I, forUpdate: Boolean = false): VersionedEntity<A>?
+  fun get(id: EntityIdT, forUpdate: Boolean = false): VersionedEntity<EntityT>?
 
-  fun <A2 : A> update(
-      entity: A2,
+  // Uses a generic argument, so that a sub-type can be passed in and get returned as its proper
+  // type.
+  fun <EntityOrSubClassT : EntityT> update(
+      entity: EntityOrSubClassT,
       previousVersion: Version,
-  ): VersionedEntity<A2>
+  ): VersionedEntity<EntityOrSubClassT>
 
-  fun delete(id: I, previousVersion: Version)
+  fun delete(id: EntityIdT, previousVersion: Version)
 }
 
 /** An implementation of [CrudDao] that uses the JDBI library for database access. */
-class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
+class CrudDaoJdbi<EntityIdT : EntityId, EntityT : EntityRoot<EntityIdT>>(
     private val jdbi: Jdbi,
     private val sqlTableName: String,
-    private val serializationAdapter: SerializationAdapter<A>,
-) : CrudDao<I, A> {
-  private fun toJson(entity: A): String = serializationAdapter.toJson(entity)
-  private fun fromJson(value: String): A = serializationAdapter.fromJson(value)
+    private val serializationAdapter: SerializationAdapter<EntityT>,
+) : CrudDao<EntityIdT, EntityT> {
+  private fun toJson(entity: EntityT): String = serializationAdapter.toJson(entity)
+  private fun fromJson(value: String): EntityT = serializationAdapter.fromJson(value)
   private val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override fun get(id: I, forUpdate: Boolean): VersionedEntity<A>? =
+  override fun get(id: EntityIdT, forUpdate: Boolean): VersionedEntity<EntityT>? =
       getHandle(jdbi) { handle ->
         handle
             .select(
@@ -52,7 +54,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
             .firstOrNull()
       }
 
-  override fun delete(id: I, previousVersion: Version) =
+  override fun delete(id: EntityIdT, previousVersion: Version) =
       getHandle(jdbi) { handle ->
         val deleted =
             handle
@@ -74,7 +76,7 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * Default implementation for create. Note that some repositories might need to implement its own
    * version if there are special columns that needs to be kept in sync e.g. for indexing purposes.
    */
-  override fun create(entity: A): VersionedEntity<A> =
+  override fun create(entity: EntityT): VersionedEntity<EntityT> =
       getHandle(jdbi) { handle ->
         VersionedEntity(entity, Version.initial()).also {
           val now = Instant.now()
@@ -99,7 +101,10 @@ class CrudDaoJdbi<I : EntityId, A : EntityRoot<I>>(
    * Default implementation for update. Note that some repositories might need to implement its own
    * version if there are special columns that needs to be kept in sync e.g. for indexing purposes.
    */
-  override fun <A2 : A> update(entity: A2, previousVersion: Version): VersionedEntity<A2> =
+  override fun <EntityOrSubClassT : EntityT> update(
+      entity: EntityOrSubClassT,
+      previousVersion: Version
+  ): VersionedEntity<EntityOrSubClassT> =
       getHandle(jdbi) { handle ->
         val result = VersionedEntity(entity, previousVersion.next())
         val updated =

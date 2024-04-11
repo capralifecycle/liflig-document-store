@@ -3,7 +3,7 @@
 package no.liflig.documentstore.examples
 
 import java.time.Instant
-import java.util.UUID
+import java.util.*
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
@@ -37,7 +37,8 @@ private constructor(
           text = text,
           moreText = moreText,
           createdAt = createdAt,
-          modifiedAt = modifiedAt)
+          modifiedAt = modifiedAt,
+      )
 
   fun updateText(
       text: String = this.text,

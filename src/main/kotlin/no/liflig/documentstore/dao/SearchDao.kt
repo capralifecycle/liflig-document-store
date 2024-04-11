@@ -11,26 +11,28 @@ import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.Query
 
 /** A DAO (Data Access Object) for search queries on entities in a database table. */
-interface SearchDao<I, A, Q> where I : EntityId, A : EntityRoot<I> {
-  fun search(query: Q): List<VersionedEntity<A>>
-  fun listByIds(ids: List<I>): List<VersionedEntity<A>>
+interface SearchDao<EntityIdT : EntityId, EntityT : EntityRoot<EntityIdT>, SearchQueryT> {
+  fun search(query: SearchQueryT): List<VersionedEntity<EntityT>>
+  fun listByIds(ids: List<EntityIdT>): List<VersionedEntity<EntityT>>
 }
 
 /**
  * A helper class that you can inherit from to implement a [SearchDao], by using the
  * [getByPredicate] method (see example on that method's docstring).
  */
-abstract class AbstractSearchDao<I, A, Q>(
+abstract class AbstractSearchDao<EntityIdT, EntityT, SearchQueryT>(
     protected val jdbi: Jdbi,
     protected val sqlTableName: String,
-    protected val serializationAdapter: SerializationAdapter<A>,
-) : SearchDao<I, A, Q> where I : EntityId, A : EntityRoot<I> {
+    protected val serializationAdapter: SerializationAdapter<EntityT>,
+) : SearchDao<EntityIdT, EntityT, SearchQueryT> where
+EntityIdT : EntityId,
+EntityT : EntityRoot<EntityIdT> {
 
-  private fun fromJson(value: String): A = serializationAdapter.fromJson(value)
+  private fun fromJson(value: String): EntityT = serializationAdapter.fromJson(value)
 
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override fun listByIds(ids: List<I>): List<VersionedEntity<A>> =
+  override fun listByIds(ids: List<EntityIdT>): List<VersionedEntity<EntityT>> =
       getByPredicate("id = ANY (:ids)") { bindArray("ids", EntityId::class.java, ids) }
 
   /**
@@ -53,7 +55,7 @@ abstract class AbstractSearchDao<I, A, Q>(
    *
    * override fun search(query: UserSearchQuery): List<VersionedEntity<StoredUser>> {
    *     return getByPredicate(
-   *         sqlWhere = "(data->>'name' = ANY (:namesQuery))",
+   *         sqlWhere = "(data->>'name' = ANY(:namesQuery))",
    *     ) {
    *         bindArray("namesQuery", String::class.java, query.name)
    *     }
@@ -68,7 +70,7 @@ abstract class AbstractSearchDao<I, A, Q>(
       orderDesc: Boolean = false,
       forUpdate: Boolean = false,
       bind: Query.() -> Query = { this }
-  ): List<VersionedEntity<A>> = mapExceptions {
+  ): List<VersionedEntity<EntityT>> = mapExceptions {
     getHandle(jdbi) { handle ->
       val orderDirection = if (orderDesc) "DESC" else "ASC"
       val orderByString = orderBy ?: "created_at"
@@ -102,9 +104,9 @@ abstract class AbstractSearchDao<I, A, Q>(
       offset: Int? = null,
       orderBy: String? = null,
       orderDesc: Boolean = false,
-      domainFilter: (A) -> Boolean = { true },
+      domainFilter: (EntityT) -> Boolean = { true },
       bind: Query.() -> Query = { this }
-  ): List<VersionedEntity<A>> = mapExceptions {
+  ): List<VersionedEntity<EntityT>> = mapExceptions {
     getHandle(jdbi) { handle ->
       val orderDirection = if (orderDesc) "DESC" else "ASC"
       val orderByString = orderBy ?: "created_at"
