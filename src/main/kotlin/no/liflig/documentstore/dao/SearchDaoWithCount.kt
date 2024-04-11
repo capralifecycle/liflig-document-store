@@ -107,7 +107,11 @@ EntityT : EntityRoot<EntityIdT> {
               .list()
 
       val entities = rows.mapNotNull { row -> row.entity }
-      val count = rows.firstOrNull()?.count ?: throw NoCountReceivedFromSearchQueryException()
+      val count =
+          rows.firstOrNull()?.count
+          // Should never happen: the query should always return 1 row with the count, even if the
+          // results are empty (see [EntityRowWithCount])
+          ?: throw RuntimeException("Failed to get total count of objects in search query")
 
       ListWithTotalCount(entities, count)
     }

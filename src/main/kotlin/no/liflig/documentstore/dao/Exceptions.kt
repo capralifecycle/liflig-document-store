@@ -23,8 +23,6 @@ data class UnknownDaoException(
     val e: Exception,
 ) : DaoException(e)
 
-class NoCountReceivedFromSearchQueryException : DaoException()
-
 inline fun <T> mapExceptions(block: () -> T): T {
   try {
     return block()
@@ -35,7 +33,6 @@ inline fun <T> mapExceptions(block: () -> T): T {
       is InterruptedIOException,
       is ConnectionException,
       is CloseException -> throw UnavailableDaoException(e)
-      is NoCountReceivedFromSearchQueryException -> throw e
       else -> throw UnknownDaoException(e)
     }
   }
