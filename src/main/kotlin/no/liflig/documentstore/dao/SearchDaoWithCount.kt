@@ -10,7 +10,12 @@ import org.jdbi.v3.core.kotlin.KotlinMapper
 import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.Query
 
-interface SearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT> where
+/**
+ * A DAO (Data Access Object) for search queries on entities in a database table, where results also
+ * include a total count of entities in the table. This is useful for pagination using limit and
+ * offset, as the total count can be used to display the number of pages.
+ */
+interface SearchDaoWithCount<EntityIdT, EntityT, SearchQueryT> where
 EntityIdT : EntityId,
 EntityT : EntityRoot<EntityIdT> {
   fun search(query: SearchQueryT): ListWithTotalCount<VersionedEntity<EntityT>>
@@ -31,14 +36,14 @@ data class ListWithTotalCount<T>(
 }
 
 /**
- * An alternative to [AbstractSearchRepository] for when you pass a `limit` but still want the total
- * count of database objects matching your query, e.g. for pagination.
+ * A helper class that you can inherit from to implement a [SearchDaoWithCount], by using the
+ * [getByPredicate] method.
  */
-abstract class AbstractSearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT>(
+abstract class AbstractSearchDaoWithCount<EntityIdT, EntityT, SearchQueryT>(
     protected val jdbi: Jdbi,
     protected val sqlTableName: String,
     protected val serializationAdapter: SerializationAdapter<EntityT>,
-) : SearchRepositoryWithCount<EntityIdT, EntityT, SearchQueryT> where
+) : SearchDaoWithCount<EntityIdT, EntityT, SearchQueryT> where
 EntityIdT : EntityId,
 EntityT : EntityRoot<EntityIdT> {
   private fun fromJson(value: String): EntityT = serializationAdapter.fromJson(value)
@@ -55,6 +60,8 @@ EntityT : EntityRoot<EntityIdT> {
    *
    * This can be used for pagination: for example, if passing e.g. `limit = 10` to display 10 items
    * in a page at a time, the total count can be used to display the number of pages.
+   *
+   * See [AbstractSearchDao.getByPredicate] for further documentation.
    */
   protected open fun getByPredicate(
       sqlWhere: String = "TRUE",
@@ -77,21 +84,21 @@ EntityT : EntityRoot<EntityIdT> {
                   // Uses a RIGHT JOIN with the count in order to still get the count when no rows
                   // are returned.
                   """
-                    WITH base_query AS (
-                        SELECT id, data, version, created_at, modified_at
-                        FROM "$sqlTableName"
-                        WHERE ($sqlWhere)
-                    )
-                    SELECT id, data, version, created_at, modified_at, count
-                    FROM (
-                        TABLE base_query
-                        ORDER BY $orderByString $orderDirection
-                        $limitString
-                        $offsetString
-                    ) sub_query
-                    RIGHT JOIN (
-                        SELECT count(*) FROM base_query
-                    ) c(count) ON true
+                      WITH base_query AS (
+                          SELECT id, data, version, created_at, modified_at
+                          FROM "$sqlTableName"
+                          WHERE ($sqlWhere)
+                      )
+                      SELECT id, data, version, created_at, modified_at, count
+                      FROM (
+                          TABLE base_query
+                          ORDER BY $orderByString $orderDirection
+                          $limitString
+                          $offsetString
+                      ) sub_query
+                      RIGHT JOIN (
+                          SELECT count(*) FROM base_query
+                      ) c(count) ON true
                   """
                       .trimIndent(),
               )
@@ -100,7 +107,7 @@ EntityT : EntityRoot<EntityIdT> {
               .list()
 
       val entities = rows.mapNotNull { row -> row.entity }
-      val count = rows.firstOrNull()?.count ?: throw NoCountReceivedFromSearchQueryException
+      val count = rows.firstOrNull()?.count ?: throw NoCountReceivedFromSearchQueryException()
 
       ListWithTotalCount(entities, count)
     }
@@ -147,5 +154,3 @@ fun <EntityT : EntityRoot<*>> createRowParserWithCount(
     MappedEntityWithCount(entity, row.count)
   }
 }
-
-data object NoCountReceivedFromSearchQueryException : RuntimeException()
