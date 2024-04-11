@@ -20,7 +20,15 @@ EntityT : EntityRoot<EntityIdT> {
 data class ListWithTotalCount<T>(
     val list: List<T>,
     val totalCount: Long,
-)
+) {
+  /** Maps the elements of the list, while keeping the same [totalCount]. */
+  fun <R> map(transform: (T) -> R): ListWithTotalCount<R> {
+    return ListWithTotalCount(
+        list = this.list.map(transform),
+        totalCount = this.totalCount,
+    )
+  }
+}
 
 /**
  * An alternative to [AbstractSearchRepository] for when you pass a `limit` but still want the total
