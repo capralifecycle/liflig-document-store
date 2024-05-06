@@ -60,7 +60,7 @@ abstract class UuidEntityIdSerializer<T : UuidEntityId>(val factory: (UUID) -> T
   override val descriptor: SerialDescriptor =
       PrimitiveSerialDescriptor("UuidEntityId", PrimitiveKind.STRING)
 
-  override fun serialize(encoder: Encoder, value: T) = encoder.encodeString(value.id.toString())
+  override fun serialize(encoder: Encoder, value: T) = encoder.encodeString(value.value.toString())
 
   override fun deserialize(decoder: Decoder): T = factory(UUID.fromString(decoder.decodeString()))
 }
@@ -68,6 +68,6 @@ abstract class UuidEntityIdSerializer<T : UuidEntityId>(val factory: (UUID) -> T
 object ExampleIdSerializer : UuidEntityIdSerializer<ExampleId>({ ExampleId(it) })
 
 @Serializable(with = ExampleIdSerializer::class)
-data class ExampleId(override val id: UUID = UUID.randomUUID()) : UuidEntityId {
-  override fun toString(): String = id.toString()
+data class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntityId {
+  override fun toString(): String = value.toString()
 }

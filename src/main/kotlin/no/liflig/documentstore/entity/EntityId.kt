@@ -1,7 +1,7 @@
 package no.liflig.documentstore.entity
 
 import java.sql.Types
-import java.util.UUID
+import java.util.*
 import org.jdbi.v3.core.argument.AbstractArgumentFactory
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.config.ConfigRegistry
@@ -11,7 +11,7 @@ interface EntityId
 
 /** UUID-version of an EntityId. */
 interface UuidEntityId : EntityId {
-  val id: UUID
+  val value: UUID
 }
 
 // TODO: this is probably not possible to achieve with the serializationadapter?
@@ -35,6 +35,6 @@ interface UuidEntityId : EntityId {
 class UuidEntityIdArgumentFactory : AbstractArgumentFactory<UuidEntityId>(Types.OTHER) {
   override fun build(value: UuidEntityId, config: ConfigRegistry?): Argument =
       Argument { position, statement, _ ->
-        statement.setObject(position, value.id)
+        statement.setObject(position, value.value)
       }
 }
