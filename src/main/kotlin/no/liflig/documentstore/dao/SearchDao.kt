@@ -2,6 +2,7 @@ package no.liflig.documentstore.dao
 
 import java.util.*
 import no.liflig.documentstore.entity.EntityId
+import no.liflig.documentstore.entity.EntityList
 import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.VersionedEntity
@@ -12,8 +13,8 @@ import org.jdbi.v3.core.statement.Query
 
 /** A DAO (Data Access Object) for search queries on entities in a database table. */
 interface SearchDao<EntityIdT : EntityId, EntityT : EntityRoot<EntityIdT>, SearchQueryT> {
-  fun search(query: SearchQueryT): List<VersionedEntity<EntityT>>
-  fun listByIds(ids: List<EntityIdT>): List<VersionedEntity<EntityT>>
+  fun search(query: SearchQueryT): EntityList<EntityT>
+  fun listByIds(ids: List<EntityIdT>): EntityList<EntityT>
 }
 
 /**
@@ -32,7 +33,7 @@ EntityT : EntityRoot<EntityIdT> {
 
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override fun listByIds(ids: List<EntityIdT>): List<VersionedEntity<EntityT>> =
+  override fun listByIds(ids: List<EntityIdT>): EntityList<EntityT> =
       getByPredicate("id = ANY (:ids)") { bindArray("ids", EntityId::class.java, ids) }
 
   /**
@@ -53,10 +54,8 @@ EntityT : EntityRoot<EntityIdT> {
    * ```
    * data class UserSearchQuery(val names: List<String>)
    *
-   * override fun search(query: UserSearchQuery): List<VersionedEntity<StoredUser>> {
-   *     return getByPredicate(
-   *         sqlWhere = "(data->>'name' = ANY(:namesQuery))",
-   *     ) {
+   * override fun search(query: UserSearchQuery): EntityList<User> {
+   *     return getByPredicate("data->>'name' = ANY(:namesQuery)") {
    *         bindArray("namesQuery", String::class.java, query.name)
    *     }
    * }
@@ -70,7 +69,7 @@ EntityT : EntityRoot<EntityIdT> {
       orderDesc: Boolean = false,
       forUpdate: Boolean = false,
       bind: Query.() -> Query = { this }
-  ): List<VersionedEntity<EntityT>> = mapExceptions {
+  ): EntityList<EntityT> = mapExceptions {
     getHandle(jdbi) { handle ->
       val orderDirection = if (orderDesc) "DESC" else "ASC"
       val orderByString = orderBy ?: "created_at"
@@ -106,7 +105,7 @@ EntityT : EntityRoot<EntityIdT> {
       orderDesc: Boolean = false,
       domainFilter: (EntityT) -> Boolean = { true },
       bind: Query.() -> Query = { this }
-  ): List<VersionedEntity<EntityT>> = mapExceptions {
+  ): EntityList<EntityT> = mapExceptions {
     getHandle(jdbi) { handle ->
       val orderDirection = if (orderDesc) "DESC" else "ASC"
       val orderByString = orderBy ?: "created_at"

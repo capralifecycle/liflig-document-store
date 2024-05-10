@@ -2,6 +2,8 @@ package no.liflig.documentstore.dao
 
 import java.util.*
 import no.liflig.documentstore.entity.EntityId
+import no.liflig.documentstore.entity.EntityList
+import no.liflig.documentstore.entity.EntityListWithTotalCount
 import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.VersionedEntity
@@ -18,8 +20,8 @@ import org.jdbi.v3.core.statement.Query
 interface SearchDaoWithCount<EntityIdT, EntityT, SearchQueryT> where
 EntityIdT : EntityId,
 EntityT : EntityRoot<EntityIdT> {
-  fun search(query: SearchQueryT): ListWithTotalCount<VersionedEntity<EntityT>>
-  fun listByIds(ids: List<EntityIdT>): List<VersionedEntity<EntityT>>
+  fun search(query: SearchQueryT): EntityListWithTotalCount<EntityT>
+  fun listByIds(ids: List<EntityIdT>): EntityList<EntityT>
 }
 
 data class ListWithTotalCount<T>(
@@ -51,7 +53,7 @@ EntityT : EntityRoot<EntityIdT> {
   protected open val rowMapperWithCount =
       createRowMapperWithCount(createRowParserWithCount(::fromJson))
 
-  override fun listByIds(ids: List<EntityIdT>): List<VersionedEntity<EntityT>> =
+  override fun listByIds(ids: List<EntityIdT>): EntityList<EntityT> =
       getByPredicate("id = ANY (:ids)") { bindArray("ids", EntityId::class.java, ids) }.list
 
   /**

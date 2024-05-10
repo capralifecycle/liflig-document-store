@@ -12,15 +12,15 @@ import no.liflig.documentstore.entity.UuidEntityId
 
 @Serializable
 data class ExampleEntity(
-  override val id: ExampleId = ExampleId(),
-  override val createdAt: Instant = Instant.now(),
-  override val modifiedAt: Instant = Instant.now(),
-  val text: String,
-  val moreText: String? = null,
+    override val id: ExampleId = ExampleId(),
+    override val createdAt: Instant = Instant.now(),
+    override val modifiedAt: Instant = Instant.now(),
+    val text: String,
+    val moreText: String? = null,
 ) : AbstractEntityRoot<ExampleId>(), EntityTimestamps {
   fun update(
-    text: String = this.text,
-    moreText: String? = this.moreText,
+      text: String = this.text,
+      moreText: String? = this.moreText,
   ): ExampleEntity =
       copy(
           modifiedAt = Instant.now(),

@@ -7,6 +7,7 @@ import no.liflig.documentstore.dao.AbstractSearchDao
 import no.liflig.documentstore.dao.AbstractSearchDaoWithCount
 import no.liflig.documentstore.dao.ListWithTotalCount
 import no.liflig.documentstore.dao.SerializationAdapter
+import no.liflig.documentstore.entity.EntityList
 import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.Jdbi
 
@@ -25,7 +26,7 @@ enum class OrderBy {
 
 class ExampleSearchDao(jdbi: Jdbi, table: String, serializer: SerializationAdapter<ExampleEntity>) :
     AbstractSearchDao<ExampleId, ExampleEntity, ExampleSearchQuery>(jdbi, table, serializer) {
-  override fun search(query: ExampleSearchQuery): List<VersionedEntity<ExampleEntity>> {
+  override fun search(query: ExampleSearchQuery): EntityList<ExampleEntity> {
     return getByPredicate(
         sqlWhere = "(:textQuery IS NULL OR (data ->>'text' ILIKE '%' || :textQuery || '%'))",
         limit = query.limit,
