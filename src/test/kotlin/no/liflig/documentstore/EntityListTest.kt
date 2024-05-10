@@ -4,6 +4,7 @@ import kotlin.test.assertEquals
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.VersionedEntity
 import no.liflig.documentstore.entity.filterEntities
+import no.liflig.documentstore.entity.forEachEntity
 import no.liflig.documentstore.entity.mapEntities
 import no.liflig.documentstore.entity.mapEntitiesNotNull
 import no.liflig.documentstore.examples.ExampleEntity
@@ -64,5 +65,19 @@ class EntityListTest {
 
     assertEquals(1, mappedEntities.size)
     assertEquals("test2", mappedEntities[0].item.text)
+  }
+
+  @Test
+  fun testForEachEntity() {
+    val entities =
+        listOf(
+            VersionedEntity(ExampleEntity(text = "test1"), Version.initial()),
+            VersionedEntity(ExampleEntity(text = "test2"), Version.initial()),
+        )
+
+    var combinedText = ""
+    entities.forEachEntity { entity -> combinedText += entity.text }
+
+    assertEquals("test1test2", combinedText)
   }
 }

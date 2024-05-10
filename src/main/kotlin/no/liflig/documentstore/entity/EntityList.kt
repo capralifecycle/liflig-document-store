@@ -2,6 +2,12 @@ package no.liflig.documentstore.entity
 
 import no.liflig.documentstore.dao.ListWithTotalCount
 
+/**
+ * Type alias to avoid repeated long List<VersionedEntity<...>> type declarations.
+ *
+ * Provides utility functions for mapping/filtering/iterating while keeping the same [Version]
+ * (typically needed when the entity will be used for updating later).
+ */
 typealias EntityList<T> = List<VersionedEntity<T>>
 
 /**
@@ -14,7 +20,10 @@ fun <T : EntityRoot<*>> EntityList<T>.mapEntities(mapFn: (T) -> T): EntityList<T
   }
 }
 
-/** Same as [mapEntities], but discards entities that return null from the map function. */
+/**
+ * Utility function for mapping a list of entities, but keeping the same version for each element.
+ * Discards entities that return null from the given map function.
+ */
 fun <T : EntityRoot<*>> EntityList<T>.mapEntitiesNotNull(mapFn: (T) -> T?): EntityList<T> {
   return mapNotNull { (entity, version) ->
     val newEntity = mapFn(entity) ?: return@mapNotNull null
@@ -29,6 +38,22 @@ fun <T : EntityRoot<*>> EntityList<T>.filterEntities(predicate: (T) -> Boolean):
   return filter { (entity, _) -> predicate(entity) }
 }
 
+/**
+ * Utility function for iterating over a list of entities, when you don't care about their versions.
+ */
+fun <T : EntityRoot<*>> EntityList<T>.forEachEntity(action: (T) -> Unit) {
+  for ((entity, _) in this) {
+    action(entity)
+  }
+}
+
+/**
+ * Type alias to avoid repeated long ListWithTotalCount<VersionedEntity<...>> type declarations.
+ *
+ * Provides utility functions for mapping/filtering/iterating while keeping the same version on the
+ * VersionedEntity (typically needed when the entity will be used for updating later), and the same
+ * totalCount.
+ */
 typealias EntityListWithTotalCount<T> = ListWithTotalCount<VersionedEntity<T>>
 
 /**
@@ -40,7 +65,10 @@ fun <T : EntityRoot<*>> EntityListWithTotalCount<T>.mapEntities(mapFn: (T) -> T)
         totalCount = this.totalCount,
     )
 
-/** Same as [mapEntities], but discards entities that return null from the map function. */
+/**
+ * Utility function for mapping a list of entities, but keeping the same version for each element.
+ * Discards entities that return null from the given map function.
+ */
 fun <T : EntityRoot<*>> EntityListWithTotalCount<T>.mapEntitiesNotNull(mapFn: (T) -> T?) =
     EntityListWithTotalCount(
         list = this.list.mapEntitiesNotNull(mapFn),
@@ -55,3 +83,12 @@ fun <T : EntityRoot<*>> EntityListWithTotalCount<T>.filterEntities(predicate: (T
         list = this.list.filterEntities(predicate),
         totalCount = this.totalCount,
     )
+
+/**
+ * Utility function for iterating over a list of entities, when you don't care about their versions.
+ */
+fun <T : EntityRoot<*>> EntityListWithTotalCount<T>.forEachEntity(action: (T) -> Unit) {
+  for ((entity, _) in this.list) {
+    action(entity)
+  }
+}
