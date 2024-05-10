@@ -11,42 +11,22 @@ import no.liflig.documentstore.entity.EntityTimestamps
 import no.liflig.documentstore.entity.UuidEntityId
 
 @Serializable
-class ExampleEntity
-private constructor(
-  override val id: ExampleId,
+data class ExampleEntity(
+  override val id: ExampleId = ExampleId(),
+  override val createdAt: Instant = Instant.now(),
+  override val modifiedAt: Instant = Instant.now(),
   val text: String,
-  val moreText: String?,
-  override val createdAt: Instant,
-  override val modifiedAt: Instant
+  val moreText: String? = null,
 ) : AbstractEntityRoot<ExampleId>(), EntityTimestamps {
-  private fun update(
+  fun update(
     text: String = this.text,
     moreText: String? = this.moreText,
-    createdAt: Instant = this.createdAt,
-    modifiedAt: Instant = Instant.now()
   ): ExampleEntity =
-      ExampleEntity(
-          id = this.id,
+      copy(
+          modifiedAt = Instant.now(),
           text = text,
           moreText = moreText,
-          createdAt = createdAt,
-          modifiedAt = modifiedAt,
       )
-
-  fun updateText(
-    text: String = this.text,
-    moreText: String? = this.moreText,
-  ): ExampleEntity = update(text = text, moreText = moreText)
-
-  companion object {
-    fun create(
-      text: String,
-      moreText: String? = null,
-      now: Instant = Instant.now(),
-      id: ExampleId = ExampleId()
-    ): ExampleEntity =
-        ExampleEntity(id = id, text = text, moreText = moreText, createdAt = now, modifiedAt = now)
-  }
 }
 
 @Serializable

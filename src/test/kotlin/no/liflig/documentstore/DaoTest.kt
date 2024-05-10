@@ -61,7 +61,7 @@ class DaoTest {
   @Test
   fun storeAndRetrieveNewEntity() {
     runBlocking {
-      val agg = ExampleEntity.create("hello world")
+      val agg = ExampleEntity(text = "hello world")
 
       crudDao.create(agg)
 
@@ -76,7 +76,7 @@ class DaoTest {
   @Test
   fun updateWithWrongVersion() {
     runBlocking {
-      val agg = ExampleEntity.create("hello world")
+      val agg = ExampleEntity(text = "hello world")
 
       val storeResult = crudDao.create(agg)
 
@@ -87,7 +87,7 @@ class DaoTest {
   @Test
   fun deleteEntity() {
     runBlocking {
-      val agg = ExampleEntity.create("hello world")
+      val agg = ExampleEntity(text = "hello world")
 
       assertFailsWith<ConflictDaoException> { crudDao.delete(agg.id, Version.initial()) }
 
@@ -105,9 +105,9 @@ class DaoTest {
   @Test
   fun updateEntity() {
     runBlocking {
-      val (initialAgg, initialVersion) = crudDao.create(ExampleEntity.create("hello world"))
+      val (initialAgg, initialVersion) = crudDao.create(ExampleEntity(text = "hello world"))
 
-      val updatedAgg = initialAgg.updateText("new value")
+      val updatedAgg = initialAgg.update(text = "new value")
       crudDao.update(updatedAgg, initialVersion)
 
       val res = crudDao.get(updatedAgg.id)
@@ -124,12 +124,12 @@ class DaoTest {
   @MethodSource("getTransactionFunctions")
   fun completeTransactionSucceeds(transactionBlock: Transactional) {
     runBlocking {
-      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity.create("One"))
-      val (initialAgg2, initialVersion2) = crudDao.create(ExampleEntity.create("One"))
+      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity(text = "One"))
+      val (initialAgg2, initialVersion2) = crudDao.create(ExampleEntity(text = "One"))
 
       transactionBlock(jdbi) {
-        crudDao.update(initialAgg1.updateText("Two"), initialVersion1)
-        crudDao.update(initialAgg2.updateText("Two"), initialVersion2)
+        crudDao.update(initialAgg1.update(text = "Two"), initialVersion1)
+        crudDao.update(initialAgg2.update(text = "Two"), initialVersion2)
         crudDao.get(initialAgg2.id)
       }
 
@@ -143,13 +143,13 @@ class DaoTest {
   @MethodSource("getTransactionFunctions")
   fun failedTransactionRollsBack(transactionBlock: Transactional) {
     runBlocking {
-      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity.create("One"))
-      val (initialAgg2, initialVersion2) = crudDao.create(ExampleEntity.create("One"))
+      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity(text = "One"))
+      val (initialAgg2, initialVersion2) = crudDao.create(ExampleEntity(text = "One"))
 
       try {
         transactionBlock(jdbi) {
-          crudDao.update(initialAgg1.updateText("Two"), initialVersion1)
-          crudDao.update(initialAgg2.updateText("Two"), initialVersion2.next())
+          crudDao.update(initialAgg1.update(text = "Two"), initialVersion1)
+          crudDao.update(initialAgg2.update(text = "Two"), initialVersion2.next())
         }
       } catch (_: ConflictDaoException) {}
 
@@ -162,15 +162,15 @@ class DaoTest {
   @MethodSource("getTransactionFunctions")
   fun failedTransactionWithExplicitHandleStartedOutsideRollsBack(transactionBlock: Transactional) {
     runBlocking {
-      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity.create("One"))
-      val (initialAgg2, initialVersion2) = crudDao.create(ExampleEntity.create("One"))
+      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity(text = "One"))
+      val (initialAgg2, initialVersion2) = crudDao.create(ExampleEntity(text = "One"))
 
       var exceptionThrown = false
       try {
         transactionBlock(jdbi) {
           runBlocking {
-            crudDao.update(initialAgg1.updateText("Two"), initialVersion1)
-            crudDao.update(initialAgg2.updateText("Two"), initialVersion2.next())
+            crudDao.update(initialAgg1.update(text = "Two"), initialVersion1)
+            crudDao.update(initialAgg2.update(text = "Two"), initialVersion2.next())
           }
         }
       } catch (_: ConflictDaoException) {
@@ -187,13 +187,13 @@ class DaoTest {
   @MethodSource("getTransactionFunctions")
   fun failedTransactionFactoryRollsBack(transactionBlock: Transactional) {
     runBlocking {
-      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity.create("One"))
-      val (initialAgg2, initialVersion2) = crudDao.create(ExampleEntity.create("One"))
+      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity(text = "One"))
+      val (initialAgg2, initialVersion2) = crudDao.create(ExampleEntity(text = "One"))
 
       try {
         transactionBlock(jdbi) {
-          crudDao.update(initialAgg1.updateText("Two"), initialVersion1)
-          crudDao.update(initialAgg2.updateText("Two"), initialVersion2.next())
+          crudDao.update(initialAgg1.update(text = "Two"), initialVersion1)
+          crudDao.update(initialAgg2.update(text = "Two"), initialVersion2.next())
         }
       } catch (_: ConflictDaoException) {}
 
@@ -208,14 +208,14 @@ class DaoTest {
     runBlocking {
       val initialValue = "Initial"
       val updatedVaue = "Updated value"
-      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity.create(initialValue))
-      val (initialAgg2, initialVersion2) = crudDao.create(ExampleEntity.create(initialValue))
+      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity(text = initialValue))
+      val (initialAgg2, initialVersion2) = crudDao.create(ExampleEntity(text = initialValue))
 
       try {
         transactionBlock(jdbi) {
-          crudDao.update(initialAgg1.updateText(updatedVaue), initialVersion1)
+          crudDao.update(initialAgg1.update(text = updatedVaue), initialVersion1)
           transactionBlock(jdbi) {
-            crudDao.update(initialAgg2.updateText(updatedVaue), initialVersion2)
+            crudDao.update(initialAgg2.update(text = updatedVaue), initialVersion2)
           }
           throw ConflictDaoException()
         }
@@ -231,7 +231,7 @@ class DaoTest {
   fun transactionWithForUpdateLocksRows(transactionBlock: Transactional) {
     runBlocking {
       val initialValue = "Initial"
-      val (initialAgg1, _) = crudDao.create(ExampleEntity.create(initialValue))
+      val (initialAgg1, _) = crudDao.create(ExampleEntity(text = initialValue))
 
       // Without locking, we should be getting ConflictDaoException when concurrent processes
       // attempt to update the same row. With locking, each transaction will wait until lock
@@ -241,7 +241,7 @@ class DaoTest {
             async(Dispatchers.IO) {
               transactionBlock(jdbi) {
                 val first = crudDao.get(initialAgg1.id, true)!!
-                val updated = first.item.updateText(it.toString())
+                val updated = first.item.update(text = it.toString())
                 crudDao.update(updated, first.version)
               }
             }
@@ -256,11 +256,11 @@ class DaoTest {
   @MethodSource("getTransactionFunctions")
   fun getReturnsUpdatedDataWithinTransaction(transactionBlock: Transactional) {
     runBlocking {
-      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity.create("One"))
+      val (initialAgg1, initialVersion1) = crudDao.create(ExampleEntity(text = "One"))
 
       val result =
           transactionBlock(jdbi) {
-            crudDao.update(initialAgg1.updateText("Two"), initialVersion1)
+            crudDao.update(initialAgg1.update(text = "Two"), initialVersion1)
             crudDao.get(initialAgg1.id)?.item?.text
           }
 
@@ -271,11 +271,11 @@ class DaoTest {
   @Test
   fun searchDaoTextQuery() {
     runBlocking {
-      val entity1 = ExampleEntity.create("Very specific name for text query test 1")
+      val entity1 = ExampleEntity(text = "Very specific name for text query test 1")
       crudDao.create(entity1)
-      val entity2 = ExampleEntity.create("Very specific name for text query test 2")
+      val entity2 = ExampleEntity(text = "Very specific name for text query test 2")
       crudDao.create(entity2)
-      crudDao.create(ExampleEntity.create("Other entity"))
+      crudDao.create(ExampleEntity(text = "Other entity"))
 
       val result =
           searchDao.search(
@@ -293,8 +293,8 @@ class DaoTest {
   @Test
   fun orderByOrdersByCorrectData() {
     runBlocking {
-      val (initialAgg1, _) = crudDao.create(ExampleEntity.create("A"))
-      val (initialAgg2, _) = crudDao.create(ExampleEntity.create("B"))
+      val (initialAgg1, _) = crudDao.create(ExampleEntity(text = "A"))
+      val (initialAgg2, _) = crudDao.create(ExampleEntity(text = "B"))
 
       val result1 =
           searchDao.search(ExampleSearchQuery(orderBy = OrderBy.TEXT, orderDesc = false)).map {
@@ -313,10 +313,10 @@ class DaoTest {
   @Test
   fun testOrderByCreated() {
     runBlocking {
-      val (intialEntity1, _) = crudDao.create(ExampleEntity.create("A", now = Instant.now()))
+      val (intialEntity1, _) = crudDao.create(ExampleEntity(text = "A", createdAt = Instant.now()))
 
       val (initialEntity2, _) =
-          crudDao.create(ExampleEntity.create("B", now = Instant.now().minusSeconds(10000)))
+          crudDao.create(ExampleEntity(text = "B", createdAt = Instant.now().minusSeconds(10000)))
 
       val result1 = searchDao.search(ExampleSearchQuery(orderDesc = false)).map { it.item }
 
@@ -329,10 +329,10 @@ class DaoTest {
   @Test
   fun testSearchDaoWithCount() {
     runBlocking {
-      val entity1 = ExampleEntity.create("Very specific name for text query test 1")
+      val entity1 = ExampleEntity(text = "Very specific name for text query test 1")
       crudDaoWithCount.create(entity1)
-      crudDaoWithCount.create(ExampleEntity.create("Very specific name for text query test 2"))
-      crudDaoWithCount.create(ExampleEntity.create("Other entity"))
+      crudDaoWithCount.create(ExampleEntity(text = "Very specific name for text query test 2"))
+      crudDaoWithCount.create(ExampleEntity(text = "Other entity"))
 
       val queryWithLimitLessThanCount = ExampleSearchQuery(limit = 2, offset = 0)
       val result1 = searchDaoWithCount.search(queryWithLimitLessThanCount)
@@ -360,12 +360,15 @@ class DaoTest {
   @Test
   fun verifySnapshot() {
     val agg =
-        ExampleEntity.create(
+        ExampleEntity(
             id = ExampleId(UUID.fromString("928f6ef3-6873-454a-a68d-ef3f5d7963b5")),
             text = "hello world",
-            now = Instant.parse("2020-10-11T23:25:00Z"),
         )
 
-    verifyJsonSnapshot("Example.json", serializationAdapter.toJson(agg))
+    verifyJsonSnapshot(
+        "Example.json",
+        serializationAdapter.toJson(agg),
+        ignoredPaths = listOf("createdAt", "modifiedAt"),
+    )
   }
 }

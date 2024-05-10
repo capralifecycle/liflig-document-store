@@ -11,11 +11,11 @@ import no.liflig.documentstore.entity.VersionedEntity
 import org.jdbi.v3.core.Jdbi
 
 data class ExampleSearchQuery(
-  val text: String? = null,
-  val limit: Int? = null,
-  val offset: Int? = null,
-  val orderBy: OrderBy? = null,
-  val orderDesc: Boolean = false,
+    val text: String? = null,
+    val limit: Int? = null,
+    val offset: Int? = null,
+    val orderBy: OrderBy? = null,
+    val orderDesc: Boolean = false,
 )
 
 enum class OrderBy {
@@ -24,7 +24,7 @@ enum class OrderBy {
 }
 
 class ExampleSearchDao(jdbi: Jdbi, table: String, serializer: SerializationAdapter<ExampleEntity>) :
-  AbstractSearchDao<ExampleId, ExampleEntity, ExampleSearchQuery>(jdbi, table, serializer) {
+    AbstractSearchDao<ExampleId, ExampleEntity, ExampleSearchQuery>(jdbi, table, serializer) {
   override fun search(query: ExampleSearchQuery): List<VersionedEntity<ExampleEntity>> {
     return getByPredicate(
         sqlWhere = "(:textQuery IS NULL OR (data ->>'text' ILIKE '%' || :textQuery || '%'))",
@@ -32,11 +32,11 @@ class ExampleSearchDao(jdbi: Jdbi, table: String, serializer: SerializationAdapt
         offset = query.offset,
         orderDesc = query.orderDesc,
         orderBy =
-        when (query.orderBy) {
-          OrderBy.TEXT -> "data->>'text'"
-          OrderBy.CREATED_AT -> "createdAt"
-          null -> null
-        },
+            when (query.orderBy) {
+              OrderBy.TEXT -> "data->>'text'"
+              OrderBy.CREATED_AT -> "createdAt"
+              null -> null
+            },
     ) {
       bind("textQuery", query.text)
     }
@@ -44,17 +44,17 @@ class ExampleSearchDao(jdbi: Jdbi, table: String, serializer: SerializationAdapt
 }
 
 class ExampleSearchDaoWithCount(
-  jdbi: Jdbi,
-  table: String,
-  serializer: SerializationAdapter<ExampleEntity>
+    jdbi: Jdbi,
+    table: String,
+    serializer: SerializationAdapter<ExampleEntity>
 ) :
-  AbstractSearchDaoWithCount<ExampleId, ExampleEntity, ExampleSearchQuery>(
-      jdbi,
-      table,
-      serializer,
-  ) {
+    AbstractSearchDaoWithCount<ExampleId, ExampleEntity, ExampleSearchQuery>(
+        jdbi,
+        table,
+        serializer,
+    ) {
   override fun search(
-    query: ExampleSearchQuery
+      query: ExampleSearchQuery
   ): ListWithTotalCount<VersionedEntity<ExampleEntity>> {
     return getByPredicate(
         sqlWhere = "(:textQuery IS NULL OR (data ->>'text' ILIKE '%' || :textQuery || '%'))",
@@ -62,11 +62,11 @@ class ExampleSearchDaoWithCount(
         offset = query.offset,
         orderDesc = query.orderDesc,
         orderBy =
-        when (query.orderBy) {
-          OrderBy.TEXT -> "data->>'text'"
-          OrderBy.CREATED_AT -> "createdAt"
-          null -> null
-        },
+            when (query.orderBy) {
+              OrderBy.TEXT -> "data->>'text'"
+              OrderBy.CREATED_AT -> "createdAt"
+              null -> null
+            },
     ) {
       bind("textQuery", query.text)
     }
