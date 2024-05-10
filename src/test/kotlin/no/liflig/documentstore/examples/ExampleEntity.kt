@@ -1,18 +1,11 @@
-@file:UseSerializers(InstantSerializer::class)
+@file:UseSerializers(InstantSerializer::class, UuidSerializer::class)
 
 package no.liflig.documentstore.examples
 
 import java.time.Instant
 import java.util.*
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
-import no.liflig.documentstore.InstantSerializer
 import no.liflig.documentstore.entity.AbstractEntityRoot
 import no.liflig.documentstore.entity.EntityTimestamps
 import no.liflig.documentstore.entity.UuidEntityId
@@ -20,17 +13,17 @@ import no.liflig.documentstore.entity.UuidEntityId
 @Serializable
 class ExampleEntity
 private constructor(
-    override val id: ExampleId,
-    val text: String,
-    val moreText: String?,
-    override val createdAt: Instant,
-    override val modifiedAt: Instant
+  override val id: ExampleId,
+  val text: String,
+  val moreText: String?,
+  override val createdAt: Instant,
+  override val modifiedAt: Instant
 ) : AbstractEntityRoot<ExampleId>(), EntityTimestamps {
   private fun update(
-      text: String = this.text,
-      moreText: String? = this.moreText,
-      createdAt: Instant = this.createdAt,
-      modifiedAt: Instant = Instant.now()
+    text: String = this.text,
+    moreText: String? = this.moreText,
+    createdAt: Instant = this.createdAt,
+    modifiedAt: Instant = Instant.now()
   ): ExampleEntity =
       ExampleEntity(
           id = this.id,
@@ -41,33 +34,23 @@ private constructor(
       )
 
   fun updateText(
-      text: String = this.text,
-      moreText: String? = this.moreText,
+    text: String = this.text,
+    moreText: String? = this.moreText,
   ): ExampleEntity = update(text = text, moreText = moreText)
 
   companion object {
     fun create(
-        text: String,
-        moreText: String? = null,
-        now: Instant = Instant.now(),
-        id: ExampleId = ExampleId()
+      text: String,
+      moreText: String? = null,
+      now: Instant = Instant.now(),
+      id: ExampleId = ExampleId()
     ): ExampleEntity =
         ExampleEntity(id = id, text = text, moreText = moreText, createdAt = now, modifiedAt = now)
   }
 }
 
-abstract class UuidEntityIdSerializer<T : UuidEntityId>(val factory: (UUID) -> T) : KSerializer<T> {
-  override val descriptor: SerialDescriptor =
-      PrimitiveSerialDescriptor("UuidEntityId", PrimitiveKind.STRING)
-
-  override fun serialize(encoder: Encoder, value: T) = encoder.encodeString(value.value.toString())
-
-  override fun deserialize(decoder: Decoder): T = factory(UUID.fromString(decoder.decodeString()))
-}
-
-object ExampleIdSerializer : UuidEntityIdSerializer<ExampleId>({ ExampleId(it) })
-
-@Serializable(with = ExampleIdSerializer::class)
-data class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntityId {
+@Serializable
+@JvmInline
+value class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntityId {
   override fun toString(): String = value.toString()
 }
