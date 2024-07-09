@@ -1,12 +1,12 @@
 package no.liflig.documentstore.dao
 
-import java.util.*
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityList
 import no.liflig.documentstore.entity.EntityListWithTotalCount
 import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.VersionedEntity
+import no.liflig.documentstore.entity.getEntityIdType
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinMapper
 import org.jdbi.v3.core.mapper.RowMapper
@@ -53,8 +53,14 @@ EntityT : EntityRoot<EntityIdT> {
   protected open val rowMapperWithCount =
       createRowMapperWithCount(createRowParserWithCount(::fromJson))
 
-  override fun listByIds(ids: List<EntityIdT>): EntityList<EntityT> =
-      getByPredicate("id = ANY (:ids)") { bindArray("ids", EntityId::class.java, ids) }.list
+  override fun listByIds(ids: List<EntityIdT>): EntityList<EntityT> {
+    if (ids.isEmpty()) {
+      return emptyList()
+    }
+
+    val elementType = getEntityIdType(ids.first())
+    return getByPredicate("id = ANY (:ids)") { bindArray("ids", elementType, ids) }.list
+  }
 
   /**
    * Gets database objects matching the given parameters, and the total count of objects matching
@@ -122,10 +128,9 @@ EntityT : EntityRoot<EntityIdT> {
 
 /**
  * In the case where no rows are returned, our SQL count query will return a single row where all
- * fields except `count` are `NULL`. Thus, `id`, `data` and `version` are nullable here.
+ * fields except `count` are `NULL`. Thus, `data` and `version` are nullable here.
  */
 data class EntityRowWithCount(
-    val id: UUID?,
     val data: String?,
     val version: Long?,
     val count: Long,
@@ -153,7 +158,7 @@ fun <EntityT : EntityRoot<*>> createRowParserWithCount(
   return { row ->
     /** @see EntityRowWithCount */
     val entity =
-        if (row.id != null && row.data != null && row.version != null)
+        if (row.data != null && row.version != null)
             VersionedEntity(fromJson(row.data), Version(row.version))
         else null
 

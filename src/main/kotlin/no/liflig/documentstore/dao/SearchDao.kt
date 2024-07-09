@@ -1,11 +1,11 @@
 package no.liflig.documentstore.dao
 
-import java.util.*
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityList
 import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.VersionedEntity
+import no.liflig.documentstore.entity.getEntityIdType
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinMapper
 import org.jdbi.v3.core.mapper.RowMapper
@@ -33,8 +33,14 @@ EntityT : EntityRoot<EntityIdT> {
 
   protected open val rowMapper = createRowMapper(createRowParser(::fromJson))
 
-  override fun listByIds(ids: List<EntityIdT>): EntityList<EntityT> =
-      getByPredicate("id = ANY (:ids)") { bindArray("ids", EntityId::class.java, ids) }
+  override fun listByIds(ids: List<EntityIdT>): EntityList<EntityT> {
+    if (ids.isEmpty()) {
+      return emptyList()
+    }
+
+    val elementType = getEntityIdType(ids.first())
+    return getByPredicate("id = ANY (:ids)") { bindArray("ids", elementType, ids) }
+  }
 
   /**
    * Runs a SELECT query using the given WHERE clause, limit, offset etc.
@@ -136,7 +142,7 @@ EntityT : EntityRoot<EntityIdT> {
  *
  * Note that the table might include more fields - this is only to read _out_ the entity.
  */
-data class EntityRow(val id: UUID, val data: String, val version: Long)
+data class EntityRow(val data: String, val version: Long)
 
 fun <A : EntityRoot<*>> createRowMapper(
     fromRow: (row: EntityRow) -> VersionedEntity<A>

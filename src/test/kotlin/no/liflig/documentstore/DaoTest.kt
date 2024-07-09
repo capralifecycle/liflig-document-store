@@ -5,6 +5,7 @@ import io.kotest.matchers.ints.shouldBeLessThan
 import java.time.Instant
 import java.util.*
 import java.util.stream.Stream
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
@@ -14,23 +15,30 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.encodeToString
 import no.liflig.documentstore.dao.ConflictDaoException
 import no.liflig.documentstore.dao.CrudDaoJdbi
 import no.liflig.documentstore.dao.coTransactional
 import no.liflig.documentstore.dao.transactional
 import no.liflig.documentstore.entity.Version
+import no.liflig.documentstore.examples.EntityWithStringId
+import no.liflig.documentstore.examples.EntityWithStringIdSerializationAdapter
 import no.liflig.documentstore.examples.ExampleEntity
 import no.liflig.documentstore.examples.ExampleId
 import no.liflig.documentstore.examples.ExampleSearchDao
 import no.liflig.documentstore.examples.ExampleSearchDaoWithCount
+import no.liflig.documentstore.examples.ExampleSearchDaoWithStringId
 import no.liflig.documentstore.examples.ExampleSearchQuery
 import no.liflig.documentstore.examples.ExampleSerializationAdapter
+import no.liflig.documentstore.examples.ExampleStringId
 import no.liflig.documentstore.examples.OrderBy
+import no.liflig.documentstore.examples.json
 import no.liflig.snapshot.verifyJsonSnapshot
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Named
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -39,15 +47,18 @@ typealias Transactional = suspend (jdbi: Jdbi, block: suspend () -> Any?) -> Any
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DaoTest {
-  val jdbi = createTestDatabase()
-  val serializationAdapter = ExampleSerializationAdapter()
-  val crudDao = CrudDaoJdbi(jdbi, "example", serializationAdapter)
-  val searchDao = ExampleSearchDao(jdbi, "example", serializationAdapter)
+  private val jdbi = createTestDatabase()
+  private val crudDao = CrudDaoJdbi(jdbi, "example", ExampleSerializationAdapter)
+  private val searchDao = ExampleSearchDao(jdbi, "example")
 
   // Separate DAOs to avoid other tests interfering with the count returned by SearchDaoWithCount
-  val crudDaoWithCount = CrudDaoJdbi(jdbi, "example_with_count", serializationAdapter)
-  val searchDaoWithCount =
-      ExampleSearchDaoWithCount(jdbi, "example_with_count", serializationAdapter)
+  private val crudDaoWithCount =
+      CrudDaoJdbi(jdbi, "example_with_count", ExampleSerializationAdapter)
+  private val searchDaoWithCount = ExampleSearchDaoWithCount(jdbi, "example_with_count")
+
+  private val crudDaoWithStringId =
+      CrudDaoJdbi(jdbi, "example_with_string_id", EntityWithStringIdSerializationAdapter)
+  private val searchDaoWithStringId = ExampleSearchDaoWithStringId(jdbi, "example_with_string_id")
 
   private fun getTransactionFunctions(): Stream<Arguments> {
     val co: Transactional = ::coTransactional
@@ -327,6 +338,25 @@ class DaoTest {
   }
 
   @Test
+  fun testListByIds() {
+    runBlocking {
+      val (entity1, _) = crudDao.create(ExampleEntity(text = "Test 1"))
+      val (entity2, _) = crudDao.create(ExampleEntity(text = "Test 2"))
+      // Third unused entity to verify that we only fetch entity 1 and 2
+      crudDao.create(ExampleEntity(text = "Test 3"))
+
+      val results =
+          searchDao.listByIds(
+              listOf(entity1.id, entity2.id),
+          )
+      assertEquals(results.size, 2)
+      val texts = results.map { it.item.text }
+      assertContains(texts, entity1.text)
+      assertContains(texts, entity2.text)
+    }
+  }
+
+  @Test
   fun testSearchDaoWithCount() {
     runBlocking {
       val entity1 = ExampleEntity(text = "Very specific name for text query test 1")
@@ -358,6 +388,41 @@ class DaoTest {
   }
 
   @Test
+  fun testEntityWithStringId() {
+    runBlocking {
+      val entities =
+          listOf(
+              EntityWithStringId(id = ExampleStringId("test1"), text = "test"),
+              EntityWithStringId(id = ExampleStringId("test2"), text = "test"),
+              EntityWithStringId(id = ExampleStringId("test3"), text = "test"),
+          )
+      for (entity in entities) {
+        crudDaoWithStringId.create(entity)
+      }
+
+      val result1 = crudDaoWithStringId.get(ExampleStringId("test1"))
+      assertNotNull(result1)
+      assertEquals(entities[0], result1.item)
+
+      val result2 =
+          searchDaoWithStringId.listByIds(
+              listOf(
+                  ExampleStringId("test2"),
+                  ExampleStringId("test3"),
+              ),
+          )
+      assertEquals(2, result2.size)
+      val resultEntities = result2.map { it.item }
+      assertContains(resultEntities, entities[1])
+      assertContains(resultEntities, entities[2])
+
+      assertThrows<Exception> {
+        crudDaoWithStringId.create(EntityWithStringId(id = ExampleStringId("test1"), text = "test"))
+      }
+    }
+  }
+
+  @Test
   fun verifySnapshot() {
     val agg =
         ExampleEntity(
@@ -367,7 +432,7 @@ class DaoTest {
 
     verifyJsonSnapshot(
         "Example.json",
-        serializationAdapter.toJson(agg),
+        json.encodeToString(agg),
         ignoredPaths = listOf("createdAt", "modifiedAt"),
     )
   }
