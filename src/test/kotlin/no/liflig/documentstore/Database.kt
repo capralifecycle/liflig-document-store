@@ -3,12 +3,6 @@ package no.liflig.documentstore
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
-import no.liflig.documentstore.entity.StringEntityId
-import no.liflig.documentstore.entity.StringEntityIdArgumentFactory
-import no.liflig.documentstore.entity.UnmappedEntityIdArgumentFactory
-import no.liflig.documentstore.entity.UuidEntityId
-import no.liflig.documentstore.entity.UuidEntityIdArgumentFactory
-import no.liflig.documentstore.entity.VersionArgumentFactory
 import org.flywaydb.core.Flyway
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
@@ -36,12 +30,7 @@ private fun createJdbiInstanceAndMigrate(dataSource: DataSource): Jdbi {
       Jdbi.create(dataSource)
           .installPlugin(KotlinPlugin())
           .installPlugin(PostgresPlugin())
-          .registerArgument(UuidEntityIdArgumentFactory())
-          .registerArgument(StringEntityIdArgumentFactory())
-          .registerArgument(UnmappedEntityIdArgumentFactory())
-          .registerArgument(VersionArgumentFactory())
-          .registerArrayType(UuidEntityId::class.java, "uuid")
-          .registerArrayType(StringEntityId::class.java, "varchar")
+          .registerLifligArgumentTypes()
 
   Flyway.configure()
       .baselineOnMigrate(true)
