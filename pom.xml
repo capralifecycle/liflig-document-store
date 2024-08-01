@@ -19,7 +19,7 @@
     <revision>${major-version}.local-SNAPSHOT</revision>
     <kotlinx-coroutines.version>1.7.3</kotlinx-coroutines.version>
     
-    <flyway.version>10.16.0</flyway.version>
+    <flyway.version>10.17.0</flyway.version>
   </properties>
 
   <scm>
