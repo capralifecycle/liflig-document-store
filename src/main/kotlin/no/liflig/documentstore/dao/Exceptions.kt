@@ -19,10 +19,6 @@ data class UnavailableDaoException(
     val e: Exception,
 ) : DaoException(e)
 
-data class UnknownDaoException(
-    val e: Exception,
-) : DaoException(e)
-
 inline fun <T> mapExceptions(block: () -> T): T {
   try {
     return block()
@@ -33,7 +29,7 @@ inline fun <T> mapExceptions(block: () -> T): T {
       is InterruptedIOException,
       is ConnectionException,
       is CloseException -> throw UnavailableDaoException(e)
-      else -> throw UnknownDaoException(e)
+      else -> throw e
     }
   }
 }
