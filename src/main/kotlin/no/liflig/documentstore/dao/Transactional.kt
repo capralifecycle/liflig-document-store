@@ -1,6 +1,5 @@
 package no.liflig.documentstore.dao
 
-import java.lang.Exception
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 
@@ -10,7 +9,7 @@ val transactionHandle = ThreadLocal<Handle?>()
  * Get a Handle to the data source wrapped by this Jdbi instance, either the one that exists in
  * [transactionHandle] provided by [transactional], or one will be obtained by calling [Jdbi.open]
  */
-internal fun <T> getHandle(jdbi: Jdbi, useHandle: (Handle) -> T): T {
+fun <T> getHandle(jdbi: Jdbi, useHandle: (Handle) -> T): T {
   val transactionHandle = transactionHandle.get()
 
   return if (transactionHandle != null) {
