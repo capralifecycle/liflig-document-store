@@ -7,6 +7,8 @@ CREATE TABLE example
   data        jsonb       NOT NULL
 );
 
+CREATE UNIQUE INDEX example_unique_field_index ON "example" ((data ->> 'uniqueField'));
+
 -- Separate table to avoid other tests interfering with the count returned by SearchDaoWithCount
 CREATE TABLE example_with_count
 (

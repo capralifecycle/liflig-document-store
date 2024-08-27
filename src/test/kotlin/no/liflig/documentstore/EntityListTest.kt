@@ -12,14 +12,14 @@ import org.junit.jupiter.api.Test
 
 class EntityListTest {
   @Test
-  fun testMapEntities() {
+  fun `test mapEntities`() {
     val entities =
         listOf(
             VersionedEntity(ExampleEntity(text = "test1"), Version.initial()),
             VersionedEntity(ExampleEntity(text = "test2"), Version.initial()),
         )
 
-    val mappedEntities = entities.mapEntities { entity -> entity.update(moreText = "New text!") }
+    val mappedEntities = entities.mapEntities { entity -> entity.copy(moreText = "New text!") }
 
     assertEquals(entities.size, mappedEntities.size)
     for (i in entities.indices) {
@@ -33,7 +33,7 @@ class EntityListTest {
   }
 
   @Test
-  fun testMapEntitiesNotNull() {
+  fun `test mapEntitiesNotNull`() {
     val entities =
         listOf(
             VersionedEntity(ExampleEntity(text = "test1"), Version.initial()),
@@ -54,7 +54,7 @@ class EntityListTest {
   }
 
   @Test
-  fun testFilterEntities() {
+  fun `test filterEntities`() {
     val entities =
         listOf(
             VersionedEntity(ExampleEntity(text = "test1"), Version.initial()),
@@ -68,7 +68,7 @@ class EntityListTest {
   }
 
   @Test
-  fun testForEachEntity() {
+  fun `test forEachEntity`() {
     val entities =
         listOf(
             VersionedEntity(ExampleEntity(text = "test1"), Version.initial()),

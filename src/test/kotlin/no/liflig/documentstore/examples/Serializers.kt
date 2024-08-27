@@ -18,7 +18,7 @@ internal object InstantSerializer : KSerializer<Instant> {
   override fun deserialize(decoder: Decoder): Instant = Instant.parse(decoder.decodeString())
 }
 
-object UuidSerializer : KSerializer<UUID> {
+internal object UuidSerializer : KSerializer<UUID> {
   override val descriptor: SerialDescriptor =
       PrimitiveSerialDescriptor("UUID", PrimitiveKind.STRING)
 

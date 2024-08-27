@@ -9,7 +9,8 @@ import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.postgres.PostgresPlugin
 import org.testcontainers.containers.PostgreSQLContainer
 
-class AppPostgresSQLContainer : PostgreSQLContainer<AppPostgresSQLContainer>("postgres:16")
+internal class AppPostgresSQLContainer :
+    PostgreSQLContainer<AppPostgresSQLContainer>("postgres:16")
 
 private fun createDataSource(
     jdbcUrl: String,
@@ -30,7 +31,7 @@ private fun createJdbiInstanceAndMigrate(dataSource: DataSource): Jdbi {
       Jdbi.create(dataSource)
           .installPlugin(KotlinPlugin())
           .installPlugin(PostgresPlugin())
-          .registerLifligArgumentTypes()
+          .installPlugin(DocumentStorePlugin())
 
   Flyway.configure()
       .baselineOnMigrate(true)
@@ -43,7 +44,7 @@ private fun createJdbiInstanceAndMigrate(dataSource: DataSource): Jdbi {
   return jdbi
 }
 
-fun createTestDatabase(): Jdbi {
+internal fun createTestDatabase(): Jdbi {
   val pgContainer = AppPostgresSQLContainer()
 
   pgContainer.withDatabaseName("example").withUsername("user").withPassword("pass").start()

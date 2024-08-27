@@ -6,47 +6,35 @@ import java.time.Instant
 import java.util.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
-import no.liflig.documentstore.entity.AbstractEntityRoot
-import no.liflig.documentstore.entity.EntityTimestamps
+import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.StringEntityId
 import no.liflig.documentstore.entity.UuidEntityId
 
 @Serializable
-data class ExampleEntity(
+internal data class ExampleEntity(
     override val id: ExampleId = ExampleId(),
-    override val createdAt: Instant = Instant.now(),
-    override val modifiedAt: Instant = Instant.now(),
     val text: String,
     val moreText: String? = null,
-) : AbstractEntityRoot<ExampleId>(), EntityTimestamps {
-  fun update(
-      text: String = this.text,
-      moreText: String? = this.moreText,
-  ): ExampleEntity =
-      copy(
-          modifiedAt = Instant.now(),
-          text = text,
-          moreText = moreText,
-      )
-}
+    val uniqueField: Int? = null,
+) : Entity<ExampleId>
 
 @Serializable
 @JvmInline
-value class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntityId {
+internal value class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntityId {
   override fun toString(): String = value.toString()
 }
 
 @Serializable
-data class EntityWithStringId(
+internal data class EntityWithStringId(
     override val id: ExampleStringId,
     val createdAt: Instant = Instant.now(),
     val modifiedAt: Instant = Instant.now(),
     val text: String,
     val moreText: String? = null,
-) : AbstractEntityRoot<ExampleStringId>()
+) : Entity<ExampleStringId>
 
 @Serializable
 @JvmInline
-value class ExampleStringId(override val value: String) : StringEntityId {
+internal value class ExampleStringId(override val value: String) : StringEntityId {
   override fun toString(): String = value
 }

@@ -2,6 +2,5 @@
   "id": "928f6ef3-6873-454a-a68d-ef3f5d7963b5",
   "text": "hello world",
   "moreText": null,
-  "createdAt": "2020-10-11T23:25:00Z",
-  "modifiedAt": "2020-10-11T23:25:00Z"
+  "uniqueField": null
 }
