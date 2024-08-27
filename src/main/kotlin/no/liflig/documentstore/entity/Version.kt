@@ -5,7 +5,10 @@ import org.jdbi.v3.core.argument.AbstractArgumentFactory
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.config.ConfigRegistry
 
-/** A [Version] represents the version for an entity and is used to implement optimistic locking. */
+/**
+ * A [Version] is a count of how many times an entity has been modified, and is used to implement
+ * optimistic locking.
+ */
 data class Version(val value: Long) {
   fun next() = Version(value + 1)
 
@@ -14,7 +17,7 @@ data class Version(val value: Long) {
   }
 }
 
-data class VersionedEntity<out T : EntityRoot<*>>(val item: T, val version: Version)
+data class VersionedEntity<out EntityT : Entity<*>>(val item: EntityT, val version: Version)
 
 /** An argument factory for JDBI so that we can use a [Version] as a bind argument. */
 class VersionArgumentFactory : AbstractArgumentFactory<Version>(Types.OTHER) {

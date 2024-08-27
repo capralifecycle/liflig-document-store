@@ -6,6 +6,10 @@ import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.config.ConfigRegistry
 
 /** Entity ID without known implementation. */
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store, since we found no users of it. If you need a string entity ID, use StringEntityId instead.",
+    level = DeprecationLevel.WARNING,
+)
 @Suppress("DataClassPrivateConstructor")
 data class UnmappedEntityId private constructor(val value: String) {
   override fun toString() = value
@@ -25,9 +29,18 @@ data class UnmappedEntityId private constructor(val value: String) {
   }
 }
 
+@Suppress("DeprecatedCallableAddReplaceWith")
+@Deprecated(
+    "This is being removed along with UnmappedEntityId in a future version of Liflig Document Store, since we found no users of it.",
+    level = DeprecationLevel.WARNING,
+)
 fun EntityId.toUnmapped(): UnmappedEntityId = UnmappedEntityId.fromString(toString())
 
 /** An argument factory for JDBI so that we can use a [UnmappedEntityId] as a bind argument. */
+@Deprecated(
+    "This is being removed along with UnmappedEntityId in a future version of Liflig Document Store, since we found no users of it.",
+    level = DeprecationLevel.WARNING,
+)
 class UnmappedEntityIdArgumentFactory : AbstractArgumentFactory<UnmappedEntityId>(Types.OTHER) {
   override fun build(value: UnmappedEntityId, config: ConfigRegistry?): Argument =
       Argument { position, statement, _ ->

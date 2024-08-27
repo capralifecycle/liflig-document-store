@@ -1,30 +1,43 @@
 package no.liflig.documentstore.entity
 
-interface Entity<I : EntityId> {
-  val id: I
+interface Entity<EntityIdT : EntityId> {
+  val id: EntityIdT
 }
 
-interface EntityRoot<I : EntityId> : Entity<I>
+@Deprecated(
+    "This interface was a redundant abstraction on top of the Entity interface, so we're replacing this with just the Entity interface.",
+    ReplaceWith(
+        "Entity<EntityIdT>",
+        imports = ["no.liflig.documentstore.entity.Entity"],
+    ),
+    level = DeprecationLevel.WARNING,
+)
+interface EntityRoot<EntityIdT : EntityId> : Entity<EntityIdT>
 
 /**
- * Base class for an Entity.
- *
- * Two Entities are considered equal if they have the same type and ID.
+ * Base class for an entity when you want two entities to compare as equal if their IDs are equal.
  */
-abstract class AbstractEntity<I : EntityId> : Entity<I> {
+abstract class AbstractEntity<EntityIdT : EntityId> : Entity<EntityIdT> {
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
     if (javaClass != other?.javaClass) return false
 
     other as AbstractEntity<*>
 
-    if (id != other.id) return false
-
-    return true
+    return id == other.id
   }
 
   override fun hashCode(): Int = id.hashCode()
 }
 
 /** Base class for the root Entity. */
-abstract class AbstractEntityRoot<I : EntityId> : AbstractEntity<I>(), EntityRoot<I>
+@Deprecated(
+    "This class was a redundant abstraction on top of AbstractEntity, so we're replacing this with just AbstractEntity.",
+    ReplaceWith(
+        "AbstractEntity<EntityIdT>",
+        imports = ["no.liflig.documentstore.entity.AbstractEntity"],
+    ),
+    level = DeprecationLevel.WARNING,
+)
+abstract class AbstractEntityRoot<EntityIdT : EntityId> :
+    AbstractEntity<EntityIdT>(), EntityRoot<EntityIdT>

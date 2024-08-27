@@ -11,6 +11,14 @@ import org.jdbi.v3.core.Jdbi
  * A DAO (Data Access Object) for CRUD (Create, Read, Update, Delete) operations on entities in a
  * database table.
  */
+@Deprecated(
+    "Replaced by the new Repository interface.",
+    ReplaceWith(
+        "Repository<EntityIdT, EntityT>",
+        imports = ["no.liflig.documentstore.repository.Repository"],
+    ),
+    level = DeprecationLevel.WARNING,
+)
 interface CrudDao<EntityIdT : EntityId, EntityT : EntityRoot<EntityIdT>> {
   fun create(entity: EntityT): VersionedEntity<EntityT>
 
@@ -27,6 +35,14 @@ interface CrudDao<EntityIdT : EntityId, EntityT : EntityRoot<EntityIdT>> {
 }
 
 /** An implementation of [CrudDao] that uses the JDBI library for database access. */
+@Deprecated(
+    "Replaced by RepositoryJdbi. Rather than implementing a repository by having a CrudDao as a field, you can now extend RepositoryJdbi.",
+    ReplaceWith(
+        "RepositoryJdbi<EntityIdT, EntityT>",
+        imports = ["no.liflig.documentstore.repository.RepositoryJdbi"],
+    ),
+    level = DeprecationLevel.WARNING,
+)
 class CrudDaoJdbi<EntityIdT : EntityId, EntityT : EntityRoot<EntityIdT>>(
     private val jdbi: Jdbi,
     private val sqlTableName: String,

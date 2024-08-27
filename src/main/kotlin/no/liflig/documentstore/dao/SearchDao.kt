@@ -12,6 +12,10 @@ import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.Query
 
 /** A DAO (Data Access Object) for search queries on entities in a database table. */
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store. Instead of implementing a repository using a SearchDao as a field, you should extend RepositoryJdbi and use its getByPredicate method to implement search/filter.",
+    level = DeprecationLevel.WARNING,
+)
 interface SearchDao<EntityIdT : EntityId, EntityT : EntityRoot<EntityIdT>, SearchQueryT> {
   fun search(query: SearchQueryT): EntityList<EntityT>
   fun listByIds(ids: List<EntityIdT>): EntityList<EntityT>
@@ -21,6 +25,10 @@ interface SearchDao<EntityIdT : EntityId, EntityT : EntityRoot<EntityIdT>, Searc
  * A helper class that you can inherit from to implement a [SearchDao], by using the
  * [getByPredicate] method (see example on that method's docstring).
  */
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store. Instead of implementing a repository using a SearchDao as a field, you should extend RepositoryJdbi and use its getByPredicate method to implement search/filter. You can move your search implementation from AbstractSearchDao to RepositoryJdbi.",
+    level = DeprecationLevel.WARNING,
+)
 abstract class AbstractSearchDao<EntityIdT, EntityT, SearchQueryT>(
     protected val jdbi: Jdbi,
     protected val sqlTableName: String,
@@ -103,6 +111,10 @@ EntityT : EntityRoot<EntityIdT> {
     }
   }
 
+  @Deprecated(
+      "This is being removed in an upcoming version of Liflig Document Store, since we found no users of it.",
+      level = DeprecationLevel.WARNING,
+  )
   protected open fun getByPredicateDomainFiltered(
       sqlWhere: String = "TRUE",
       limit: Int? = null,
@@ -142,8 +154,16 @@ EntityT : EntityRoot<EntityIdT> {
  *
  * Note that the table might include more fields - this is only to read _out_ the entity.
  */
+@Deprecated(
+    "In a future version of Liflig Document Store, this will no longer be public. If you rely on this, give a heads-up to the Liflig developers.",
+    level = DeprecationLevel.WARNING,
+)
 data class EntityRow(val data: String, val version: Long)
 
+@Deprecated(
+    "In a future version of Liflig Document Store, this will no longer be public. If you rely on this, give a heads-up to the Liflig developers.",
+    level = DeprecationLevel.WARNING,
+)
 fun <A : EntityRoot<*>> createRowMapper(
     fromRow: (row: EntityRow) -> VersionedEntity<A>
 ): RowMapper<VersionedEntity<A>> {
@@ -155,6 +175,10 @@ fun <A : EntityRoot<*>> createRowMapper(
   }
 }
 
+@Deprecated(
+    "In a future version of Liflig Document Store, this will no longer be public. If you rely on this, give a heads-up to the Liflig developers.",
+    level = DeprecationLevel.WARNING,
+)
 fun <A : EntityRoot<*>> createRowParser(
     fromJson: (String) -> A
 ): (row: EntityRow) -> VersionedEntity<A> {

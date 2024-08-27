@@ -17,6 +17,10 @@ import org.jdbi.v3.core.statement.Query
  * include a total count of entities in the table. This is useful for pagination using limit and
  * offset, as the total count can be used to display the number of pages.
  */
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store. Instead of implementing a repository using a SearchDaoWithCount as a field, you should extend RepositoryJdbi and use its getByPredicateWithTotalCount method to implement search/filter.",
+    level = DeprecationLevel.WARNING,
+)
 interface SearchDaoWithCount<EntityIdT, EntityT, SearchQueryT> where
 EntityIdT : EntityId,
 EntityT : EntityRoot<EntityIdT> {
@@ -24,6 +28,14 @@ EntityT : EntityRoot<EntityIdT> {
   fun listByIds(ids: List<EntityIdT>): EntityList<EntityT>
 }
 
+@Deprecated(
+    "Package location changed.",
+    ReplaceWith(
+        "ListWithTotalCount<T>",
+        imports = ["no.liflig.documentstore.repository.ListWithTotalCount"],
+    ),
+    level = DeprecationLevel.WARNING,
+)
 data class ListWithTotalCount<T>(
     val list: List<T>,
     val totalCount: Long,
@@ -41,6 +53,10 @@ data class ListWithTotalCount<T>(
  * A helper class that you can inherit from to implement a [SearchDaoWithCount], by using the
  * [getByPredicate] method.
  */
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store. Instead of implementing a repository using a SearchDaoWithCount as a field, you should extend RepositoryJdbi and use its getByPredicateWithTotalCount method to implement search/filter. You can move your search implementation from AbstractSearchDaoWithCount to RepositoryJdbi.",
+    level = DeprecationLevel.WARNING,
+)
 abstract class AbstractSearchDaoWithCount<EntityIdT, EntityT, SearchQueryT>(
     protected val jdbi: Jdbi,
     protected val sqlTableName: String,
@@ -130,17 +146,29 @@ EntityT : EntityRoot<EntityIdT> {
  * In the case where no rows are returned, our SQL count query will return a single row where all
  * fields except `count` are `NULL`. Thus, `data` and `version` are nullable here.
  */
+@Deprecated(
+    "In a future version of Liflig Document Store, this will no longer be public. If you rely on this, give a heads-up to the Liflig developers.",
+    level = DeprecationLevel.WARNING,
+)
 data class EntityRowWithCount(
     val data: String?,
     val version: Long?,
     val count: Long,
 )
 
+@Deprecated(
+    "In a future version of Liflig Document Store, this will no longer be public. If you rely on this, give a heads-up to the Liflig developers.",
+    level = DeprecationLevel.WARNING,
+)
 data class MappedEntityWithCount<EntityT : EntityRoot<*>>(
     val entity: VersionedEntity<EntityT>?,
     val count: Long,
 )
 
+@Deprecated(
+    "In a future version of Liflig Document Store, this will no longer be public. If you rely on this, give a heads-up to the Liflig developers.",
+    level = DeprecationLevel.WARNING,
+)
 fun <EntityT : EntityRoot<*>> createRowMapperWithCount(
     fromRow: (row: EntityRowWithCount) -> MappedEntityWithCount<EntityT>
 ): RowMapper<MappedEntityWithCount<EntityT>> {
@@ -152,6 +180,10 @@ fun <EntityT : EntityRoot<*>> createRowMapperWithCount(
   }
 }
 
+@Deprecated(
+    "In a future version of Liflig Document Store, this will no longer be public. If you rely on this, give a heads-up to the Liflig developers.",
+    level = DeprecationLevel.WARNING,
+)
 fun <EntityT : EntityRoot<*>> createRowParserWithCount(
     fromJson: (String) -> EntityT
 ): (row: EntityRowWithCount) -> MappedEntityWithCount<EntityT> {

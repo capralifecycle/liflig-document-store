@@ -1,10 +1,20 @@
+@file:Suppress("DeprecatedCallableAddReplaceWith")
+
 package no.liflig.documentstore.entity
 
-import java.util.UUID
+import java.util.*
 
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store, since we found no users of it.",
+    level = DeprecationLevel.WARNING,
+)
 typealias StringMapper<T> = (String) -> T
 
 /** Parse a [String] into [UUID] with error handling. */
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store, since we found no users of it.",
+    level = DeprecationLevel.WARNING,
+)
 fun parseUuid(value: String): UUID = UUID.fromString(value)
 
 /**
@@ -12,6 +22,10 @@ fun parseUuid(value: String): UUID = UUID.fromString(value)
  *
  * [IllegalArgumentException] in the conversion will be handled.
  */
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store, since we found no users of it.",
+    level = DeprecationLevel.WARNING,
+)
 fun <T> createUuidMapper(factory: (UUID) -> T): StringMapper<T> = { factory.invoke(parseUuid(it)) }
 
 /**
@@ -20,6 +34,10 @@ fun <T> createUuidMapper(factory: (UUID) -> T): StringMapper<T> = { factory.invo
  *
  * [IllegalArgumentException] in the conversion will be handled.
  */
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store, since we found no users of it.",
+    level = DeprecationLevel.WARNING,
+)
 @JvmName("createMapperPairForUuid")
 inline fun <reified T> createMapperPairForUuid(
     noinline factory: (UUID) -> T
@@ -31,6 +49,10 @@ inline fun <reified T> createMapperPairForUuid(
  *
  * [IllegalArgumentException] in the conversion will be handled.
  */
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store, since we found no users of it.",
+    level = DeprecationLevel.WARNING,
+)
 @JvmName("createMapperPairForString")
 inline fun <reified T> createMapperPairForString(
     noinline factory: (String) -> T
@@ -40,6 +62,10 @@ inline fun <reified T> createMapperPairForString(
  * Create a pair representing the mapping of a specific [T] from a [String] by using the provided
  * [factory] function.
  */
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store, since we found no users of it.",
+    level = DeprecationLevel.WARNING,
+)
 @JvmName("createMapperPairForStringMapper")
 inline fun <reified T> createMapperPairForStringMapper(
     noinline factory: StringMapper<T>

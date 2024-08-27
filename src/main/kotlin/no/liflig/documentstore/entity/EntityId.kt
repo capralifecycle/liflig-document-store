@@ -21,7 +21,7 @@ interface StringEntityId : EntityId {
 
 /**
  * In order to use JDBI's `bindArray` method to bind list arguments, we have to supply the list's
- * element type at runtime. We use this in `AbstractSearchDao.listByIds`. However, we don't have the
+ * element type at runtime. We use this in `RepositoryJdbi.listByIds`. However, we don't have the
  * runtime type of `EntityId` there, and we cannot use `reified` on class type parameters. Thus, we
  * use this function to get the runtime type of the `EntityId`, so we can bind it correctly.
  */

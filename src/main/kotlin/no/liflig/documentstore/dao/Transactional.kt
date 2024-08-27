@@ -9,6 +9,14 @@ val transactionHandle = ThreadLocal<Handle?>()
  * Get a Handle to the data source wrapped by this Jdbi instance, either the one that exists in
  * [transactionHandle] provided by [transactional], or one will be obtained by calling [Jdbi.open]
  */
+@Deprecated(
+    "Package location changed, and renamed to 'useHandle'.",
+    ReplaceWith(
+        "useHandle",
+        imports = ["no.liflig.documentstore.repository.useHandle"],
+    ),
+    level = DeprecationLevel.WARNING,
+)
 fun <T> getHandle(jdbi: Jdbi, useHandle: (Handle) -> T): T {
   val transactionHandle = transactionHandle.get()
 
@@ -24,6 +32,14 @@ fun <T> getHandle(jdbi: Jdbi, useHandle: (Handle) -> T): T {
  * already in progress, a new one will not be initiated. [transactionHandle] will then be used by
  * [getHandle] if called inside [block]
  */
+@Deprecated(
+    "Package location changed.",
+    ReplaceWith(
+        "transactional",
+        imports = ["no.liflig.documentstore.repository.transactional"],
+    ),
+    level = DeprecationLevel.WARNING,
+)
 fun <T> transactional(jdbi: Jdbi, block: () -> T): T {
   val existingHandle = transactionHandle.get()
 
@@ -44,6 +60,10 @@ fun <T> transactional(jdbi: Jdbi, block: () -> T): T {
 }
 
 /** Similar to [transactional], but supports suspend functions */
+@Deprecated(
+    "This is being removed in an upcoming version of Liflig Document Store, since we found no users of it.",
+    level = DeprecationLevel.WARNING,
+)
 suspend fun <T> coTransactional(jdbi: Jdbi, block: suspend () -> T): T {
   val existingHandle = transactionHandle.get()
 
