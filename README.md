@@ -2,7 +2,7 @@
 
 Kotlin library implementing the repository pattern for storing documents as JSONB in Postgres.
 
-* CRUD-like Data Access Object (DAO) with extendable methods for flexibility.
+* CRUD-like repository with extendable methods for flexibility.
 * Optimistic locking.
 * JDBI library for convenience.
 * Serialization and deserialization of objects using Kotlinx Serialization.
