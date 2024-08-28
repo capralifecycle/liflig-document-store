@@ -5,8 +5,7 @@ import org.jdbi.v3.core.Jdbi
 
 // `@PublishedApi` lets us use this in inline functions. Renaming or removing this may be a breaking
 // change.
-@PublishedApi
-internal val transactionHandle = ThreadLocal<Handle?>()
+@PublishedApi internal val transactionHandle = ThreadLocal<Handle?>()
 
 /**
  * Gets a database handle either from an ongoing transaction (from [transactional]), or if none is

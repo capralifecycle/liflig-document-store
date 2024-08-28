@@ -25,16 +25,15 @@ import no.liflig.documentstore.dao.AbstractSearchDao
 import no.liflig.documentstore.dao.AbstractSearchDaoWithCount
 import no.liflig.documentstore.dao.ConflictDaoException
 import no.liflig.documentstore.dao.CrudDaoJdbi
-import no.liflig.documentstore.dao.ListWithTotalCount
 import no.liflig.documentstore.dao.SerializationAdapter
 import no.liflig.documentstore.dao.coTransactional
 import no.liflig.documentstore.dao.transactional
 import no.liflig.documentstore.entity.EntityList
+import no.liflig.documentstore.entity.EntityListWithTotalCount
 import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.StringEntityId
 import no.liflig.documentstore.entity.UuidEntityId
 import no.liflig.documentstore.entity.Version
-import no.liflig.documentstore.entity.VersionedEntity
 import no.liflig.documentstore.examples.InstantSerializer
 import no.liflig.documentstore.examples.OrderBy
 import no.liflig.documentstore.examples.UuidSerializer
@@ -167,8 +166,7 @@ class DaoTest {
           crudDao.update(initialAgg1.copy(text = "Two"), initialVersion1)
           crudDao.update(initialAgg2.copy(text = "Two"), initialVersion2.next())
         }
-      } catch (_: ConflictDaoException) {
-      }
+      } catch (_: ConflictDaoException) {}
 
       assertEquals("One", crudDao.get(initialAgg1.id)!!.item.text)
       assertEquals("One", crudDao.get(initialAgg2.id)!!.item.text)
@@ -212,8 +210,7 @@ class DaoTest {
           crudDao.update(initialAgg1.copy(text = "Two"), initialVersion1)
           crudDao.update(initialAgg2.copy(text = "Two"), initialVersion2.next())
         }
-      } catch (_: ConflictDaoException) {
-      }
+      } catch (_: ConflictDaoException) {}
 
       assertEquals("One", crudDao.get(initialAgg1.id)!!.item.text)
       assertEquals("One", crudDao.get(initialAgg2.id)!!.item.text)
@@ -237,8 +234,7 @@ class DaoTest {
           }
           throw ConflictDaoException()
         }
-      } catch (_: ConflictDaoException) {
-      }
+      } catch (_: ConflictDaoException) {}
 
       assertEquals(initialValue, crudDao.get(initialAgg1.id)!!.item.text)
       assertEquals(initialValue, crudDao.get(initialAgg2.id)!!.item.text)
@@ -334,8 +330,7 @@ class DaoTest {
     runBlocking {
       val (intialEntity1, _) = crudDao.create(ExampleEntity(text = "A"))
 
-      val (initialEntity2, _) =
-          crudDao.create(ExampleEntity(text = "B"))
+      val (initialEntity2, _) = crudDao.create(ExampleEntity(text = "B"))
 
       val result1 = searchDao.search(ExampleSearchQuery(orderDesc = false)).map { it.item }
 
@@ -447,48 +442,48 @@ class DaoTest {
 }
 
 @Serializable
-internal data class ExampleEntity(
-  override val id: ExampleId = ExampleId(),
-  val text: String,
-  val moreText: String? = null,
-  val uniqueField: Int? = null,
+private data class ExampleEntity(
+    override val id: ExampleId = ExampleId(),
+    val text: String,
+    val moreText: String? = null,
+    val uniqueField: Int? = null,
 ) : EntityRoot<ExampleId>
 
 @Serializable
 @JvmInline
-internal value class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntityId {
+private value class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntityId {
   override fun toString(): String = value.toString()
 }
 
 @Serializable
-internal data class EntityWithStringId(
-  override val id: ExampleStringId,
-  val createdAt: Instant = Instant.now(),
-  val modifiedAt: Instant = Instant.now(),
-  val text: String,
-  val moreText: String? = null,
+private data class EntityWithStringId(
+    override val id: ExampleStringId,
+    val createdAt: Instant = Instant.now(),
+    val modifiedAt: Instant = Instant.now(),
+    val text: String,
+    val moreText: String? = null,
 ) : EntityRoot<ExampleStringId>
 
 @Serializable
 @JvmInline
-internal value class ExampleStringId(override val value: String) : StringEntityId {
+private value class ExampleStringId(override val value: String) : StringEntityId {
   override fun toString(): String = value
 }
 
-internal data class ExampleSearchQuery(
-  val text: String? = null,
-  val limit: Int? = null,
-  val offset: Int? = null,
-  val orderBy: OrderBy? = null,
-  val orderDesc: Boolean = false,
+private data class ExampleSearchQuery(
+    val text: String? = null,
+    val limit: Int? = null,
+    val offset: Int? = null,
+    val orderBy: OrderBy? = null,
+    val orderDesc: Boolean = false,
 )
 
-internal class ExampleSearchDao(jdbi: Jdbi, table: String) :
-  AbstractSearchDao<ExampleId, ExampleEntity, ExampleSearchQuery>(
-      jdbi,
-      table,
-      ExampleSerializationAdapter,
-  ) {
+private class ExampleSearchDao(jdbi: Jdbi, table: String) :
+    AbstractSearchDao<ExampleId, ExampleEntity, ExampleSearchQuery>(
+        jdbi,
+        table,
+        ExampleSerializationAdapter,
+    ) {
   override fun search(query: ExampleSearchQuery): EntityList<ExampleEntity> {
     return getByPredicate(
         sqlWhere = "(:textQuery IS NULL OR (data ->>'text' ILIKE '%' || :textQuery || '%'))",
@@ -496,49 +491,47 @@ internal class ExampleSearchDao(jdbi: Jdbi, table: String) :
         offset = query.offset,
         orderDesc = query.orderDesc,
         orderBy =
-        when (query.orderBy) {
-          OrderBy.TEXT -> "data->>'text'"
-          OrderBy.CREATED_AT -> "createdAt"
-          null -> null
-        },
+            when (query.orderBy) {
+              OrderBy.TEXT -> "data->>'text'"
+              OrderBy.CREATED_AT -> "createdAt"
+              null -> null
+            },
     ) {
       bind("textQuery", query.text)
     }
   }
 }
 
-internal class ExampleSearchDaoWithCount(jdbi: Jdbi, table: String) :
-  AbstractSearchDaoWithCount<ExampleId, ExampleEntity, ExampleSearchQuery>(
-      jdbi,
-      table,
-      ExampleSerializationAdapter,
-  ) {
-  override fun search(
-    query: ExampleSearchQuery
-  ): ListWithTotalCount<VersionedEntity<ExampleEntity>> {
+private class ExampleSearchDaoWithCount(jdbi: Jdbi, table: String) :
+    AbstractSearchDaoWithCount<ExampleId, ExampleEntity, ExampleSearchQuery>(
+        jdbi,
+        table,
+        ExampleSerializationAdapter,
+    ) {
+  override fun search(query: ExampleSearchQuery): EntityListWithTotalCount<ExampleEntity> {
     return getByPredicate(
         sqlWhere = "(:textQuery IS NULL OR (data ->>'text' ILIKE '%' || :textQuery || '%'))",
         limit = query.limit,
         offset = query.offset,
         orderDesc = query.orderDesc,
         orderBy =
-        when (query.orderBy) {
-          OrderBy.TEXT -> "data->>'text'"
-          OrderBy.CREATED_AT -> "createdAt"
-          null -> null
-        },
+            when (query.orderBy) {
+              OrderBy.TEXT -> "data->>'text'"
+              OrderBy.CREATED_AT -> "createdAt"
+              null -> null
+            },
     ) {
       bind("textQuery", query.text)
     }
   }
 }
 
-internal class ExampleSearchDaoWithStringId(jdbi: Jdbi, table: String) :
-  AbstractSearchDao<ExampleStringId, EntityWithStringId, ExampleSearchQuery>(
-      jdbi,
-      table,
-      EntityWithStringIdSerializationAdapter,
-  ) {
+private class ExampleSearchDaoWithStringId(jdbi: Jdbi, table: String) :
+    AbstractSearchDao<ExampleStringId, EntityWithStringId, ExampleSearchQuery>(
+        jdbi,
+        table,
+        EntityWithStringIdSerializationAdapter,
+    ) {
   // Dummy implementation, since we're only interested in testing listByIds for entities with string
   // IDs
   override fun search(query: ExampleSearchQuery): EntityList<EntityWithStringId> {
@@ -546,18 +539,18 @@ internal class ExampleSearchDaoWithStringId(jdbi: Jdbi, table: String) :
   }
 }
 
-internal val json: Json = Json {
+private val json: Json = Json {
   encodeDefaults = true
   ignoreUnknownKeys = true
 }
 
-internal object ExampleSerializationAdapter : SerializationAdapter<ExampleEntity> {
+private object ExampleSerializationAdapter : SerializationAdapter<ExampleEntity> {
   override fun toJson(entity: ExampleEntity): String = json.encodeToString(entity)
 
   override fun fromJson(value: String): ExampleEntity = json.decodeFromString(value)
 }
 
-internal object EntityWithStringIdSerializationAdapter : SerializationAdapter<EntityWithStringId> {
+private object EntityWithStringIdSerializationAdapter : SerializationAdapter<EntityWithStringId> {
   override fun toJson(entity: EntityWithStringId): String = json.encodeToString(entity)
 
   override fun fromJson(value: String): EntityWithStringId = json.decodeFromString(value)

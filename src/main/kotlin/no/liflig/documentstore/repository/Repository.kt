@@ -5,31 +5,52 @@ package no.liflig.documentstore.repository
 import java.time.Instant
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.EntityId
-import no.liflig.documentstore.entity.EntityList
 import no.liflig.documentstore.entity.Version
-import no.liflig.documentstore.entity.VersionedEntity
+import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.entity.getEntityIdType
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.statement.Query
 
 /** Interface for interacting with entities in a database table. */
 interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
-  fun create(entity: EntityT): VersionedEntity<EntityT>
+  fun create(entity: EntityT): Versioned<EntityT>
 
-  fun get(id: EntityIdT, forUpdate: Boolean = false): VersionedEntity<EntityT>?
+  /**
+   * @param forUpdate Set this to true to lock the entity's row in the database until a subsequent
+   *   call to [update], preventing concurrent modification. If setting this to true, you should use
+   *   a transaction for the get and update (see [transactional]).
+   */
+  fun get(id: EntityIdT, forUpdate: Boolean = false): Versioned<EntityT>?
 
-  // Uses a generic argument, so that a sub-type can be passed in and be returned as its proper
-  // type.
+  /**
+   * Updates the given entity, taking the previous [Version] of the entity for optimistic locking:
+   * if we have retrieved an entity and then try to update it, but someone else modified the entity
+   * in the meantime, a [ConflictRepositoryException] will be thrown.
+   *
+   * Uses a generic argument, so that a sub-type can be passed in and be returned as its proper
+   * type.
+   *
+   * @throws ConflictRepositoryException If [previousVersion] does not match the version of the
+   *   entity in the database.
+   */
   fun <EntityOrSubClassT : EntityT> update(
-    entity: EntityOrSubClassT,
-    previousVersion: Version,
-  ): VersionedEntity<EntityOrSubClassT>
+      entity: EntityOrSubClassT,
+      previousVersion: Version,
+  ): Versioned<EntityOrSubClassT>
 
+  /**
+   * Deletes the entity with the given ID, taking the previous [Version] of the entity for
+   * optimistic locking: if we have retrieved an entity and then try to delete it, but someone else
+   * modified the entity in the meantime, a [ConflictRepositoryException] will be thrown.
+   *
+   * @throws ConflictRepositoryException If [previousVersion] does not match the version of the
+   *   entity in the database.
+   */
   fun delete(id: EntityIdT, previousVersion: Version)
 
-  fun listByIds(ids: List<EntityIdT>): EntityList<EntityT>
+  fun listByIds(ids: List<EntityIdT>): List<Versioned<EntityT>>
 
-  fun listAll(): EntityList<EntityT>
+  fun listAll(): List<Versioned<EntityT>>
 }
 
 /**
@@ -42,16 +63,18 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
  * [getByPredicateWithTotalCount] for better pagination support).
  */
 open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
-  protected val jdbi: Jdbi,
-  protected val tableName: String,
-  protected val serializationAdapter: SerializationAdapter<EntityT>,
+    protected val jdbi: Jdbi,
+    protected val tableName: String,
+    protected val serializationAdapter: SerializationAdapter<EntityT>,
 ) : Repository<EntityIdT, EntityT> {
   private val rowMapper = createRowMapper(serializationAdapter::fromJson)
 
   private val rowMapperWithTotalCount =
       createRowMapperWithTotalCount(serializationAdapter::fromJson)
 
-  override fun get(id: EntityIdT, forUpdate: Boolean): VersionedEntity<EntityT>? {
+  private val updateResultMapper = createUpdateResultMapper()
+
+  override fun get(id: EntityIdT, forUpdate: Boolean): Versioned<EntityT>? {
     useHandle(jdbi) { handle ->
       return handle
           .createQuery(
@@ -70,7 +93,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     }
   }
 
-  override fun create(entity: EntityT): VersionedEntity<EntityT> {
+  override fun create(entity: EntityT): Versioned<EntityT> {
     try {
       useHandle(jdbi) { handle ->
         val now = Instant.now()
@@ -78,18 +101,18 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
         handle
             .createUpdate(
                 """
-                  INSERT INTO "${tableName}" (id, version, data, modified_at, created_at)
-                  VALUES (:id, :version, :data::jsonb, :modifiedAt, :createdAt)
+                  INSERT INTO "${tableName}" (id, data, version, created_at, modified_at)
+                  VALUES (:id, :data::jsonb, :version, :createdAt, :modifiedAt)
                 """
                     .trimIndent(),
             )
             .bind("id", entity.id)
-            .bind("version", version)
             .bind("data", serializationAdapter.toJson(entity))
-            .bind("modifiedAt", now)
+            .bind("version", version)
             .bind("createdAt", now)
+            .bind("modifiedAt", now)
             .execute()
-        return VersionedEntity(entity, version)
+        return Versioned(entity, version, createdAt = now, modifiedAt = now)
       }
     } catch (e: Exception) {
       // Call mapDatabaseException first to handle connection-related exceptions, before calling
@@ -98,16 +121,28 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     }
   }
 
+  /**
+   * Updates the given entity, taking the previous [Version] of the entity for optimistic locking:
+   * if we have retrieved an entity and then try to update it, but someone else modified the entity
+   * in the meantime, a [ConflictRepositoryException] will be thrown.
+   *
+   * Uses a generic argument, so that a sub-type can be passed in and be returned as its proper
+   * type.
+   *
+   * @throws ConflictRepositoryException If [previousVersion] does not match the version of the
+   *   entity in the database.
+   */
   override fun <EntityOrSubClassT : EntityT> update(
-    entity: EntityOrSubClassT,
-    previousVersion: Version
-  ): VersionedEntity<EntityOrSubClassT> {
+      entity: EntityOrSubClassT,
+      previousVersion: Version
+  ): Versioned<EntityOrSubClassT> {
     try {
       useHandle(jdbi) { handle ->
         val nextVersion = previousVersion.next()
-        val updated =
+        val modifiedAt = Instant.now()
+        val updateResult =
             handle
-                .createUpdate(
+                .createQuery(
                     """
                       UPDATE "${tableName}"
                       SET
@@ -117,23 +152,31 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                       WHERE
                         id = :id AND
                         version = :previousVersion
+                      RETURNING
+                        created_at
                     """
                         .trimIndent(),
                 )
                 .bind("nextVersion", nextVersion)
                 .bind("data", serializationAdapter.toJson(entity))
                 .bind("id", entity.id)
-                .bind("modifiedAt", Instant.now())
+                .bind("modifiedAt", modifiedAt)
                 .bind("previousVersion", previousVersion)
-                .execute()
+                .map(updateResultMapper)
+                .firstOrNull()
 
-        if (updated == 0) {
+        if (updateResult == null) {
           throw ConflictRepositoryException(
               "Entity with ID '${entity.id}' was concurrently modified between being retrieved and trying to update it here",
           )
         }
 
-        return VersionedEntity(entity, nextVersion)
+        return Versioned(
+            entity,
+            nextVersion,
+            createdAt = updateResult.created_at,
+            modifiedAt = modifiedAt,
+        )
       }
     } catch (e: Exception) {
       // Call mapDatabaseException first to handle connection-related exceptions, before calling
@@ -142,6 +185,14 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     }
   }
 
+  /**
+   * Deletes the entity with the given ID, taking the previous [Version] of the entity for
+   * optimistic locking: if we have retrieved an entity and then try to delete it, but someone else
+   * modified the entity in the meantime, a [ConflictRepositoryException] will be thrown.
+   *
+   * @throws ConflictRepositoryException If [previousVersion] does not match the version of the
+   *   entity in the database.
+   */
   override fun delete(id: EntityIdT, previousVersion: Version) {
     useHandle(jdbi) { handle ->
       val deleted =
@@ -165,7 +216,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     }
   }
 
-  override fun listByIds(ids: List<EntityIdT>): EntityList<EntityT> {
+  override fun listByIds(ids: List<EntityIdT>): List<Versioned<EntityT>> {
     if (ids.isEmpty()) {
       return emptyList()
     }
@@ -175,7 +226,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     return getByPredicate("id = ANY (:ids)") { bindArray("ids", elementType, ids) }
   }
 
-  override fun listAll(): EntityList<EntityT> {
+  override fun listAll(): List<Versioned<EntityT>> {
     return getByPredicate() // Defaults to all
   }
 
@@ -202,14 +253,14 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * ```
    */
   protected open fun getByPredicate(
-    sqlWhere: String = "TRUE",
-    limit: Int? = null,
-    offset: Int? = null,
-    orderBy: String? = null,
-    orderDesc: Boolean = false,
-    forUpdate: Boolean = false,
-    bind: Query.() -> Query = { this }
-  ): EntityList<EntityT> {
+      sqlWhere: String = "TRUE",
+      limit: Int? = null,
+      offset: Int? = null,
+      orderBy: String? = null,
+      orderDesc: Boolean = false,
+      forUpdate: Boolean = false,
+      bind: Query.() -> Query = { this }
+  ): List<Versioned<EntityT>> {
     useHandle(jdbi) { handle ->
       val orderDirection = if (orderDesc) "DESC" else "ASC"
       val orderByString = orderBy ?: "created_at"
@@ -247,13 +298,13 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * See [getByPredicate] for further documentation.
    */
   protected open fun getByPredicateWithTotalCount(
-    sqlWhere: String = "TRUE",
-    limit: Int? = null,
-    offset: Int? = null,
-    orderBy: String? = null,
-    orderDesc: Boolean = false,
-    bind: Query.() -> Query = { this }
-  ): ListWithTotalCount<VersionedEntity<EntityT>> {
+      sqlWhere: String = "TRUE",
+      limit: Int? = null,
+      offset: Int? = null,
+      orderBy: String? = null,
+      orderDesc: Boolean = false,
+      bind: Query.() -> Query = { this }
+  ): ListWithTotalCount<Versioned<EntityT>> {
     useHandle(jdbi) { handle ->
       val limitString = limit?.let { "LIMIT $it" } ?: ""
       val offsetString = offset?.let { "OFFSET $it" } ?: ""
@@ -294,7 +345,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
           rows.firstOrNull()?.count
           // Should never happen: the query should always return 1 row with the count, even if the
           // results are empty (see [EntityRowWithCount])
-            ?: throw IllegalStateException("Failed to get total count of objects in search query")
+          ?: throw IllegalStateException("Failed to get total count of objects in search query")
 
       return ListWithTotalCount(entities, count)
     }

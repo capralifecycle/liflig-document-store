@@ -2,6 +2,7 @@ package no.liflig.documentstore.dao
 
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityList
+import no.liflig.documentstore.entity.EntityListWithTotalCount
 import no.liflig.documentstore.entity.EntityRoot
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.VersionedEntity
@@ -23,7 +24,7 @@ import org.jdbi.v3.core.statement.Query
 interface SearchDaoWithCount<EntityIdT, EntityT, SearchQueryT> where
 EntityIdT : EntityId,
 EntityT : EntityRoot<EntityIdT> {
-  fun search(query: SearchQueryT): ListWithTotalCount<VersionedEntity<EntityT>>
+  fun search(query: SearchQueryT): EntityListWithTotalCount<EntityT>
   fun listByIds(ids: List<EntityIdT>): EntityList<EntityT>
 }
 
@@ -36,8 +37,8 @@ EntityT : EntityRoot<EntityIdT> {
     level = DeprecationLevel.WARNING,
 )
 data class ListWithTotalCount<T>(
-  val list: List<T>,
-  val totalCount: Long,
+    val list: List<T>,
+    val totalCount: Long,
 ) {
   /** Maps the elements of the list, while keeping the same [totalCount]. */
   fun <R> map(transform: (T) -> R): ListWithTotalCount<R> {
@@ -57,9 +58,9 @@ data class ListWithTotalCount<T>(
     level = DeprecationLevel.WARNING,
 )
 abstract class AbstractSearchDaoWithCount<EntityIdT, EntityT, SearchQueryT>(
-  protected val jdbi: Jdbi,
-  protected val sqlTableName: String,
-  protected val serializationAdapter: SerializationAdapter<EntityT>,
+    protected val jdbi: Jdbi,
+    protected val sqlTableName: String,
+    protected val serializationAdapter: SerializationAdapter<EntityT>,
 ) : SearchDaoWithCount<EntityIdT, EntityT, SearchQueryT> where
 EntityIdT : EntityId,
 EntityT : EntityRoot<EntityIdT> {
@@ -87,12 +88,12 @@ EntityT : EntityRoot<EntityIdT> {
    * See [AbstractSearchDao.getByPredicate] for further documentation.
    */
   protected open fun getByPredicate(
-    sqlWhere: String = "TRUE",
-    limit: Int? = null,
-    offset: Int? = null,
-    orderBy: String? = null,
-    orderDesc: Boolean = false,
-    bind: Query.() -> Query = { this }
+      sqlWhere: String = "TRUE",
+      limit: Int? = null,
+      offset: Int? = null,
+      orderBy: String? = null,
+      orderDesc: Boolean = false,
+      bind: Query.() -> Query = { this }
   ): ListWithTotalCount<VersionedEntity<EntityT>> = mapExceptions {
     getHandle(jdbi) { handle ->
       val limitString = limit?.let { "LIMIT $it" } ?: ""
@@ -134,7 +135,7 @@ EntityT : EntityRoot<EntityIdT> {
           rows.firstOrNull()?.count
           // Should never happen: the query should always return 1 row with the count, even if the
           // results are empty (see [EntityRowWithCount])
-            ?: throw RuntimeException("Failed to get total count of objects in search query")
+          ?: throw RuntimeException("Failed to get total count of objects in search query")
 
       ListWithTotalCount(entities, count)
     }
@@ -150,9 +151,9 @@ EntityT : EntityRoot<EntityIdT> {
     level = DeprecationLevel.WARNING,
 )
 data class EntityRowWithCount(
-  val data: String?,
-  val version: Long?,
-  val count: Long,
+    val data: String?,
+    val version: Long?,
+    val count: Long,
 )
 
 @Deprecated(
@@ -160,8 +161,8 @@ data class EntityRowWithCount(
     level = DeprecationLevel.WARNING,
 )
 data class MappedEntityWithCount<EntityT : EntityRoot<*>>(
-  val entity: VersionedEntity<EntityT>?,
-  val count: Long,
+    val entity: VersionedEntity<EntityT>?,
+    val count: Long,
 )
 
 @Deprecated(
@@ -169,7 +170,7 @@ data class MappedEntityWithCount<EntityT : EntityRoot<*>>(
     level = DeprecationLevel.WARNING,
 )
 fun <EntityT : EntityRoot<*>> createRowMapperWithCount(
-  fromRow: (row: EntityRowWithCount) -> MappedEntityWithCount<EntityT>
+    fromRow: (row: EntityRowWithCount) -> MappedEntityWithCount<EntityT>
 ): RowMapper<MappedEntityWithCount<EntityT>> {
   val kotlinMapper = KotlinMapper(EntityRowWithCount::class.java)
 
@@ -184,13 +185,13 @@ fun <EntityT : EntityRoot<*>> createRowMapperWithCount(
     level = DeprecationLevel.WARNING,
 )
 fun <EntityT : EntityRoot<*>> createRowParserWithCount(
-  fromJson: (String) -> EntityT
+    fromJson: (String) -> EntityT
 ): (row: EntityRowWithCount) -> MappedEntityWithCount<EntityT> {
   return { row ->
     /** @see EntityRowWithCount */
     val entity =
         if (row.data != null && row.version != null)
-          VersionedEntity(fromJson(row.data), Version(row.version))
+            VersionedEntity(fromJson(row.data), Version(row.version))
         else null
 
     MappedEntityWithCount(entity, row.count)

@@ -29,7 +29,6 @@ internal fun mapDatabaseException(e: Exception): Exception {
     is InterruptedIOException,
     is ConnectionException,
     is CloseException -> UnavailableRepositoryException(cause = e)
-
     else -> e
   }
 }

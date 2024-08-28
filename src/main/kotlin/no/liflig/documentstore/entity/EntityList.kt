@@ -10,6 +10,18 @@ import no.liflig.documentstore.dao.ListWithTotalCount
  * Provides extension functions for mapping/filtering/iterating while keeping the same [Version]
  * (typically needed when the entity will be used for updating later).
  */
+@Deprecated(
+    "Use List<Versioned<T>> instead. Since Versioned is now replacing VersionedEntity, there is no longer a need to shorten this type signature.",
+    /* IntelliJ can't correctly replace with nested generics, so it replaces with List<T> instead
+       (what we want is List<Versioned<T>>. I think it's better to provide no automatic replacement
+       than a wrong one.
+    ReplaceWith(
+        "List<Versioned<T>>",
+        imports = ["no.liflig.documentstore.entity.Versioned"],
+    ),
+    */
+    level = DeprecationLevel.WARNING,
+)
 typealias EntityList<T> = List<VersionedEntity<T>>
 
 /**
@@ -56,6 +68,18 @@ fun <T : Entity<*>> EntityList<T>.forEachEntity(action: (T) -> Unit) {
  * VersionedEntity (typically needed when the entity will be used for updating later), and the same
  * totalCount.
  */
+@Deprecated(
+    "Use ListWithTotalCount<Versioned<T>> instead (no.liflig.documentstore.repository.ListWithTotalCount). Since Versioned is now replacing VersionedEntity, there is no longer a need to shorten this type signature.",
+    /* IntelliJ can't correctly replace with nested generics, so it replaces with
+       ListWithTotalCount<T> instead (what we want is ListWithTotalCount<Versioned<T>>. I think it's
+       better to provide no automatic replacement than a wrong one.
+    ReplaceWith(
+        "ListWithTotalCount<Versioned<T>>",
+        imports = ["no.liflig.documentstore.entity.Versioned", "no.liflig.documentstore.repository.ListWithTotalCount"],
+    ),
+    */
+    level = DeprecationLevel.WARNING,
+)
 typealias EntityListWithTotalCount<T> = ListWithTotalCount<VersionedEntity<T>>
 
 /**
