@@ -4,7 +4,8 @@ package no.liflig.documentstore.examples
 
 import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.entity.EntityList
-import no.liflig.documentstore.entity.EntityListWithTotalCount
+import no.liflig.documentstore.entity.VersionedEntity
+import no.liflig.documentstore.repository.ListWithTotalCount
 import no.liflig.documentstore.repository.RepositoryJdbi
 import org.jdbi.v3.core.Jdbi
 
@@ -14,17 +15,17 @@ internal enum class OrderBy {
 }
 
 internal class ExampleRepository(jdbi: Jdbi) :
-    RepositoryJdbi<ExampleId, ExampleEntity>(
-        jdbi,
-        tableName = "example",
-        ExampleSerializationAdapter,
-    ) {
+  RepositoryJdbi<ExampleId, ExampleEntity>(
+      jdbi,
+      tableName = "example",
+      ExampleSerializationAdapter,
+  ) {
   fun search(
-      text: String? = null,
-      limit: Int? = null,
-      offset: Int? = null,
-      orderBy: OrderBy? = null,
-      orderDesc: Boolean = false,
+    text: String? = null,
+    limit: Int? = null,
+    offset: Int? = null,
+    orderBy: OrderBy? = null,
+    orderDesc: Boolean = false,
   ): EntityList<ExampleEntity> {
     return getByPredicate(
         ":text IS NULL OR (data ->>'text' ILIKE '%' || :text || '%')",
@@ -32,11 +33,11 @@ internal class ExampleRepository(jdbi: Jdbi) :
         offset = offset,
         orderDesc = orderDesc,
         orderBy =
-            when (orderBy) {
-              OrderBy.TEXT -> "data->>'text'"
-              OrderBy.CREATED_AT -> "createdAt"
-              null -> null
-            },
+        when (orderBy) {
+          OrderBy.TEXT -> "data->>'text'"
+          OrderBy.CREATED_AT -> "createdAt"
+          null -> null
+        },
     ) {
       bind("text", text)
     }
@@ -53,7 +54,7 @@ internal class ExampleRepository(jdbi: Jdbi) :
 }
 
 internal class UniqueFieldAlreadyExists(entity: ExampleEntity, override val cause: Exception) :
-    RuntimeException() {
+  RuntimeException() {
   override val message = "Received entity with unique field that already exists: ${entity}"
 }
 
@@ -62,29 +63,29 @@ internal class UniqueFieldAlreadyExists(entity: ExampleEntity, override val caus
  * getByPredicateWithTotalCount.
  */
 internal class ExampleRepositoryWithCount(jdbi: Jdbi) :
-    RepositoryJdbi<ExampleId, ExampleEntity>(
-        jdbi,
-        tableName = "example_with_count",
-        ExampleSerializationAdapter,
-    ) {
+  RepositoryJdbi<ExampleId, ExampleEntity>(
+      jdbi,
+      tableName = "example_with_count",
+      ExampleSerializationAdapter,
+  ) {
   fun search(
-      text: String? = null,
-      limit: Int? = null,
-      offset: Int? = null,
-      orderBy: OrderBy? = null,
-      orderDesc: Boolean = false,
-  ): EntityListWithTotalCount<ExampleEntity> {
+    text: String? = null,
+    limit: Int? = null,
+    offset: Int? = null,
+    orderBy: OrderBy? = null,
+    orderDesc: Boolean = false,
+  ): ListWithTotalCount<VersionedEntity<ExampleEntity>> {
     return getByPredicateWithTotalCount(
         sqlWhere = "(:textQuery IS NULL OR (data ->>'text' ILIKE '%' || :textQuery || '%'))",
         limit = limit,
         offset = offset,
         orderDesc = orderDesc,
         orderBy =
-            when (orderBy) {
-              OrderBy.TEXT -> "data->>'text'"
-              OrderBy.CREATED_AT -> "createdAt"
-              null -> null
-            },
+        when (orderBy) {
+          OrderBy.TEXT -> "data->>'text'"
+          OrderBy.CREATED_AT -> "createdAt"
+          null -> null
+        },
     ) {
       bind("textQuery", text)
     }
@@ -92,8 +93,8 @@ internal class ExampleRepositoryWithCount(jdbi: Jdbi) :
 }
 
 internal class ExampleRepositoryWithStringEntityId(jdbi: Jdbi) :
-    RepositoryJdbi<ExampleStringId, EntityWithStringId>(
-        jdbi,
-        tableName = "example_with_string_id",
-        EntityWithStringIdSerializationAdapter,
-    )
+  RepositoryJdbi<ExampleStringId, EntityWithStringId>(
+      jdbi,
+      tableName = "example_with_string_id",
+      EntityWithStringIdSerializationAdapter,
+  )

@@ -6,7 +6,6 @@ import java.time.Instant
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.EntityList
-import no.liflig.documentstore.entity.EntityListWithTotalCount
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.VersionedEntity
 import no.liflig.documentstore.entity.getEntityIdType
@@ -22,8 +21,8 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   // Uses a generic argument, so that a sub-type can be passed in and be returned as its proper
   // type.
   fun <EntityOrSubClassT : EntityT> update(
-      entity: EntityOrSubClassT,
-      previousVersion: Version,
+    entity: EntityOrSubClassT,
+    previousVersion: Version,
   ): VersionedEntity<EntityOrSubClassT>
 
   fun delete(id: EntityIdT, previousVersion: Version)
@@ -43,9 +42,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
  * [getByPredicateWithTotalCount] for better pagination support).
  */
 open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
-    protected val jdbi: Jdbi,
-    protected val tableName: String,
-    protected val serializationAdapter: SerializationAdapter<EntityT>,
+  protected val jdbi: Jdbi,
+  protected val tableName: String,
+  protected val serializationAdapter: SerializationAdapter<EntityT>,
 ) : Repository<EntityIdT, EntityT> {
   private val rowMapper = createRowMapper(serializationAdapter::fromJson)
 
@@ -100,8 +99,8 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   }
 
   override fun <EntityOrSubClassT : EntityT> update(
-      entity: EntityOrSubClassT,
-      previousVersion: Version
+    entity: EntityOrSubClassT,
+    previousVersion: Version
   ): VersionedEntity<EntityOrSubClassT> {
     try {
       useHandle(jdbi) { handle ->
@@ -203,13 +202,13 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * ```
    */
   protected open fun getByPredicate(
-      sqlWhere: String = "TRUE",
-      limit: Int? = null,
-      offset: Int? = null,
-      orderBy: String? = null,
-      orderDesc: Boolean = false,
-      forUpdate: Boolean = false,
-      bind: Query.() -> Query = { this }
+    sqlWhere: String = "TRUE",
+    limit: Int? = null,
+    offset: Int? = null,
+    orderBy: String? = null,
+    orderDesc: Boolean = false,
+    forUpdate: Boolean = false,
+    bind: Query.() -> Query = { this }
   ): EntityList<EntityT> {
     useHandle(jdbi) { handle ->
       val orderDirection = if (orderDesc) "DESC" else "ASC"
@@ -248,13 +247,13 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * See [getByPredicate] for further documentation.
    */
   protected open fun getByPredicateWithTotalCount(
-      sqlWhere: String = "TRUE",
-      limit: Int? = null,
-      offset: Int? = null,
-      orderBy: String? = null,
-      orderDesc: Boolean = false,
-      bind: Query.() -> Query = { this }
-  ): EntityListWithTotalCount<EntityT> {
+    sqlWhere: String = "TRUE",
+    limit: Int? = null,
+    offset: Int? = null,
+    orderBy: String? = null,
+    orderDesc: Boolean = false,
+    bind: Query.() -> Query = { this }
+  ): ListWithTotalCount<VersionedEntity<EntityT>> {
     useHandle(jdbi) { handle ->
       val limitString = limit?.let { "LIMIT $it" } ?: ""
       val offsetString = offset?.let { "OFFSET $it" } ?: ""
@@ -295,7 +294,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
           rows.firstOrNull()?.count
           // Should never happen: the query should always return 1 row with the count, even if the
           // results are empty (see [EntityRowWithCount])
-          ?: throw IllegalStateException("Failed to get total count of objects in search query")
+            ?: throw IllegalStateException("Failed to get total count of objects in search query")
 
       return ListWithTotalCount(entities, count)
     }

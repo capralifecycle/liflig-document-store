@@ -2,7 +2,7 @@
 
 package no.liflig.documentstore.entity
 
-import no.liflig.documentstore.repository.ListWithTotalCount
+import no.liflig.documentstore.dao.ListWithTotalCount
 
 /**
  * Type alias to avoid repeated long `List<VersionedEntity<...>>` type declarations.
