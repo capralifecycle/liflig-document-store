@@ -111,7 +111,35 @@ uses of `EntityRoot` with `Entity`, and `AbstractEntityRoot` with `AbstractEntit
 suggest this as an automatic fix). All non-deprecated APIs have been updated to work with `Entity`
 instead of `EntityRoot`.
 
-### 4. Changed package locations and renames
+### 4. Argument type registration with `DocumentStorePlugin`
+
+If you previously registered argument types from Liflig Document Store manually when setting up
+JDBI, you should instead use the new `DocumentStorePlugin`. This makes it easier for us to migrate
+argument type registration in the future, and potentially add new argument types to
+`DocumentStorePlugin` without all library consumers having to manually add them themselves.
+
+- Old argument type registration:
+
+```kt
+Jdbi.create(dataSource)
+    .installPlugin(KotlinPlugin())
+    .registerArgument(UuidEntityIdArgumentFactory())
+    .registerArgument(UnmappedEntityIdArgumentFactory())
+    .registerArgument(VersionArgumentFactory())
+    .registerArrayType(UuidEntityId::class.java, "uuid")
+```
+
+- New (using `DocumentStorePlugin`):
+
+```kt
+import no.liflig.documentstore.DocumentStorePlugin
+
+Jdbi.create(dataSource)
+    .installPlugin(KotlinPlugin())
+    .installPlugin(DocumentStorePlugin())
+```
+
+### 5. Changed package locations and renames
 
 As part of the change from `CrudDao`/`SearchDao` to `Repository`, we added a new package
 `no.liflig.documentstore.repository` to replace the old `no.liflig.documentstore.dao` package.
@@ -135,7 +163,7 @@ renamed to reflect the change from `Dao` to `Repository`. These include the foll
 
 IntelliJ should be able to automatically fix these.
 
-### 5. APIs that are being removed/no longer public
+### 6. APIs that are being removed/no longer public
 
 In addition to `CrudDao`/`SearchDao`, there are some other APIs in Liflig Document Store that were
 likely made public by accident, and should really be internal. Also, there were APIs that were never
@@ -165,35 +193,6 @@ removal in v2. If you depend on any of these, give a heads-up to the Liflig deve
 - `no.liflig.documentstore.entity.createMapperPairForStringMapper`
 - `no.liflig.documentstore.entity.UnmappedEntityId`
 - `no.liflig.documentstore.entity.UnmappedEntityIdArgumentFactory`
-  - See point 6 below
+  - See point 4 above
 - `no.liflig.documentstore.registerLifligArgumentTypes`
-  - See point 6 below
-
-### 6. Argument type registration with `DocumentStorePlugin`
-
-If you used `UnmappedEntityIdArgumentFactory` or `registerLifligArgumentTypes` when registering
-argument types in JDBI setup, you should instead use the new `DocumentStorePlugin` to register
-argument types. This makes it easier for us to migrate argument type registration in the future, and
-potentially add new argument types to `DocumentStorePlugin` without all library consumers having to
-manually add them themselves.
-
-- Old argument type registration:
-
-```kt
-Jdbi.create(dataSource)
-    .installPlugin(KotlinPlugin())
-    .registerArgument(UuidEntityIdArgumentFactory())
-    .registerArgument(UnmappedEntityIdArgumentFactory())
-    .registerArgument(VersionArgumentFactory())
-    .registerArrayType(UuidEntityId::class.java, "uuid")
-```
-
-- New (using `DocumentStorePlugin`):
-
-```kt
-import no.liflig.documentstore.DocumentStorePlugin
-
-Jdbi.create(dataSource)
-    .installPlugin(KotlinPlugin())
-    .installPlugin(DocumentStorePlugin())
-```
+  - See point 4 above
