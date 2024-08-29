@@ -22,7 +22,7 @@ data class Version(val value: Long) {
  * A wrapper around a database entity, providing metadata such as the current [Version] (used for
  * optimistic locking in [Repository.update][no.liflig.documentstore.repository.Repository.update]
  * and [delete][no.liflig.documentstore.repository.Repository.delete]), when it was created and when
- * it was last modified..
+ * it was last modified.
  */
 data class Versioned<out EntityT : Entity<*>>(
     val item: EntityT,

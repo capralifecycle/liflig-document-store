@@ -15,7 +15,7 @@ inline fun <EntityT : Entity<*>> List<Versioned<EntityT>>.mapEntities(
 
 /**
  * Utility function for mapping a list of entities, but keeping the same version for each element.
- * Discards entities that return null from the given map function.
+ * Discards entities that return null from the given mapper function.
  */
 inline fun <EntityT : Entity<*>> List<Versioned<EntityT>>.mapEntitiesNotNull(
     mapper: (EntityT) -> EntityT?
@@ -54,7 +54,7 @@ inline fun <EntityT : Entity<*>> ListWithTotalCount<Versioned<EntityT>>.mapEntit
 
 /**
  * Utility function for mapping a list of entities, but keeping the same version for each element
- * and the same total count. Discards entities that return null from the given map function.
+ * and the same total count. Discards entities that return null from the given mapper function.
  */
 fun <EntityT : Entity<*>> ListWithTotalCount<Versioned<EntityT>>.mapEntitiesNotNull(
     mapper: (EntityT) -> EntityT?

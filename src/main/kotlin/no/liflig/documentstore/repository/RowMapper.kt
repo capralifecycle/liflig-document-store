@@ -83,7 +83,7 @@ internal fun <EntityT : Entity<*>> createRowMapperWithTotalCount(
   return RowMapper { resultSet, context ->
     val row = kotlinMapper.map(resultSet, context) as EntityRowWithTotalCount
 
-    /** @see EntityRowWithTotalCount */
+    /** See [EntityRowWithTotalCount]. */
     val entity =
         if (row.data != null &&
             row.version != null &&

@@ -1,4 +1,4 @@
-@file:Suppress("MemberVisibilityCanBePrivate", "unused") // This is a library
+@file:Suppress("MemberVisibilityCanBePrivate") // This is a library, we want to expose fields
 
 package no.liflig.documentstore.repository
 
@@ -145,6 +145,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
         val updateResult =
             handle
                 .createQuery(
+                    /** See [UpdateResult] for why we use RETURNING here. */
                     """
                       UPDATE "${tableName}"
                       SET
@@ -239,10 +240,10 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    *
    * Example implementing a query where we want to look up users from a list of names:
    * ```
-   * fun getByNames(names: List<String>): EntityList<User> {
-   *     return getByPredicate("data->>'name' = ANY(:names)") {
-   *         bindArray("names", String::class.java, names)
-   *     }
+   * fun getByNames(names: List<String>): List<Versioned<User>> {
+   *   return getByPredicate("data->>'name' = ANY(:names)") {
+   *     bindArray("names", String::class.java, names)
+   *   }
    * }
    * ```
    */
@@ -337,8 +338,10 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       val entities = rows.mapNotNull { row -> row.entity }
       val count =
           rows.firstOrNull()?.count
-          // Should never happen: the query should always return 1 row with the count, even if the
-          // results are empty (see [EntityRowWithCount])
+          /**
+           * Should never happen: the query should always return 1 row with the count, even if the
+           * results are empty (see [EntityRowWithTotalCount]).
+           */
           ?: throw IllegalStateException("Failed to get total count of objects in search query")
 
       return ListWithTotalCount(entities, count)
