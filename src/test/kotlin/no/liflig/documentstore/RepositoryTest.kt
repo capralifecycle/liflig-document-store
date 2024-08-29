@@ -1,5 +1,6 @@
 package no.liflig.documentstore
 
+import java.time.Instant
 import java.util.*
 import kotlin.concurrent.thread
 import kotlin.test.assertContains
@@ -39,12 +40,21 @@ class RepositoryTest {
   @Test
   fun `store and retrieve new entity`() {
     val entity = ExampleEntity(text = "hello world")
+
+    val timeBeforeCreate = Instant.now()
     exampleRepo.create(entity)
+    val timeAfterCreate = Instant.now()
+
     val retrievedEntity = exampleRepo.get(entity.id)
 
     assertNotNull(retrievedEntity)
     assertEquals(Version.initial(), retrievedEntity.version)
     assertEquals(entity, retrievedEntity.item)
+
+    for (timestamp in sequenceOf(retrievedEntity.createdAt, retrievedEntity.modifiedAt)) {
+      assert(timestamp.isAfter(timeBeforeCreate))
+      assert(timestamp.isBefore(timeAfterCreate))
+    }
   }
 
   @Test
@@ -137,9 +147,9 @@ class RepositoryTest {
   fun `transaction prevents race conditions`() {
     val (entity1, _) = exampleRepo.create(ExampleEntity(text = "Text"))
 
-    // Without locking, we should be getting ConflictDaoException when concurrent processes
-    // attempt to update the same row. With locking, each transaction will wait until lock
-    // is released before reading
+    // Without locking, we should be getting ConflictRepositoryException when concurrent processes
+    // attempt to update the same row. With locking, each transaction will wait until lock is
+    // released before reading.
     val threads =
         (1 until 100)
             .map { index ->
@@ -341,9 +351,8 @@ class RepositoryTest {
         )
 
     verifyJsonSnapshot(
-        "Example.json",
+        "ExampleEntity.json",
         json.encodeToString(entity),
-        ignoredPaths = listOf("createdAt", "modifiedAt"),
     )
   }
 }

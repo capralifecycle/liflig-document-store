@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test
 class VersionedListUtilsTest {
   @Test
   fun `test mapEntities`() {
-    val entities = createEntities("test1", "test2")
+    val entities = createTestEntities("test1", "test2")
 
     val mappedEntities = entities.mapEntities { entity -> entity.copy(moreText = "New text!") }
     assertEquals(entities.size, mappedEntities.size)
@@ -32,7 +32,7 @@ class VersionedListUtilsTest {
 
   @Test
   fun `test mapEntitiesNotNull`() {
-    val entities = createEntities("test1", "test2")
+    val entities = createTestEntities("test1", "test2")
 
     val mappedEntities =
         entities.mapEntitiesNotNull { entity ->
@@ -49,7 +49,7 @@ class VersionedListUtilsTest {
 
   @Test
   fun `test filterEntities`() {
-    val entities = createEntities("test1", "test2")
+    val entities = createTestEntities("test1", "test2")
 
     val mappedEntities = entities.filterEntities { entity -> entity.text == "test2" }
 
@@ -59,7 +59,7 @@ class VersionedListUtilsTest {
 
   @Test
   fun `test forEachEntity`() {
-    val entities = createEntities("test1", "test2")
+    val entities = createTestEntities("test1", "test2")
 
     var combinedText = ""
     entities.forEachEntity { entity -> combinedText += entity.text }
@@ -69,7 +69,7 @@ class VersionedListUtilsTest {
 
   @Test
   fun `test mapEntities for ListWithTotalCount`() {
-    val entities = createEntitiesWithTotalCount("test1", "test2")
+    val entities = createTestEntitiesWithTotalCount("test1", "test2")
 
     val mappedEntities = entities.mapEntities { entity -> entity.copy(moreText = "New text!") }
     assertEquals(entities.list.size, mappedEntities.list.size)
@@ -87,7 +87,7 @@ class VersionedListUtilsTest {
 
   @Test
   fun `test mapEntitiesNotNull for ListWithTotalCount`() {
-    val entities = createEntitiesWithTotalCount("test1", "test2")
+    val entities = createTestEntitiesWithTotalCount("test1", "test2")
 
     val mappedEntities =
         entities.mapEntitiesNotNull { entity ->
@@ -105,7 +105,7 @@ class VersionedListUtilsTest {
 
   @Test
   fun `test filterEntities for ListWithTotalCount`() {
-    val entities = createEntitiesWithTotalCount("test1", "test2")
+    val entities = createTestEntitiesWithTotalCount("test1", "test2")
 
     val mappedEntities = entities.filterEntities { entity -> entity.text == "test2" }
 
@@ -116,7 +116,7 @@ class VersionedListUtilsTest {
 
   @Test
   fun `test forEachEntity for ListWithTotalCount`() {
-    val entities = createEntitiesWithTotalCount("test1", "test2")
+    val entities = createTestEntitiesWithTotalCount("test1", "test2")
 
     var combinedText = ""
     entities.forEachEntity { entity -> combinedText += entity.text }
@@ -125,7 +125,7 @@ class VersionedListUtilsTest {
   }
 }
 
-private fun createEntities(vararg texts: String): List<Versioned<ExampleEntity>> {
+private fun createTestEntities(vararg texts: String): List<Versioned<ExampleEntity>> {
   return texts.map { text ->
     Versioned(
         ExampleEntity(text = text),
@@ -136,11 +136,11 @@ private fun createEntities(vararg texts: String): List<Versioned<ExampleEntity>>
   }
 }
 
-private fun createEntitiesWithTotalCount(
+private fun createTestEntitiesWithTotalCount(
     vararg texts: String
 ): ListWithTotalCount<Versioned<ExampleEntity>> {
   return ListWithTotalCount(
-      list = createEntities(*texts),
+      list = createTestEntities(*texts),
       totalCount = 100,
   )
 }
