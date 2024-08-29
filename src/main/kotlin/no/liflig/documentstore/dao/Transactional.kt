@@ -12,7 +12,7 @@ val transactionHandle = ThreadLocal<Handle?>()
 @Deprecated(
     "Package location changed, and renamed to 'useHandle'.",
     ReplaceWith(
-        "useHandle(jdbi, block)",
+        "useHandle(jdbi, useHandle)",
         imports = ["no.liflig.documentstore.repository.useHandle"],
     ),
     level = DeprecationLevel.WARNING,
