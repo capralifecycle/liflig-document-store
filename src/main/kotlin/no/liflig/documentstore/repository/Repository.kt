@@ -9,6 +9,7 @@ import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.entity.getEntityIdType
 import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.Query
 
 /** Interface for interacting with entities in a database table. */
@@ -80,7 +81,8 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     protected val tableName: String,
     protected val serializationAdapter: SerializationAdapter<EntityT>,
 ) : Repository<EntityIdT, EntityT> {
-  private val rowMapper = createRowMapper(serializationAdapter::fromJson)
+  protected val rowMapper: RowMapper<Versioned<EntityT>> =
+      createRowMapper(serializationAdapter::fromJson)
 
   private val rowMapperWithTotalCount =
       createRowMapperWithTotalCount(serializationAdapter::fromJson)
