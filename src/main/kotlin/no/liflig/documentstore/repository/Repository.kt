@@ -75,6 +75,10 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
  *   data        jsonb       NOT NULL
  * );
  * ```
+ *
+ * Also, the given [Jdbi] instance must have the
+ * [DocumentStorePlugin][no.liflig.documentstore.DocumentStorePlugin] installed for the queries in
+ * this class to work.
  */
 open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     protected val jdbi: Jdbi,

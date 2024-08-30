@@ -38,7 +38,7 @@ fun EntityId.toUnmapped(): UnmappedEntityId = UnmappedEntityId.fromString(toStri
 
 /** An argument factory for JDBI so that we can use a [UnmappedEntityId] as a bind argument. */
 @Deprecated(
-    "This is being removed along with UnmappedEntityId in a future version of Liflig Document Store, since we found no users of it.",
+    "This will be removed in an upcoming version. Instead of calling jdbi.registerArgument() with argument factories manually, you should call jdbi.installPlugin(DocumentStorePlugin()) (no.liflig.documentstore.DocumentStorePlugin).",
     level = DeprecationLevel.WARNING,
 )
 class UnmappedEntityIdArgumentFactory : AbstractArgumentFactory<UnmappedEntityId>(Types.OTHER) {

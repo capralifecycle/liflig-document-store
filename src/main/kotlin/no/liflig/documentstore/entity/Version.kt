@@ -41,6 +41,10 @@ data class Versioned<out EntityT : Entity<*>>(
 )
 data class VersionedEntity<out EntityT : Entity<*>>(val item: EntityT, val version: Version)
 
+@Deprecated(
+    "This will be made internal in an upcoming version. Instead of calling jdbi.registerArgument() with argument factories manually, you should call jdbi.installPlugin(DocumentStorePlugin()) (no.liflig.documentstore.DocumentStorePlugin).",
+    level = DeprecationLevel.WARNING,
+)
 /** An argument factory for JDBI so that we can use a [Version] as a bind argument. */
 class VersionArgumentFactory : AbstractArgumentFactory<Version>(Types.OTHER) {
   override fun build(value: Version, config: ConfigRegistry?): Argument =

@@ -94,29 +94,17 @@ fun main() { // Or wherever you set up your repositories
 }
 ```
 
-### 2. `VersionedEntity<EntityT>` renamed to `Versioned<EntityT>`, with new fields
-
-This has been renamed, since `VersionedEntity<EntityT>` was redundant and led to long function
-signatures. In addition, we now also include `createdAt` and `modifiedAt` fields on
-`Versioned<EntityT>`, since they are always included in the database tables expected by Liflig
-Document Store, but we just didn't expose them previously.
-
-It should be sufficient to just replace `VersionedEntity<EntityT>` with `Versioned<EntityT>`, and
-IntelliJ should suggest this as an automatic fix.
-
-### 3. `EntityRoot` replaced by `Entity`
-
-`EntityRoot` was a redundant abstraction on top of the `Entity` interface. You should replace
-uses of `EntityRoot` with `Entity`, and `AbstractEntityRoot` with `AbstractEntity` (IntelliJ should
-suggest this as an automatic fix). All non-deprecated APIs have been updated to work with `Entity`
-instead of `EntityRoot`.
-
-### 4. Argument type registration with `DocumentStorePlugin`
+### 2. Argument type registration with `DocumentStorePlugin`
 
 If you previously registered argument types from Liflig Document Store manually when setting up
-JDBI, you should instead use the new `DocumentStorePlugin`. This makes it easier for us to migrate
+JDBI, you must now instead use the new `DocumentStorePlugin`. This makes it easier for us to migrate
 argument type registration in the future, and potentially add new argument types to
-`DocumentStorePlugin` without all library consumers having to manually add them themselves.
+`DocumentStorePlugin` without all library consumers having to manually add them themselves. For
+example, `StringEntityId` was recently added to Document Store, but it requires registering the
+`StringEntityIdArgumentFactory` to work - without this, queries will fail at runtime with reflection
+errors. Since services so far have done manual argument type registration, most will not have this
+argument type registered, and so may encounter runtime reflection errors if trying to use
+`StringEntityId`. `DocumentStorePlugin` fixes this issue.
 
 - Old argument type registration:
 
@@ -126,7 +114,7 @@ Jdbi.create(dataSource)
     .registerArgument(UuidEntityIdArgumentFactory())
     .registerArgument(UnmappedEntityIdArgumentFactory())
     .registerArgument(VersionArgumentFactory())
-    .registerArrayType(UuidEntityId::class.java, "uuid")
+    .registerArrayType(EntityId::class.java, "uuid")
 ```
 
 - New (using `DocumentStorePlugin`):
@@ -138,6 +126,23 @@ Jdbi.create(dataSource)
     .installPlugin(KotlinPlugin())
     .installPlugin(DocumentStorePlugin())
 ```
+
+### 3. `VersionedEntity<EntityT>` renamed to `Versioned<EntityT>`, with new fields
+
+This has been renamed, since `VersionedEntity<EntityT>` was redundant and led to long function
+signatures. In addition, we now also include `createdAt` and `modifiedAt` fields on
+`Versioned<EntityT>`, since they are always included in the database tables expected by Liflig
+Document Store, but we just didn't expose them previously.
+
+It should be sufficient to just replace `VersionedEntity<EntityT>` with `Versioned<EntityT>`, and
+IntelliJ should suggest this as an automatic fix.
+
+### 4. `EntityRoot` replaced by `Entity`
+
+`EntityRoot` was a redundant abstraction on top of the `Entity` interface. You should replace
+uses of `EntityRoot` with `Entity`, and `AbstractEntityRoot` with `AbstractEntity` (IntelliJ should
+suggest this as an automatic fix). All non-deprecated APIs have been updated to work with `Entity`
+instead of `EntityRoot`.
 
 ### 5. Changed package locations and renames
 
@@ -193,6 +198,12 @@ removal in v2. If you depend on any of these, give a heads-up to the Liflig deve
 - `no.liflig.documentstore.entity.createMapperPairForStringMapper`
 - `no.liflig.documentstore.entity.UnmappedEntityId`
 - `no.liflig.documentstore.entity.UnmappedEntityIdArgumentFactory`
-  - See point 4 above
+  - See point 2 above
+- `no.liflig.documentstore.entity.UnmappedEntityIdArgumentFactory`
+  - See point 2 above
+- `no.liflig.documentstore.entity.UnmappedEntityIdArgumentFactory`
+  - See point 2 above
+- `no.liflig.documentstore.entity.UnmappedEntityIdArgumentFactory`
+  - See point 2 above
 - `no.liflig.documentstore.registerLifligArgumentTypes`
-  - See point 4 above
+  - See point 2 above

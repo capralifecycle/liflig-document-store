@@ -33,6 +33,10 @@ internal fun getEntityIdType(entityId: EntityId): Class<out EntityId> {
 }
 
 /** An argument factory for JDBI so that we can use a [UuidEntityId] as a bind argument. */
+@Deprecated(
+    "This will be made internal in an upcoming version. Instead of calling jdbi.registerArgument() with argument factories manually, you should call jdbi.installPlugin(DocumentStorePlugin()) (no.liflig.documentstore.DocumentStorePlugin).",
+    level = DeprecationLevel.WARNING,
+)
 class UuidEntityIdArgumentFactory : AbstractArgumentFactory<UuidEntityId>(Types.OTHER) {
   override fun build(value: UuidEntityId, config: ConfigRegistry?): Argument =
       Argument { position, statement, _ ->
@@ -40,7 +44,11 @@ class UuidEntityIdArgumentFactory : AbstractArgumentFactory<UuidEntityId>(Types.
       }
 }
 
-/** An argument factory for JDBI so that we can use a [UuidEntityId] as a bind argument. */
+/** An argument factory for JDBI so that we can use a [StringEntityId] as a bind argument. */
+@Deprecated(
+    "This will be made internal in an upcoming version. Instead of calling jdbi.registerArgument() with argument factories manually, you should call jdbi.installPlugin(DocumentStorePlugin()) (no.liflig.documentstore.DocumentStorePlugin).",
+    level = DeprecationLevel.WARNING,
+)
 class StringEntityIdArgumentFactory : AbstractArgumentFactory<StringEntityId>(Types.OTHER) {
   override fun build(value: StringEntityId, config: ConfigRegistry?): Argument =
       Argument { position, statement, _ ->
