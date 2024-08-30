@@ -2,7 +2,6 @@
 
 package no.liflig.documentstore.examples
 
-import java.time.Instant
 import java.util.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
@@ -20,21 +19,15 @@ internal data class ExampleEntity(
 
 @Serializable
 @JvmInline
-internal value class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntityId {
-  override fun toString(): String = value.toString()
-}
+internal value class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntityId
 
 @Serializable
 internal data class EntityWithStringId(
     override val id: ExampleStringId,
-    val createdAt: Instant = Instant.now(),
-    val modifiedAt: Instant = Instant.now(),
     val text: String,
     val moreText: String? = null,
 ) : Entity<ExampleStringId>
 
 @Serializable
 @JvmInline
-internal value class ExampleStringId(override val value: String) : StringEntityId {
-  override fun toString(): String = value
-}
+internal value class ExampleStringId(override val value: String) : StringEntityId

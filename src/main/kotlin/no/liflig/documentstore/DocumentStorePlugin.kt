@@ -1,3 +1,5 @@
+@file:Suppress("MoveLambdaOutsideParentheses")
+
 package no.liflig.documentstore
 
 import java.sql.Types
@@ -21,6 +23,13 @@ import org.jdbi.v3.core.spi.JdbiPlugin
  * - [UuidEntityId]
  * - [StringEntityId]
  * - [Version]
+ *
+ * In addition, [UuidEntityId] and [StringEntityId] may be used as arguments to
+ * [bindArray][org.jdbi.v3.core.statement.Query.bindArray], like this:
+ * ```
+ * bindArray("ids", UuidEntityId::class.java, ids) // where ids: List<T extends UuidEntityId>
+ * bindArray("ids", StringEntityId::class.java, ids) // where ids: List<T extends StringEntityId>
+ * ```
  */
 class DocumentStorePlugin : JdbiPlugin.Singleton() {
   override fun customizeJdbi(jdbi: Jdbi) {
@@ -28,8 +37,8 @@ class DocumentStorePlugin : JdbiPlugin.Singleton() {
         .registerArgument(UuidEntityIdArgumentFactory())
         .registerArgument(StringEntityIdArgumentFactory())
         .registerArgument(VersionArgumentFactory())
-        .registerArrayType(UuidEntityId::class.java, "uuid")
-        .registerArrayType(StringEntityId::class.java, "text")
+        .registerArrayType(UuidEntityId::class.java, "uuid", { id -> id.value })
+        .registerArrayType(StringEntityId::class.java, "text", { id -> id.value })
   }
 }
 
