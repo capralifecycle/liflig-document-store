@@ -1,22 +1,19 @@
 package no.liflig.documentstore.examples
 
-import kotlinx.serialization.encodeToString
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
+import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.repository.SerializationAdapter
 
-internal val json: Json = Json {
+private val json = Json {
   encodeDefaults = true
   ignoreUnknownKeys = true
 }
 
-internal object ExampleSerializationAdapter : SerializationAdapter<ExampleEntity> {
-  override fun toJson(entity: ExampleEntity): String = json.encodeToString(entity)
+class KotlinSerialization<EntityT : Entity<*>>(
+    private val serializer: KSerializer<EntityT>,
+) : SerializationAdapter<EntityT> {
+  override fun toJson(entity: EntityT): String = json.encodeToString(serializer, entity)
 
-  override fun fromJson(value: String): ExampleEntity = json.decodeFromString(value)
-}
-
-internal object EntityWithStringIdSerializationAdapter : SerializationAdapter<EntityWithStringId> {
-  override fun toJson(entity: EntityWithStringId): String = json.encodeToString(entity)
-
-  override fun fromJson(value: String): EntityWithStringId = json.decodeFromString(value)
+  override fun fromJson(value: String): EntityT = json.decodeFromString(serializer, value)
 }

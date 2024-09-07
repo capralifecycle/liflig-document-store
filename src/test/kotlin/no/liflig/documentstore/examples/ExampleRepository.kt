@@ -17,7 +17,7 @@ internal class ExampleRepository(jdbi: Jdbi) :
     RepositoryJdbi<ExampleId, ExampleEntity>(
         jdbi,
         tableName = "example",
-        ExampleSerializationAdapter,
+        KotlinSerialization(ExampleEntity.serializer()),
     ) {
   fun search(
       text: String? = null,
@@ -65,7 +65,7 @@ internal class ExampleRepositoryWithCount(jdbi: Jdbi) :
     RepositoryJdbi<ExampleId, ExampleEntity>(
         jdbi,
         tableName = "example_with_count",
-        ExampleSerializationAdapter,
+        KotlinSerialization(ExampleEntity.serializer()),
     ) {
   fun search(
       text: String? = null,
@@ -95,5 +95,5 @@ internal class ExampleRepositoryWithStringEntityId(jdbi: Jdbi) :
     RepositoryJdbi<ExampleStringId, EntityWithStringId>(
         jdbi,
         tableName = "example_with_string_id",
-        EntityWithStringIdSerializationAdapter,
+        KotlinSerialization(EntityWithStringId.serializer()),
     )

@@ -10,6 +10,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.examples.EntityWithStringId
 import no.liflig.documentstore.examples.ExampleEntity
@@ -20,7 +21,6 @@ import no.liflig.documentstore.examples.ExampleRepositoryWithStringEntityId
 import no.liflig.documentstore.examples.ExampleStringId
 import no.liflig.documentstore.examples.OrderBy
 import no.liflig.documentstore.examples.UniqueFieldAlreadyExists
-import no.liflig.documentstore.examples.json
 import no.liflig.documentstore.repository.ConflictRepositoryException
 import no.liflig.documentstore.repository.transactional
 import no.liflig.snapshot.verifyJsonSnapshot
@@ -378,6 +378,11 @@ class RepositoryTest {
 
       exampleRepo.update(entity1.copy(uniqueField = 3), version1)
     }
+  }
+
+  private val json = Json {
+    encodeDefaults = true
+    ignoreUnknownKeys = true
   }
 
   @Test
