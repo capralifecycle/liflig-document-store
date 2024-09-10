@@ -1,10 +1,6 @@
 package no.liflig.documentstore.entity
 
-import java.sql.Types
 import java.util.*
-import org.jdbi.v3.core.argument.AbstractArgumentFactory
-import org.jdbi.v3.core.argument.Argument
-import org.jdbi.v3.core.config.ConfigRegistry
 
 /** EntityId represents the ID pointing to a specific [Entity]. */
 sealed interface EntityId
@@ -30,28 +26,4 @@ internal fun getEntityIdType(entityId: EntityId): Class<out EntityId> {
     is UuidEntityId -> UuidEntityId::class.java
     is StringEntityId -> StringEntityId::class.java
   }
-}
-
-/** An argument factory for JDBI so that we can use a [UuidEntityId] as a bind argument. */
-@Deprecated(
-    "This will be made internal in an upcoming version. Instead of calling jdbi.registerArgument() with argument factories manually, you should call jdbi.installPlugin(DocumentStorePlugin()) (no.liflig.documentstore.DocumentStorePlugin).",
-    level = DeprecationLevel.WARNING,
-)
-class UuidEntityIdArgumentFactory : AbstractArgumentFactory<UuidEntityId>(Types.OTHER) {
-  override fun build(value: UuidEntityId, config: ConfigRegistry?): Argument =
-      Argument { position, statement, _ ->
-        statement.setObject(position, value.value)
-      }
-}
-
-/** An argument factory for JDBI so that we can use a [StringEntityId] as a bind argument. */
-@Deprecated(
-    "This will be made internal in an upcoming version. Instead of calling jdbi.registerArgument() with argument factories manually, you should call jdbi.installPlugin(DocumentStorePlugin()) (no.liflig.documentstore.DocumentStorePlugin).",
-    level = DeprecationLevel.WARNING,
-)
-class StringEntityIdArgumentFactory : AbstractArgumentFactory<StringEntityId>(Types.OTHER) {
-  override fun build(value: StringEntityId, config: ConfigRegistry?): Argument =
-      Argument { position, statement, _ ->
-        statement.setString(position, value.value)
-      }
 }

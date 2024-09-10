@@ -65,21 +65,3 @@ private class VersionArgumentFactory : AbstractArgumentFactory<Version>(Types.OT
         statement.setObject(position, value.value)
       }
 }
-
-/**
- * Utility function for registering all the JDBI argument factories needed by Liflig Document Store:
- * - [UuidEntityIdArgumentFactory]
- * - [StringEntityIdArgumentFactory]
- * - [VersionArgumentFactory]
- */
-@Deprecated(
-    "Replaced by DocumentStorePlugin.",
-    ReplaceWith(
-        "installPlugin(DocumentStorePlugin())",
-        imports = ["no.liflig.documentstore.DocumentStorePlugin"],
-    ),
-    DeprecationLevel.WARNING,
-)
-fun Jdbi.registerLifligArgumentTypes(): Jdbi {
-  return this.installPlugin(DocumentStorePlugin())
-}
