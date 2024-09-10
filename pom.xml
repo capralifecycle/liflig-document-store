@@ -15,7 +15,7 @@
   <version>${revision}</version>
 
   <properties>
-    <major-version>1</major-version>
+    <major-version>2</major-version>
     <revision>${major-version}.local-SNAPSHOT</revision>
 
     <jdbi3.version>3.45.4</jdbi3.version>
