@@ -5,9 +5,9 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-      <groupId>no.liflig</groupId>
-      <artifactId>kotlin-parent</artifactId>
-      <version>2.20240723.014517</version>
+    <groupId>no.liflig</groupId>
+    <artifactId>kotlin-parent</artifactId>
+    <version>2.20240723.014517</version>
   </parent>
 
   <artifactId>liflig-document-store</artifactId>
@@ -17,13 +17,22 @@
   <properties>
     <major-version>1</major-version>
     <revision>${major-version}.local-SNAPSHOT</revision>
-    <kotlinx-coroutines.version>1.7.3</kotlinx-coroutines.version>
-    
+
+    <jdbi3.version>3.45.4</jdbi3.version>
+
+    <!-- For tests -->
+    <junit.version>5.11.0</junit.version>
+    <testcontainers.version>1.20.1</testcontainers.version>
+    <postgresql.version>42.7.4</postgresql.version>
+    <hikari.version>5.1.0</hikari.version>
     <flyway.version>10.17.3</flyway.version>
+    <kotlinx-serialization.version>1.6.3</kotlinx-serialization.version>
+    <jackson.version>2.17.1</jackson.version>
+    <liflig-snapshot-test.version>1.20240905.231604</liflig-snapshot-test.version>
   </properties>
 
   <scm>
-    <developerConnection>scm:git:https://github.com/capralifecycle/ddd-aggregates.git</developerConnection>
+    <developerConnection>scm:git:https://github.com/capralifecycle/liflig-document-store.git</developerConnection>
     <connection>scm:git:https://github.com/capralifecycle/liflig-document-store.git</connection>
     <url>https://github.com/capralifecycle/liflig-document-store</url>
     <tag>HEAD</tag>
@@ -40,12 +49,6 @@
       <snapshots>
         <enabled>false</enabled>
       </snapshots>
-    </repository>
-
-    <!-- org.jetbrains.spek:spek-api -->
-    <repository>
-      <id>jcenter</id>
-      <url>https://jcenter.bintray.com</url>
     </repository>
 
     <!-- Internal Liflig -->
@@ -66,9 +69,16 @@
         <type>pom</type>
       </dependency>
       <dependency>
+        <groupId>org.jdbi</groupId>
+        <artifactId>jdbi3-bom</artifactId>
+        <version>${jdbi3.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
-        <version>5.11.0</version>
+        <version>${junit.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -77,57 +87,58 @@
 
   <dependencies>
     <dependency>
-      <groupId>org.jetbrains.kotlinx</groupId>
-      <artifactId>kotlinx-coroutines-core</artifactId>
-      <version>${kotlinx-coroutines.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.jetbrains.kotlinx</groupId>
-      <artifactId>kotlinx-coroutines-jdk8</artifactId>
-      <version>${kotlinx-coroutines.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.jetbrains.kotlinx</groupId>
-      <artifactId>kotlinx-coroutines-slf4j</artifactId>
-      <version>${kotlinx-coroutines.version}</version>
-    </dependency>
-
-    <dependency>
       <groupId>org.jdbi</groupId>
       <artifactId>jdbi3-core</artifactId>
-      <version>3.45.4</version>
     </dependency>
     <dependency>
       <groupId>org.jdbi</groupId>
       <artifactId>jdbi3-kotlin</artifactId>
-      <version>3.45.4</version>
+    </dependency>
+    <!-- Required for the KotlinMapper we use with JDBI -->
+    <dependency>
+      <groupId>org.jetbrains.kotlin</groupId>
+      <artifactId>kotlin-reflect</artifactId>
     </dependency>
 
-
-    <!-- TEST scope -->
+    <!-- For tests -->
     <dependency>
-      <groupId>org.jetbrains.kotlinx</groupId>
-      <artifactId>kotlinx-serialization-json</artifactId>
-      <version>1.6.3</version>
-      <type>pom</type>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.jetbrains.kotlinx</groupId>
-      <artifactId>kotlinx-coroutines-test</artifactId>
-      <version>${kotlinx-coroutines.version}</version>
+      <groupId>org.jetbrains.kotlin</groupId>
+      <artifactId>kotlin-test-junit</artifactId>
+      <version>${kotlin.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers</artifactId>
+      <version>${testcontainers.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>${testcontainers.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>42.7.4</version>
+      <version>${postgresql.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jdbi</groupId>
+      <artifactId>jdbi3-postgres</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.zaxxer</groupId>
       <artifactId>HikariCP</artifactId>
-      <version>5.1.0</version>
+      <version>${hikari.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -143,68 +154,22 @@
       <scope>test</scope>
     </dependency>
     <dependency>
+      <groupId>org.jetbrains.kotlinx</groupId>
+      <artifactId>kotlinx-serialization-json</artifactId>
+      <version>${kotlinx-serialization.version}</version>
+      <type>pom</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-annotations</artifactId>
-      <version>2.17.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.jdbi</groupId>
-      <artifactId>jdbi3-postgres</artifactId>
-      <version>3.45.4</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.testcontainers</groupId>
-      <artifactId>testcontainers</artifactId>
-      <version>1.20.1</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.testcontainers</groupId>
-      <artifactId>postgresql</artifactId>
-      <version>1.20.1</version>
+      <version>${jackson.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>no.liflig</groupId>
       <artifactId>snapshot-test</artifactId>
-      <version>1.20240905.231604</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.mockk</groupId>
-      <artifactId>mockk-jvm</artifactId>
-      <version>1.13.12</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.kotest</groupId>
-      <artifactId>kotest-assertions-core-jvm</artifactId>
-      <version>5.9.1</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.kotest.extensions</groupId>
-      <artifactId>kotest-assertions-arrow</artifactId>
-      <version>1.4.0</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>ch.qos.logback</groupId>
-      <artifactId>logback-classic</artifactId>
-      <version>1.5.8</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.jetbrains.kotlin</groupId>
-      <artifactId>kotlin-test-junit</artifactId>
-      <version>${kotlin.version}</version>
+      <version>${liflig-snapshot-test.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
