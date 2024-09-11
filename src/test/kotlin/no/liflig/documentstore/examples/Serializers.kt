@@ -1,7 +1,7 @@
 package no.liflig.documentstore.examples
 
 import java.time.Instant
-import java.util.*
+import java.util.UUID
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
@@ -11,16 +11,16 @@ import kotlinx.serialization.encoding.Encoder
 
 internal object InstantSerializer : KSerializer<Instant> {
   override val descriptor: SerialDescriptor =
-      PrimitiveSerialDescriptor(serialName = "InstantSerializer", kind = PrimitiveKind.STRING)
+      PrimitiveSerialDescriptor("java.time.Instant", PrimitiveKind.STRING)
 
   override fun serialize(encoder: Encoder, value: Instant) = encoder.encodeString(value.toString())
 
   override fun deserialize(decoder: Decoder): Instant = Instant.parse(decoder.decodeString())
 }
 
-internal object UuidSerializer : KSerializer<UUID> {
+internal object UUIDSerializer : KSerializer<UUID> {
   override val descriptor: SerialDescriptor =
-      PrimitiveSerialDescriptor("UUID", PrimitiveKind.STRING)
+      PrimitiveSerialDescriptor("java.util.UUID", PrimitiveKind.STRING)
 
   override fun serialize(encoder: Encoder, value: UUID) = encoder.encodeString(value.toString())
 

@@ -1,8 +1,8 @@
-@file:UseSerializers(InstantSerializer::class, UuidSerializer::class)
+@file:UseSerializers(InstantSerializer::class, UUIDSerializer::class)
 
 package no.liflig.documentstore.examples
 
-import java.util.*
+import java.util.UUID
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.entity.Entity
