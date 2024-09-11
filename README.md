@@ -2,14 +2,18 @@
 
 Kotlin library implementing the repository pattern for storing documents as JSONB in Postgres.
 
-* CRUD-like repository with extendable methods for flexibility.
-* Optimistic locking.
-* JDBI library for convenience.
-* Serialization and deserialization of objects using Kotlinx Serialization.
-* Connection pool with HikariCP.
-* Database migrations with Flyway.
+- CRUD-like repository with extendable methods for flexibility.
+- Optimistic locking.
+- JDBI library for convenience.
+- Serialization and deserialization of objects using Kotlinx Serialization.
+- Connection pool with HikariCP.
+- Database migrations with Flyway.
 
 This library is currently only distributed in Liflig internal repositories.
+
+## Usage
+
+See [docs/usage.md](docs/usage.md).
 
 ## Contributing
 
