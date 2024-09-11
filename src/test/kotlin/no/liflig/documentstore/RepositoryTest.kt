@@ -1,7 +1,7 @@
 package no.liflig.documentstore
 
 import java.time.Instant
-import java.util.*
+import java.util.UUID
 import kotlin.concurrent.thread
 import kotlin.test.assertContains
 import kotlin.test.assertEquals

@@ -27,7 +27,7 @@ internal class ExampleRepository(jdbi: Jdbi) :
       orderDesc: Boolean = false,
   ): List<Versioned<ExampleEntity>> {
     return getByPredicate(
-        ":text IS NULL OR (data ->>'text' ILIKE '%' || :text || '%')",
+        ":text IS NULL OR (data->>'text' ILIKE '%' || :text || '%')",
         limit = limit,
         offset = offset,
         orderDesc = orderDesc,
