@@ -16,7 +16,6 @@ import no.liflig.documentstore.examples.EntityWithStringId
 import no.liflig.documentstore.examples.ExampleEntity
 import no.liflig.documentstore.examples.ExampleId
 import no.liflig.documentstore.examples.ExampleRepository
-import no.liflig.documentstore.examples.ExampleRepositoryWithCount
 import no.liflig.documentstore.examples.ExampleRepositoryWithStringEntityId
 import no.liflig.documentstore.examples.ExampleStringId
 import no.liflig.documentstore.examples.OrderBy
@@ -33,8 +32,13 @@ import org.junit.jupiter.params.provider.ValueSource
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RepositoryTest {
   private val jdbi = createTestDatabase()
-  private val exampleRepo = ExampleRepository(jdbi)
-  private val exampleRepoWithCount = ExampleRepositoryWithCount(jdbi)
+
+  private val exampleRepo = ExampleRepository(jdbi, tableName = "example")
+
+  // Separate table, to avoid other tests interfering with the count returned by
+  // getByPredicateWithTotalCount.
+  private val exampleRepoWithCount = ExampleRepository(jdbi, tableName = "example_with_count")
+
   private val exampleRepoWithStringId = ExampleRepositoryWithStringEntityId(jdbi)
 
   @Test
@@ -301,16 +305,16 @@ class RepositoryTest {
     exampleRepoWithCount.create(ExampleEntity(text = "Other entity"))
 
     val limitLessThanCount = 2
-    val result1 = exampleRepoWithCount.search(limit = limitLessThanCount)
+    val result1 = exampleRepoWithCount.searchWithTotalCount(limit = limitLessThanCount)
     assertEquals(result1.list.size, limitLessThanCount)
     assertEquals(result1.totalCount, 3)
 
     val offsetHigherThanCount = 1000
-    val result2 = exampleRepoWithCount.search(offset = offsetHigherThanCount)
+    val result2 = exampleRepoWithCount.searchWithTotalCount(offset = offsetHigherThanCount)
     assertEquals(result2.totalCount, 3)
 
     val result3 =
-        exampleRepoWithCount.search(
+        exampleRepoWithCount.searchWithTotalCount(
             text = "Very specific name for text query test",
             limit = 1,
             offset = 0,

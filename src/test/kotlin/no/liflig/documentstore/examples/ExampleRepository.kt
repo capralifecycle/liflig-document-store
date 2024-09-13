@@ -13,10 +13,18 @@ internal enum class OrderBy {
   CREATED_AT,
 }
 
-internal class ExampleRepository(jdbi: Jdbi) :
+internal class ExampleRepository(
+    jdbi: Jdbi,
+    /**
+     * Normally, we would set this directly on the arg to [RepositoryJdbi] below - but here we want
+     * to reuse the same repository implementation for different tables, to have separate tables for
+     * different tests.
+     */
+    tableName: String,
+) :
     RepositoryJdbi<ExampleId, ExampleEntity>(
         jdbi,
-        tableName = "example",
+        tableName,
         KotlinSerialization(ExampleEntity.serializer()),
     ) {
   fun search(
@@ -42,32 +50,7 @@ internal class ExampleRepository(jdbi: Jdbi) :
     }
   }
 
-  override fun mapCreateOrUpdateException(e: Exception, entity: ExampleEntity): Exception {
-    val message = e.message
-    if (message != null && message.contains("example_unique_field_index")) {
-      return UniqueFieldAlreadyExists(entity, cause = e)
-    }
-
-    return e
-  }
-}
-
-internal class UniqueFieldAlreadyExists(entity: ExampleEntity, override val cause: Exception) :
-    RuntimeException() {
-  override val message = "Received entity with unique field that already exists: ${entity}"
-}
-
-/**
- * Separate repository, to avoid other tests interfering with the count returned by
- * getByPredicateWithTotalCount.
- */
-internal class ExampleRepositoryWithCount(jdbi: Jdbi) :
-    RepositoryJdbi<ExampleId, ExampleEntity>(
-        jdbi,
-        tableName = "example_with_count",
-        KotlinSerialization(ExampleEntity.serializer()),
-    ) {
-  fun search(
+  fun searchWithTotalCount(
       text: String? = null,
       limit: Int? = null,
       offset: Int? = null,
@@ -89,6 +72,20 @@ internal class ExampleRepositoryWithCount(jdbi: Jdbi) :
       bind("textQuery", text)
     }
   }
+
+  override fun mapCreateOrUpdateException(e: Exception, entity: ExampleEntity): Exception {
+    val message = e.message
+    if (message != null && message.contains("example_unique_field_index")) {
+      return UniqueFieldAlreadyExists(entity, cause = e)
+    }
+
+    return e
+  }
+}
+
+internal class UniqueFieldAlreadyExists(entity: ExampleEntity, override val cause: Exception) :
+    RuntimeException() {
+  override val message = "Received entity with unique field that already exists: ${entity}"
 }
 
 internal class ExampleRepositoryWithStringEntityId(jdbi: Jdbi) :
