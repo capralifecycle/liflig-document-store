@@ -271,7 +271,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       val forUpdateString = if (forUpdate) " FOR UPDATE" else ""
 
       return handle
-          .select(
+          .createQuery(
               """
                 SELECT id, data, version, created_at, modified_at
                 FROM "${tableName}"
@@ -314,7 +314,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
 
       val rows =
           handle
-              .select(
+              .createQuery(
                   // SQL query based on https://stackoverflow.com/a/28888696
                   // Uses a RIGHT JOIN with the count in order to still get the count when no rows
                   // are returned.
