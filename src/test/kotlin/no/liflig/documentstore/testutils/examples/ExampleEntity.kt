@@ -1,6 +1,6 @@
 @file:UseSerializers(InstantSerializer::class, UUIDSerializer::class)
 
-package no.liflig.documentstore.examples
+package no.liflig.documentstore.testutils.examples
 
 import java.util.UUID
 import kotlinx.serialization.Serializable
@@ -10,7 +10,7 @@ import no.liflig.documentstore.entity.StringEntityId
 import no.liflig.documentstore.entity.UuidEntityId
 
 @Serializable
-internal data class ExampleEntity(
+data class ExampleEntity(
     override val id: ExampleId = ExampleId(),
     val text: String,
     val moreText: String? = null,
@@ -19,15 +19,13 @@ internal data class ExampleEntity(
 
 @Serializable
 @JvmInline
-internal value class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntityId
+value class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntityId
 
 @Serializable
-internal data class EntityWithStringId(
+data class EntityWithStringId(
     override val id: ExampleStringId,
     val text: String,
     val moreText: String? = null,
 ) : Entity<ExampleStringId>
 
-@Serializable
-@JvmInline
-internal value class ExampleStringId(override val value: String) : StringEntityId
+@Serializable @JvmInline value class ExampleStringId(override val value: String) : StringEntityId

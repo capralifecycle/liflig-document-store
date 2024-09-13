@@ -1,15 +1,9 @@
-package no.liflig.documentstore
+package no.liflig.documentstore.entity
 
 import java.time.Instant
 import kotlin.test.assertEquals
-import no.liflig.documentstore.entity.Version
-import no.liflig.documentstore.entity.Versioned
-import no.liflig.documentstore.entity.filterEntities
-import no.liflig.documentstore.entity.forEachEntity
-import no.liflig.documentstore.entity.mapEntities
-import no.liflig.documentstore.entity.mapEntitiesNotNull
-import no.liflig.documentstore.examples.ExampleEntity
 import no.liflig.documentstore.repository.ListWithTotalCount
+import no.liflig.documentstore.testutils.examples.ExampleEntity
 import org.junit.jupiter.api.Test
 
 class VersionedListUtilsTest {
