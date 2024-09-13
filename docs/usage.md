@@ -25,8 +25,8 @@ import no.liflig.documentstore.entity.UuidEntityId
 
 @Serializable
 data class ExampleEntity(
-    override val id: ExampleId,
-    val name: String,
+  override val id: ExampleId,
+  val name: String,
 ) : Entity<ExampleId>
 
 @Serializable
@@ -36,9 +36,8 @@ value class ExampleId(override val value: UUID) : UuidEntityId {
 }
 ```
 
-Next, implement a `Repository` for your entity. Here we use the `getByPredicate` method on
-`RepositoryJdbi` to provide our own `WHERE` clause in `getByName`. See below for the implementation
-of [`KotlinSerialization`](#implementing-serializationadapter).
+Next, implement a `Repository` for your entity. See below for the implementation of
+[`KotlinSerialization`](#implementing-serializationadapter).
 
 ```kotlin
 import no.liflig.documentstore.entity.Versioned
@@ -46,18 +45,21 @@ import no.liflig.documentstore.repository.RepositoryJdbi
 import org.jdbi.v3.core.Jdbi
 
 class ExampleRepository(jdbi: Jdbi) :
-    RepositoryJdbi<ExampleId, ExampleEntity>(
-        jdbi,
-        tableName = "example",
-        KotlinSerialization(ExampleEntity.serializer()),
-    ) {
+  RepositoryJdbi<ExampleId, ExampleEntity>(
+    jdbi,
+    tableName = "example",
+    KotlinSerialization(ExampleEntity.serializer()),
+  ) {
 
   fun getByName(name: String): Versioned<ExampleEntity>? {
-    // Here we use JSON operators from Postgres to query on the entity's fields
+    // To implement filtering on the entity's fields, we use the getByPredicate method inherited
+    // from RepositoryJdbi. It lets us provide our own WHERE clause, and a lambda to bind arguments.
+    // In the WHERE string, we use JSON operators from Postgres (->>) to query the entity's fields.
     return getByPredicate("data->>'name' = :name") {
-          bind("name", name)
-        }
-        .firstOrNull()
+      // Binds to the :name parameter in the query
+      bind("name", name)
+    }
+      .firstOrNull()
   }
 }
 ```
@@ -69,10 +71,10 @@ use it like this:
 val exampleRepo: ExampleRepository
 
 val (entity, version) = exampleRepo.create(
-    ExampleEntity(
-        id = ExampleId(UUID.randomUUID()),
-        name = "test",
-    )
+  ExampleEntity(
+    id = ExampleId(UUID.randomUUID()),
+    name = "test",
+  )
 )
 
 println("Created entity with name '${entity.name}'")
@@ -89,8 +91,8 @@ import org.jdbi.v3.postgres.PostgresPlugin
 
 fun createJdbiInstance(dataSource: DataSource): Jdbi {
   return Jdbi.create(dataSource)
-      .installPlugin(KotlinPlugin())
-      .installPlugin(DocumentStorePlugin())
+    .installPlugin(KotlinPlugin())
+    .installPlugin(DocumentStorePlugin())
 }
 ```
 
@@ -113,7 +115,7 @@ private val json = Json {
 }
 
 class KotlinSerialization<EntityT : Entity<*>>(
-    private val serializer: KSerializer<EntityT>,
+  private val serializer: KSerializer<EntityT>,
 ) : SerializationAdapter<EntityT> {
   override fun toJson(entity: EntityT): String = json.encodeToString(serializer, entity)
 
