@@ -54,3 +54,15 @@ fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
     throw mapDatabaseException(e)
   }
 }
+
+/**
+ * Short-hand for calling [useHandle] inside [transactional], i.e. starting a transaction and
+ * getting a database handle inside it, or re-using an existing transaction if one is already
+ * started on this thread.
+ *
+ * Not public, since we only use this internally in [RepositoryJdbi] - if library users find a need
+ * for this, we may consider making it public.
+ */
+internal fun <ReturnT> useTransactionHandle(jdbi: Jdbi, block: (Handle) -> ReturnT): ReturnT {
+  return transactional(jdbi) { useHandle(jdbi, block) }
+}
