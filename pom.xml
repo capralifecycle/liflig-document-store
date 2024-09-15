@@ -25,7 +25,7 @@
     <testcontainers.version>1.20.1</testcontainers.version>
     <postgresql.version>42.7.4</postgresql.version>
     <hikari.version>5.1.0</hikari.version>
-    <flyway.version>10.17.3</flyway.version>
+    <flyway.version>10.18.0</flyway.version>
     <kotlinx-serialization.version>1.7.2</kotlinx-serialization.version>
     <jackson.version>2.17.2</jackson.version>
     <liflig-snapshot-test.version>1.20240905.231604</liflig-snapshot-test.version>
