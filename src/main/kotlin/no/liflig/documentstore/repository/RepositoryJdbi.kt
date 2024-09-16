@@ -412,8 +412,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
         executeBatchOperation(
             entities,
             // We don't have to check version here, since we use FOR UPDATE above, so we know we
-            // have
-            // the latest version
+            // have the latest version
             statement =
                 """
                   UPDATE "${tableName}"
