@@ -20,7 +20,7 @@ import org.junit.jupiter.api.TestMethodOrder
 class BatchTest {
   // Pad numbers in test text with 0s so that we can sort by text
   private val testNumberFormat = DecimalFormat("000")
-  private val largeBatchSize = OPTIMAL_BATCH_SIZE * 2 + 10
+  private val largeBatchSize = 1000
 
   private lateinit var entities: List<Versioned<ExampleEntity>>
 
