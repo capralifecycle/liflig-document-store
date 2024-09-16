@@ -28,8 +28,8 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *   entity in the database.
    */
   fun <EntityOrSubClassT : EntityT> update(
-    entity: EntityOrSubClassT,
-    previousVersion: Version,
+      entity: EntityOrSubClassT,
+      previousVersion: Version,
   ): Versioned<EntityOrSubClassT>
 
   /**

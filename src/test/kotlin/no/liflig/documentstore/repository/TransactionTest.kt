@@ -54,8 +54,7 @@ class TransactionTest {
         transactional(jdbi) { exampleRepo.update(entity2.copy(text = "Two"), version2) }
         throw ConflictRepositoryException("test")
       }
-    } catch (_: ConflictRepositoryException) {
-    }
+    } catch (_: ConflictRepositoryException) {}
 
     assertEquals("One", exampleRepo.get(entity1.id)!!.item.text)
     assertEquals("One", exampleRepo.get(entity2.id)!!.item.text)
