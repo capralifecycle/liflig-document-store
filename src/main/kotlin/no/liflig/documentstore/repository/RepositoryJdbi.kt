@@ -388,53 +388,56 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   }
 
   override fun migrate(transformEntity: ((Versioned<EntityT>) -> EntityT)?) {
-    useTransactionHandle(jdbi) { handle ->
-      /**
-       * The [org.jdbi.v3.core.result.ResultIterable] must be closed after iterating - but that is
-       * automatically done after iterating through all results, which we do in
-       * [executeBatchOperation] below.
-       */
-      val entities =
-          handle
-              .createQuery(
-                  """
-                    SELECT id, data, version, created_at, modified_at
-                    FROM "${tableName}"
-                    FOR UPDATE
-                  """
-                      .trimIndent(),
-              )
-              .map(rowMapper)
+    transactional {
+      useHandle(jdbi) { handle ->
+        /**
+         * The [org.jdbi.v3.core.result.ResultIterable] must be closed after iterating - but that is
+         * automatically done after iterating through all results, which we do in
+         * [executeBatchOperation] below.
+         */
+        val entities =
+            handle
+                .createQuery(
+                    """
+                      SELECT id, data, version, created_at, modified_at
+                      FROM "${tableName}"
+                      FOR UPDATE
+                    """
+                        .trimIndent(),
+                )
+                .map(rowMapper)
 
-      val modifiedAt = Instant.now()
+        val modifiedAt = Instant.now()
 
-      executeBatchOperation(
-          entities,
-          // We don't have to check version here, since we use FOR UPDATE above, so we know we have
-          // the latest version
-          statement =
-              """
-                UPDATE "${tableName}"
-                SET
-                  version = :nextVersion,
-                  data = :data::jsonb,
-                  modified_at = :modifiedAt
-                WHERE
-                  id = :id
-              """
-                  .trimIndent(),
-          bindParameters = { batch, entity ->
-            val nextVersion = entity.version.next()
-            val updatedEntity =
-                if (transformEntity == null) entity.item else transformEntity(entity)
+        executeBatchOperation(
+            entities,
+            // We don't have to check version here, since we use FOR UPDATE above, so we know we
+            // have
+            // the latest version
+            statement =
+                """
+                  UPDATE "${tableName}"
+                  SET
+                    version = :nextVersion,
+                    data = :data::jsonb,
+                    modified_at = :modifiedAt
+                  WHERE
+                    id = :id
+                """
+                    .trimIndent(),
+            bindParameters = { batch, entity ->
+              val nextVersion = entity.version.next()
+              val updatedEntity =
+                  if (transformEntity == null) entity.item else transformEntity(entity)
 
-            batch
-                .bind("nextVersion", nextVersion)
-                .bind("data", serializationAdapter.toJson(updatedEntity))
-                .bind("id", entity.item.id)
-                .bind("modifiedAt", modifiedAt)
-          },
-      )
+              batch
+                  .bind("nextVersion", nextVersion)
+                  .bind("data", serializationAdapter.toJson(updatedEntity))
+                  .bind("id", entity.item.id)
+                  .bind("modifiedAt", modifiedAt)
+            },
+        )
+      }
     }
   }
 
@@ -493,37 +496,39 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       bindParameters: (PreparedBatch, BatchItemT) -> PreparedBatch,
       handleModifiedRowCounts: ((IntArray, Int) -> Unit)? = null,
   ) {
-    useTransactionHandle(jdbi) { handle ->
-      var currentBatch: PreparedBatch? = null
-      var elementCountInCurrentBatch = 0
-      var startIndexOfCurrentBatch = 0
+    transactional {
+      useHandle(jdbi) { handle ->
+        var currentBatch: PreparedBatch? = null
+        var elementCountInCurrentBatch = 0
+        var startIndexOfCurrentBatch = 0
 
-      for ((index, element) in items.withIndex()) {
-        if (currentBatch == null) {
-          currentBatch = handle.prepareBatch(statement)!! // Should never return null
-          startIndexOfCurrentBatch = index
-        }
-
-        currentBatch = bindParameters(currentBatch, element)
-        currentBatch.add()
-        elementCountInCurrentBatch++
-
-        if (elementCountInCurrentBatch >= OPTIMAL_BATCH_SIZE) {
-          val modifiedRowCounts = currentBatch.execute()
-          if (handleModifiedRowCounts != null) {
-            handleModifiedRowCounts(modifiedRowCounts, startIndexOfCurrentBatch)
+        for ((index, element) in items.withIndex()) {
+          if (currentBatch == null) {
+            currentBatch = handle.prepareBatch(statement)!! // Should never return null
+            startIndexOfCurrentBatch = index
           }
 
-          currentBatch = null
-          elementCountInCurrentBatch = 0
-        }
-      }
+          currentBatch = bindParameters(currentBatch, element)
+          currentBatch.add()
+          elementCountInCurrentBatch++
 
-      // If currentBatch is non-null here, that means we still have remaining entities to update
-      if (currentBatch != null) {
-        val executeResult = currentBatch.execute()
-        if (handleModifiedRowCounts != null) {
-          handleModifiedRowCounts(executeResult, startIndexOfCurrentBatch)
+          if (elementCountInCurrentBatch >= OPTIMAL_BATCH_SIZE) {
+            val modifiedRowCounts = currentBatch.execute()
+            if (handleModifiedRowCounts != null) {
+              handleModifiedRowCounts(modifiedRowCounts, startIndexOfCurrentBatch)
+            }
+
+            currentBatch = null
+            elementCountInCurrentBatch = 0
+          }
+        }
+
+        // If currentBatch is non-null here, that means we still have remaining entities to update
+        if (currentBatch != null) {
+          val executeResult = currentBatch.execute()
+          if (handleModifiedRowCounts != null) {
+            handleModifiedRowCounts(executeResult, startIndexOfCurrentBatch)
+          }
         }
       }
     }
