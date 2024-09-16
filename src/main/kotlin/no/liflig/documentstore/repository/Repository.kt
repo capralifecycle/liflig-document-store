@@ -28,8 +28,8 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *   entity in the database.
    */
   fun <EntityOrSubClassT : EntityT> update(
-      entity: EntityOrSubClassT,
-      previousVersion: Version,
+    entity: EntityOrSubClassT,
+    previousVersion: Version,
   ): Versioned<EntityOrSubClassT>
 
   /**
@@ -144,5 +144,19 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
       entities = entities.map { entity -> entity.copy(item = transformEntity(entity)) }
     }
     batchUpdate(entities)
+  }
+
+  /**
+   * Initiates a database transaction, and executes the given [block] inside of it. Any calls to
+   * other repository methods inside this block will use the same transaction, and roll back if an
+   * exception is thrown.
+   *
+   * The implementation in [RepositoryJdbi.transactional] uses its JDBI instance to start the
+   * transaction.
+   */
+  fun <ReturnT> transactional(block: () -> ReturnT): ReturnT {
+    // A default implementation is provided here on the interface, so that implementors don't have
+    // to implement this themselves (for e.g. mock repositories).
+    return block()
   }
 }

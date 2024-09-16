@@ -54,7 +54,8 @@ class TransactionTest {
         transactional(jdbi) { exampleRepo.update(entity2.copy(text = "Two"), version2) }
         throw ConflictRepositoryException("test")
       }
-    } catch (_: ConflictRepositoryException) {}
+    } catch (_: ConflictRepositoryException) {
+    }
 
     assertEquals("One", exampleRepo.get(entity1.id)!!.item.text)
     assertEquals("One", exampleRepo.get(entity2.id)!!.item.text)
@@ -99,6 +100,22 @@ class TransactionTest {
         }
 
     assertEquals("Two", result)
+  }
+
+  @Test
+  fun `RepositoryJdbi transactional rolls back failed transaction`() {
+    val (entity1, version1) = exampleRepo.create(ExampleEntity(text = "One"))
+    val (entity2, version2) = exampleRepo.create(ExampleEntity(text = "One"))
+
+    assertFailsWith<ConflictRepositoryException> {
+      exampleRepo.transactional {
+        exampleRepo.update(entity1.copy(text = "Two"), version1)
+        exampleRepo.update(entity2.copy(text = "Two"), version2.next())
+      }
+    }
+
+    assertEquals("One", exampleRepo.get(entity1.id)!!.item.text)
+    assertEquals("One", exampleRepo.get(entity2.id)!!.item.text)
   }
 
   @Test

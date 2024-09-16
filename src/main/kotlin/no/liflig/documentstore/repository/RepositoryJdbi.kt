@@ -40,9 +40,9 @@ import org.jdbi.v3.core.statement.Query
  * this class to work.
  */
 open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
-    protected val jdbi: Jdbi,
-    protected val tableName: String,
-    protected val serializationAdapter: SerializationAdapter<EntityT>,
+  protected val jdbi: Jdbi,
+  protected val tableName: String,
+  protected val serializationAdapter: SerializationAdapter<EntityT>,
 ) : Repository<EntityIdT, EntityT> {
   protected val rowMapper: RowMapper<Versioned<EntityT>> =
       createRowMapper(serializationAdapter::fromJson)
@@ -100,8 +100,8 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   }
 
   override fun <EntityOrSubClassT : EntityT> update(
-      entity: EntityOrSubClassT,
-      previousVersion: Version
+    entity: EntityOrSubClassT,
+    previousVersion: Version
   ): Versioned<EntityOrSubClassT> {
     try {
       useHandle(jdbi) { handle ->
@@ -197,11 +197,11 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     executeBatchOperation(
         entities,
         statement =
-            """
+        """
               INSERT INTO "${tableName}" (id, data, version, created_at, modified_at)
               VALUES (:id, :data::jsonb, :version, :createdAt, :modifiedAt)
             """
-                .trimIndent(),
+            .trimIndent(),
         bindParameters = { batch, entity ->
           batch
               .bind("id", entity.id)
@@ -219,7 +219,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     executeBatchOperation(
         entities,
         statement =
-            """
+        """
               UPDATE "${tableName}"
               SET
                 version = :nextVersion,
@@ -229,7 +229,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                 id = :id AND
                 version = :previousVersion
             """
-                .trimIndent(),
+            .trimIndent(),
         bindParameters = { batch, entity ->
           val nextVersion = entity.version.next()
 
@@ -250,11 +250,11 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     executeBatchOperation(
         entities,
         statement =
-            """
+        """
               DELETE FROM "${tableName}"
               WHERE id = :id AND version = :previousVersion
             """
-                .trimIndent(),
+            .trimIndent(),
         bindParameters = { batch, entity ->
           batch.bind("id", entity.item.id).bind("previousVersion", entity.version)
         },
@@ -287,13 +287,13 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * ```
    */
   protected open fun getByPredicate(
-      sqlWhere: String = "TRUE",
-      limit: Int? = null,
-      offset: Int? = null,
-      orderBy: String? = null,
-      orderDesc: Boolean = false,
-      forUpdate: Boolean = false,
-      bind: Query.() -> Query = { this }
+    sqlWhere: String = "TRUE",
+    limit: Int? = null,
+    offset: Int? = null,
+    orderBy: String? = null,
+    orderDesc: Boolean = false,
+    forUpdate: Boolean = false,
+    bind: Query.() -> Query = { this }
   ): List<Versioned<EntityT>> {
     useHandle(jdbi) { handle ->
       val orderDirection = if (orderDesc) "DESC" else "ASC"
@@ -332,12 +332,12 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * See [getByPredicate] for further documentation.
    */
   protected open fun getByPredicateWithTotalCount(
-      sqlWhere: String = "TRUE",
-      limit: Int? = null,
-      offset: Int? = null,
-      orderBy: String? = null,
-      orderDesc: Boolean = false,
-      bind: Query.() -> Query = { this }
+    sqlWhere: String = "TRUE",
+    limit: Int? = null,
+    offset: Int? = null,
+    orderBy: String? = null,
+    orderDesc: Boolean = false,
+    bind: Query.() -> Query = { this }
   ): ListWithTotalCount<Versioned<EntityT>> {
     useHandle(jdbi) { handle ->
       val limitString = limit?.let { "LIMIT $it" } ?: ""
@@ -381,7 +381,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
            * Should never happen: the query should always return 1 row with the count, even if the
            * results are empty (see [EntityRowWithTotalCount]).
            */
-          ?: throw IllegalStateException("Failed to get total count of objects in search query")
+            ?: throw IllegalStateException("Failed to get total count of objects in search query")
 
       return ListWithTotalCount(entities, count)
     }
@@ -413,7 +413,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
           // We don't have to check version here, since we use FOR UPDATE above, so we know we have
           // the latest version
           statement =
-              """
+          """
                 UPDATE "${tableName}"
                 SET
                   version = :nextVersion,
@@ -422,7 +422,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                 WHERE
                   id = :id
               """
-                  .trimIndent(),
+              .trimIndent(),
           bindParameters = { batch, entity ->
             val nextVersion = entity.version.next()
             val updatedEntity =
@@ -436,6 +436,10 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
           },
       )
     }
+  }
+
+  override fun <ReturnT> transactional(block: () -> ReturnT): ReturnT {
+    return transactional(jdbi, block)
   }
 
   /**
@@ -484,10 +488,10 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * create/update) and entity IDs (for delete).
    */
   private fun <BatchItemT> executeBatchOperation(
-      items: Iterable<BatchItemT>,
-      statement: String,
-      bindParameters: (PreparedBatch, BatchItemT) -> PreparedBatch,
-      handleModifiedRowCounts: ((IntArray, Int) -> Unit)? = null,
+    items: Iterable<BatchItemT>,
+    statement: String,
+    bindParameters: (PreparedBatch, BatchItemT) -> PreparedBatch,
+    handleModifiedRowCounts: ((IntArray, Int) -> Unit)? = null,
   ) {
     useTransactionHandle(jdbi) { handle ->
       var currentBatch: PreparedBatch? = null
@@ -533,10 +537,10 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * in [executeBatchOperation]. This method handles this logic for both of those methods.
    */
   private fun handleModifiedRowCounts(
-      modifiedRowCounts: IntArray,
-      batchStartIndex: Int,
-      entities: Iterable<Versioned<EntityT>>,
-      operation: String,
+    modifiedRowCounts: IntArray,
+    batchStartIndex: Int,
+    entities: Iterable<Versioned<EntityT>>,
+    operation: String,
   ) {
     for (count in modifiedRowCounts.withIndex()) {
       if (count.value == 0) {
