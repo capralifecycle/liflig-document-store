@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import no.liflig.documentstore.DocumentStorePlugin
 import no.liflig.documentstore.testutils.examples.ExampleRepository
+import no.liflig.documentstore.testutils.examples.ExampleRepositoryForMigration
 import no.liflig.documentstore.testutils.examples.ExampleRepositoryWithStringEntityId
 import org.flywaydb.core.Flyway
 import org.jdbi.v3.core.Jdbi
@@ -24,12 +25,16 @@ val exampleRepoWithCount: ExampleRepository by lazy {
   ExampleRepository(jdbi, tableName = "example_with_count")
 }
 
-val exampleRepoForMigration: ExampleRepository by lazy {
+val exampleRepoWithStringId: ExampleRepositoryWithStringEntityId by lazy {
+  ExampleRepositoryWithStringEntityId(jdbi)
+}
+
+val exampleRepoPreMigration: ExampleRepository by lazy {
   ExampleRepository(jdbi, tableName = "example_for_migration")
 }
 
-val exampleRepoWithStringId: ExampleRepositoryWithStringEntityId by lazy {
-  ExampleRepositoryWithStringEntityId(jdbi)
+val exampleRepoPostMigration: ExampleRepositoryForMigration by lazy {
+  ExampleRepositoryForMigration(jdbi)
 }
 
 private fun createTestDatabase(): Jdbi {

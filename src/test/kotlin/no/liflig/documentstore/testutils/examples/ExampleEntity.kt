@@ -29,3 +29,12 @@ data class EntityWithStringId(
 ) : Entity<ExampleStringId>
 
 @Serializable @JvmInline value class ExampleStringId(override val value: String) : StringEntityId
+
+@Serializable
+data class MigratedExampleEntity(
+    override val id: ExampleId = ExampleId(),
+    val text: String,
+    val moreText: String? = null,
+    val uniqueField: Int? = null,
+    val newFieldAfterMigration: String? = null,
+) : Entity<ExampleId>

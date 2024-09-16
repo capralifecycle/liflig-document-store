@@ -6,6 +6,7 @@ import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.ListWithTotalCount
 import no.liflig.documentstore.repository.RepositoryJdbi
+import no.liflig.documentstore.repository.useHandle
 import org.jdbi.v3.core.Jdbi
 
 enum class OrderBy {
@@ -73,12 +74,6 @@ class ExampleRepository(
     }
   }
 
-  fun getByTexts(texts: List<String>): List<Versioned<ExampleEntity>> {
-    return getByPredicate("data->>'text' = ANY(:texts)", orderBy = "data->>'text'") {
-      bindArray("texts", String::class.java, texts)
-    }
-  }
-
   override fun mapCreateOrUpdateException(e: Exception, entity: ExampleEntity): Exception {
     val message = e.message
     if (message != null && message.contains("example_unique_field_index")) {
@@ -100,3 +95,34 @@ class ExampleRepositoryWithStringEntityId(jdbi: Jdbi) :
         tableName = "example_with_string_id",
         KotlinSerialization(EntityWithStringId.serializer()),
     )
+
+class ExampleRepositoryForMigration(jdbi: Jdbi) :
+    RepositoryJdbi<ExampleId, MigratedExampleEntity>(
+        jdbi,
+        tableName = "example_for_migration",
+        KotlinSerialization(MigratedExampleEntity.serializer()),
+    ) {
+  /**
+   * We test migration with 10 000 entities. To avoid allocating a list of that size, we instead
+   * operate on Iterables to make the tests go faster.
+   *
+   * We take a lambda to consume the entities here instead of returning the Iterable, since we need
+   * to close the database handle after using the entities.
+   */
+  fun streamAll(consumer: (Iterable<Versioned<MigratedExampleEntity>>) -> Unit) {
+    useHandle(jdbi) { handle ->
+      val entities =
+          handle
+              .createQuery(
+                  """
+              SELECT id, data, version, created_at, modified_at
+              FROM "${tableName}"
+              ORDER BY data->>'text'
+            """,
+              )
+              .map(rowMapper)
+
+      consumer(entities)
+    }
+  }
+}
