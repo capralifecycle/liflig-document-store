@@ -4,6 +4,7 @@ import kotlin.concurrent.thread
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import no.liflig.documentstore.entity.mapEntities
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.examples.ExampleEntity
 import no.liflig.documentstore.testutils.jdbi
@@ -98,5 +99,60 @@ class TransactionTest {
         }
 
     assertEquals("Two", result)
+  }
+
+  @Test
+  fun `batchCreate rolls back on failed transaction`() {
+    val entitiesToCreate = (1..10).map { ExampleEntity(text = "batchCreate transaction test") }
+
+    assertFailsWith<Exception> {
+      transactional(jdbi) {
+        exampleRepo.batchCreate(entitiesToCreate)
+        throw Exception("Rolling back transaction")
+      }
+    }
+
+    val createdEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
+    assertEquals(0, createdEntities.size)
+  }
+
+  @Test
+  fun `batchUpdate rolls back on failed transaction`() {
+    val entitiesToCreate = (1..10).map { ExampleEntity(text = "Original") }
+    exampleRepo.batchCreate(entitiesToCreate)
+
+    val createdEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
+    val updatedEntities = createdEntities.mapEntities { it.copy(text = "Updated") }
+
+    assertFailsWith<Exception> {
+      transactional(jdbi) {
+        exampleRepo.batchUpdate(updatedEntities)
+        throw Exception("Rolling back transaction")
+      }
+    }
+
+    val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.item.id })
+    assertEquals(createdEntities.size, fetchedEntities.size)
+    for (entity in fetchedEntities) {
+      assertEquals("Original", entity.item.text)
+    }
+  }
+
+  @Test
+  fun `batchDelete rolls back on failed transaction`() {
+    val entitiesToCreate = (1..10).map { ExampleEntity(text = "Original") }
+    exampleRepo.batchCreate(entitiesToCreate)
+
+    val createdEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
+
+    assertFailsWith<Exception> {
+      transactional(jdbi) {
+        exampleRepo.batchDelete(createdEntities)
+        throw Exception("Rolling back transaction")
+      }
+    }
+
+    val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.item.id })
+    assertEquals(createdEntities.size, fetchedEntities.size)
   }
 }
