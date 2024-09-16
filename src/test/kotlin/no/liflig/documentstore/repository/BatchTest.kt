@@ -31,14 +31,14 @@ class BatchTest {
         (1..largeBatchSize).map { number ->
           ExampleEntity(text = "batch-test-${testNumberFormat.format(number)}")
         }
-    entities = exampleRepo.batchCreate(entitiesToCreate)
-    assertNotEquals(0, entities.size)
+    exampleRepo.batchCreate(entitiesToCreate)
 
-    val fetched = exampleRepo.getByTexts(entities.map { it.item.text })
-    assertEquals(entities.size, fetched.size)
+    entities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
+    assertNotEquals(0, entities.size)
+    assertEquals(entitiesToCreate.size, entities.size)
     for ((index, entity) in entities.withIndex()) {
       // We order by text in ExampleRepository.getByTexts, so they should be returned in same order
-      assertEquals(entity, fetched[index])
+      assertEquals(entity, entities[index])
     }
   }
 
@@ -53,13 +53,13 @@ class BatchTest {
               )
           entity.copy(item = updatedEntity)
         }
-    entities = exampleRepo.batchUpdate(updatedEntities)
+    exampleRepo.batchUpdate(updatedEntities)
 
-    val fetched = exampleRepo.listByIds(entities.map { it.item.id })
-    assertEquals(entities.size, fetched.size)
+    entities = exampleRepo.listByIds(updatedEntities.map { it.item.id })
+    assertEquals(updatedEntities.size, entities.size)
     for ((index, entity) in entities.withIndex()) {
       assertNotNull(entity.item.moreText)
-      assertEquals(entity, fetched[index])
+      assertEquals(entity, entities[index])
     }
   }
 
@@ -86,7 +86,7 @@ class BatchTest {
   fun `test batchDelete`() {
     exampleRepo.batchDelete(entities)
 
-    val fetched = exampleRepo.listByIds(entities.map { it.item.id })
-    assertEquals(0, fetched.size)
+    entities = exampleRepo.listByIds(entities.map { it.item.id })
+    assertEquals(0, entities.size)
   }
 }

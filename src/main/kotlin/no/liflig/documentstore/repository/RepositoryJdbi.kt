@@ -135,7 +135,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
 
         if (updateResult == null) {
           throw ConflictRepositoryException(
-              "Entity with ID '${entity.id}' was concurrently modified between being retrieved and trying to update it here",
+              "Entity was concurrently modified between being retrieved and trying to update it [Entity: ${entity}]",
           )
         }
 
@@ -170,7 +170,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
 
       if (deleted == 0) {
         throw ConflictRepositoryException(
-            "Entity with ID '${id}' was concurrently modified between being retrieved and trying to delete it here",
+            "Entity was concurrently modified between being retrieved and trying to delete it [Entity ID: ${id}]",
         )
       }
     }
@@ -190,8 +190,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     return getByPredicate() // Defaults to all
   }
 
-  override fun batchCreate(entities: List<EntityT>): List<Versioned<EntityT>> {
-    val createdEntities = ArrayList<Versioned<EntityT>>(entities.size) // Initialize with capacity
+  override fun batchCreate(entities: Iterable<EntityT>) {
     val now = Instant.now()
     val version = Version.initial()
 
@@ -204,8 +203,6 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
             """
                 .trimIndent(),
         bindParameters = { batch, entity ->
-          createdEntities.add(Versioned(entity, version, createdAt = now, modifiedAt = now))
-
           batch
               .bind("id", entity.id)
               .bind("data", serializationAdapter.toJson(entity))
@@ -214,12 +211,9 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
               .bind("modifiedAt", now)
         },
     )
-
-    return createdEntities
   }
 
-  override fun batchUpdate(entities: List<Versioned<EntityT>>): List<Versioned<EntityT>> {
-    val updatedEntities = ArrayList<Versioned<EntityT>>(entities.size) // Initialize with capacity
+  override fun batchUpdate(entities: Iterable<Versioned<EntityT>>) {
     val now = Instant.now()
 
     executeBatchOperation(
@@ -238,7 +232,6 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                 .trimIndent(),
         bindParameters = { batch, entity ->
           val nextVersion = entity.version.next()
-          updatedEntities.add(entity.copy(version = nextVersion, modifiedAt = now))
 
           batch
               .bind("nextVersion", nextVersion)
@@ -247,22 +240,13 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
               .bind("id", entity.item.id)
               .bind("previousVersion", entity.version)
         },
-        handleModifiedRowCounts = { modifiedRowCounts, startIndexOfCurrentBatch ->
-          for (count in modifiedRowCounts.withIndex()) {
-            if (count.value == 0) {
-              val entity = entities[startIndexOfCurrentBatch + count.index]
-              throw ConflictRepositoryException(
-                  "Entity with ID '${entity.item.id}' was concurrently modified between being retrieved and trying to update it in batch update",
-              )
-            }
-          }
+        handleModifiedRowCounts = { counts, batchStartIndex ->
+          handleModifiedRowCounts(counts, batchStartIndex, entities, operation = "update")
         },
     )
-
-    return updatedEntities
   }
 
-  override fun batchDelete(entities: List<Versioned<EntityT>>) {
+  override fun batchDelete(entities: Iterable<Versioned<EntityT>>) {
     executeBatchOperation(
         entities,
         statement =
@@ -274,15 +258,8 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
         bindParameters = { batch, entity ->
           batch.bind("id", entity.item.id).bind("previousVersion", entity.version)
         },
-        handleModifiedRowCounts = { modifiedRowCounts, startIndexOfCurrentBatch ->
-          for (count in modifiedRowCounts.withIndex()) {
-            if (count.value == 0) {
-              val entity = entities[startIndexOfCurrentBatch + count.index]
-              throw ConflictRepositoryException(
-                  "Entity with ID '${entity.item.id}' was concurrently modified between being retrieved and trying to delete it in batch delete",
-              )
-            }
-          }
+        handleModifiedRowCounts = { counts, batchStartIndex ->
+          handleModifiedRowCounts(counts, batchStartIndex, entities, operation = "delete")
         },
     )
   }
@@ -412,6 +389,11 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
 
   override fun migrate(transformEntity: ((Versioned<EntityT>) -> EntityT)?) {
     useTransactionHandle(jdbi) { handle ->
+      /**
+       * The [org.jdbi.v3.core.result.ResultIterable] must be closed after iterating - but that is
+       * automatically done after iterating through all results, which we do in
+       * [executeBatchOperation] below.
+       */
       val entities =
           handle
               .createQuery(
@@ -539,6 +521,37 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
         if (handleModifiedRowCounts != null) {
           handleModifiedRowCounts(executeResult, startIndexOfCurrentBatch)
         }
+      }
+    }
+  }
+
+  /**
+   * [batchUpdate] and [batchDelete] use optimistic locking: we only update/delete an entity if it
+   * matches an expected [Version] - if it does not, then it likely has been concurrently modified
+   * in the meantime, in which case we roll back the batch operation and throw a
+   * [ConflictRepositoryException]. We check this by going through the modified row counts retrieved
+   * in [executeBatchOperation]. This method handles this logic for both of those methods.
+   */
+  private fun handleModifiedRowCounts(
+      modifiedRowCounts: IntArray,
+      batchStartIndex: Int,
+      entities: Iterable<Versioned<EntityT>>,
+      operation: String,
+  ) {
+    for (count in modifiedRowCounts.withIndex()) {
+      if (count.value == 0) {
+        var exceptionMessage =
+            "Entity was concurrently modified between being retrieved and trying to ${operation} it in batch ${operation} (rolling back batch ${operation})"
+        // We want to add the entity to the exception message for context, but we can only do this
+        // if the Iterable is indexable
+        if (entities is List) {
+          val entity = entities.getOrNull(batchStartIndex + count.index)
+          if (entity != null) {
+            exceptionMessage += " [Entity: ${entity}]"
+          }
+        }
+
+        throw ConflictRepositoryException(exceptionMessage)
       }
     }
   }

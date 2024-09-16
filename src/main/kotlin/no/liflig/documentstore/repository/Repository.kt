@@ -52,11 +52,20 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    * The implementation in [RepositoryJdbi.batchCreate] uses
    * [Prepared Batches from JDBI](https://jdbi.org/releases/3.45.1/#_prepared_batches) to make the
    * implementation as efficient as possible.
+   *
+   * This method does not return a list of the created entities. This is because it takes an
+   * [Iterable], which may be a lazy view into a large collection, and we don't want to assume for
+   * library users that it's OK to allocate a list of that size. If you find a use-case for getting
+   * the [Version] of created entities, you should either list them out afterwards with
+   * [listByIds]/[listAll]/[RepositoryJdbi.getByPredicate], or alert the library authors so we may
+   * consider returning results here.
    */
-  fun batchCreate(entities: List<EntityT>): List<Versioned<EntityT>> {
+  fun batchCreate(entities: Iterable<EntityT>) {
     // A default implementation is provided here on the interface, so that implementors don't have
     // to implement this themselves (for e.g. mock repositories).
-    return entities.map { entity -> create(entity) }
+    for (entity in entities) {
+      create(entity)
+    }
   }
 
   /**
@@ -67,13 +76,22 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    * [Prepared Batches from JDBI](https://jdbi.org/releases/3.45.1/#_prepared_batches) to make the
    * implementation as efficient as possible.
    *
+   * This method does not return a list of the updated entities. This is because it takes an
+   * [Iterable], which may be a lazy view into a large collection, and we don't want to assume for
+   * library users that it's OK to allocate a list of that size. If you find a use-case for getting
+   * the new [Version] of updated entities, you should either list them out afterwards with
+   * [listByIds]/[listAll]/[RepositoryJdbi.getByPredicate], or alert the library authors so we may
+   * consider returning results here.
+   *
    * @throws ConflictRepositoryException If the version on any of the given entities does not match
    *   the current version of the entity in the database.
    */
-  fun batchUpdate(entities: List<Versioned<EntityT>>): List<Versioned<EntityT>> {
+  fun batchUpdate(entities: Iterable<Versioned<EntityT>>) {
     // A default implementation is provided here on the interface, so that implementors don't have
     // to implement this themselves (for e.g. mock repositories).
-    return entities.map { entity -> update(entity.item, entity.version) }
+    for (entity in entities) {
+      update(entity.item, entity.version)
+    }
   }
 
   /**
@@ -87,7 +105,7 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    * @throws ConflictRepositoryException If the version on any of the given entities does not match
    *   the current version of the entity in the database.
    */
-  fun batchDelete(entities: List<Versioned<EntityT>>) {
+  fun batchDelete(entities: Iterable<Versioned<EntityT>>) {
     // A default implementation is provided here on the interface, so that implementors don't have
     // to implement this themselves (for e.g. mock repositories).
     for (entity in entities) {
