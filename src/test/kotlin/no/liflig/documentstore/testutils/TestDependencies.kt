@@ -25,6 +25,11 @@ val exampleRepoWithCount: ExampleRepository by lazy {
   ExampleRepository(jdbi, tableName = "example_with_count")
 }
 
+/** Separate table, to avoid other tests interfering with the list returned by listAll. */
+val exampleRepoForListAll: ExampleRepository by lazy {
+  ExampleRepository(jdbi, tableName = "example_for_list_all")
+}
+
 val exampleRepoWithStringId: ExampleRepositoryWithStringEntityId by lazy {
   ExampleRepositoryWithStringEntityId(jdbi)
 }

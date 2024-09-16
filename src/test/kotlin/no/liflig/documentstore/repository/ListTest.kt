@@ -3,6 +3,7 @@ package no.liflig.documentstore.repository
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import no.liflig.documentstore.testutils.exampleRepo
+import no.liflig.documentstore.testutils.exampleRepoForListAll
 import no.liflig.documentstore.testutils.exampleRepoWithStringId
 import no.liflig.documentstore.testutils.examples.EntityWithStringId
 import no.liflig.documentstore.testutils.examples.ExampleEntity
@@ -10,6 +11,20 @@ import no.liflig.documentstore.testutils.examples.ExampleStringId
 import org.junit.jupiter.api.Test
 
 class ListTest {
+  @Test
+  fun `test listAll`() {
+    val createdEntities = (0..9).map { number -> ExampleEntity(text = "list-all-test-${number}") }
+    for (entity in createdEntities) {
+      // Use create instead of batchCreate here, since we want to verify that they are sorted by
+      // createdAt
+      exampleRepoForListAll.create(entity)
+    }
+
+    val all = exampleRepoForListAll.listAll()
+    assertEquals(createdEntities.size, all.size)
+    assertEquals(createdEntities, all.map { it.item })
+  }
+
   @Test
   fun `test listByIds for UuidEntityId`() {
     val (entity1, _) = exampleRepo.create(ExampleEntity(text = "Test 1"))

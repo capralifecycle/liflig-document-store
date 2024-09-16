@@ -20,7 +20,7 @@ CREATE TABLE example_with_count
 );
 CREATE INDEX example_with_count_text_index ON "example_with_count" ((data ->> 'text'));
 
-CREATE TABLE example_for_migration
+CREATE TABLE example_for_list_all
 (
   id          uuid        NOT NULL PRIMARY KEY,
   created_at  timestamptz NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE example_for_migration
   version     bigint      NOT NULL,
   data        jsonb       NOT NULL
 );
-CREATE INDEX example_for_migration_text_index ON "example_for_migration" ((data ->> 'text'));
+CREATE INDEX example_for_list_all_text_index ON "example_for_list_all" ((data ->> 'text'));
 
 CREATE TABLE example_with_string_id
 (
@@ -39,3 +39,13 @@ CREATE TABLE example_with_string_id
   data        jsonb       NOT NULL
 );
 CREATE INDEX example_with_string_id_text_index ON "example_with_string_id" ((data ->> 'text'));
+
+CREATE TABLE example_for_migration
+(
+  id          uuid        NOT NULL PRIMARY KEY,
+  created_at  timestamptz NOT NULL,
+  modified_at timestamptz NOT NULL,
+  version     bigint      NOT NULL,
+  data        jsonb       NOT NULL
+);
+CREATE INDEX example_for_migration_text_index ON "example_for_migration" ((data ->> 'text'));
