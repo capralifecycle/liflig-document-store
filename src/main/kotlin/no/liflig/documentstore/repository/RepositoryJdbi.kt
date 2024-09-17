@@ -386,7 +386,6 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     }
   }
 
-  @RepositoryMigrationApi
   override fun migrate(transformEntity: ((Versioned<EntityT>) -> EntityT)?) {
     transactional {
       useHandle(jdbi) { handle ->
@@ -405,6 +404,15 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                     """
                         .trimIndent(),
                 )
+                // If we don't specify fetch size, the JDBC driver for Postgres fetches all results
+                // by default:
+                // https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
+                // This can lead to out-of-memory errors here, since we fetch the entire table.
+                // We really only want to fetch out a single batch at a time, since we process
+                // entities in batches. To do that, we set the fetch size, which is the number of
+                // rows to fetch at a time. Solution found here:
+                // https://www.postgresql.org/message-id/BANLkTi=Df1CR72Bx0L8CBZWBcSfwpmnc-g@mail.gmail.com
+                .setFetchSize(OPTIMAL_BATCH_SIZE)
                 .map(rowMapper)
 
         val modifiedAt = Instant.now()

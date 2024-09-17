@@ -136,7 +136,6 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    * process of deserializing and re-serializing here. If you want to do further transforms, you can
    * use the [transformEntity] parameter.
    */
-  @RepositoryMigrationApi
   fun migrate(transformEntity: ((Versioned<EntityT>) -> EntityT)? = null) {
     // A default implementation is provided here on the interface, so that implementors don't have
     // to implement this themselves (for e.g. mock repositories).
@@ -161,8 +160,3 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
     return block()
   }
 }
-
-@RequiresOptIn(
-    "Problems have been found with the new migration API, so it is not yet suitable for production",
-)
-internal annotation class RepositoryMigrationApi
