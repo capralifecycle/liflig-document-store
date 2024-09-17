@@ -136,6 +136,7 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    * process of deserializing and re-serializing here. If you want to do further transforms, you can
    * use the [transformEntity] parameter.
    */
+  @ExperimentalMigrationApi
   fun migrate(transformEntity: ((Versioned<EntityT>) -> EntityT)? = null) {
     // A default implementation is provided here on the interface, so that implementors don't have
     // to implement this themselves (for e.g. mock repositories).
@@ -160,3 +161,8 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
     return block()
   }
 }
+
+@RequiresOptIn(
+    "The migration API of Liflig Document Store is currently under development, and may change",
+)
+internal annotation class ExperimentalMigrationApi
