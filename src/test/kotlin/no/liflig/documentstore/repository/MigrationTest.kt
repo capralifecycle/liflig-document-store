@@ -8,16 +8,16 @@ import no.liflig.documentstore.testutils.exampleRepoPostMigration
 import no.liflig.documentstore.testutils.exampleRepoPreMigration
 import no.liflig.documentstore.testutils.examples.ExampleEntity
 import no.liflig.documentstore.testutils.jdbi
-import org.junit.jupiter.api.MethodOrderer
-import org.junit.jupiter.api.Order
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestMethodOrder
 
-// Use @Order here, so transaction test below does not interfere with main migration test
-@TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 @OptIn(RepositoryMigrationApi::class)
 class MigrationTest {
-  @Order(1)
+  @AfterEach
+  fun clear() {
+    useHandle(jdbi) { handle -> handle.createUpdate("TRUNCATE example_for_migration").execute() }
+  }
+
   @Test
   fun `test migration`() {
     // For deterministic sorting
@@ -48,7 +48,6 @@ class MigrationTest {
     assertEquals(10_000, count)
   }
 
-  @Order(2)
   @Test
   fun `migration rolls back on failed transaction`() {
     val entitiesToCreate = (0 until 10).map { ExampleEntity(text = "Original") }
