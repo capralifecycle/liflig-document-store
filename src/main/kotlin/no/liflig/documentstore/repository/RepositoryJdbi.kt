@@ -387,6 +387,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     }
   }
 
+  @RepositoryMigrationApi
   override fun migrate(transformEntity: ((Versioned<EntityT>) -> EntityT)?) {
     transactional {
       useHandle(jdbi) { handle ->

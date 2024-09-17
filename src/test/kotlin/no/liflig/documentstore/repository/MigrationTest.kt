@@ -15,6 +15,7 @@ import org.junit.jupiter.api.TestMethodOrder
 
 // Use @Order here, so transaction test below does not interfere with main migration test
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
+@OptIn(RepositoryMigrationApi::class)
 class MigrationTest {
   @Order(1)
   @Test
