@@ -89,15 +89,6 @@
       <groupId>org.jdbi</groupId>
       <artifactId>jdbi3-core</artifactId>
     </dependency>
-    <dependency>
-      <groupId>org.jdbi</groupId>
-      <artifactId>jdbi3-kotlin</artifactId>
-    </dependency>
-    <!-- Required for the KotlinMapper we use with JDBI -->
-    <dependency>
-      <groupId>org.jetbrains.kotlin</groupId>
-      <artifactId>kotlin-reflect</artifactId>
-    </dependency>
 
     <!-- For tests -->
     <dependency>

@@ -44,13 +44,12 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     protected val tableName: String,
     protected val serializationAdapter: SerializationAdapter<EntityT>,
 ) : Repository<EntityIdT, EntityT> {
-  protected val rowMapper: RowMapper<Versioned<EntityT>> =
-      createRowMapper(serializationAdapter::fromJson)
+  protected val rowMapper: RowMapper<Versioned<EntityT>> = EntityRowMapper(serializationAdapter)
 
-  private val rowMapperWithTotalCount =
-      createRowMapperWithTotalCount(serializationAdapter::fromJson)
+  private val rowMapperWithTotalCount: RowMapper<MappedEntityWithTotalCount<EntityT>> =
+      EntityRowMapperWithTotalCount(serializationAdapter)
 
-  private val updateResultMapper = createUpdateResultMapper()
+  private val updateResultMapper: RowMapper<UpdateResult> = UpdateResultMapper()
 
   override fun create(entity: EntityT): Versioned<EntityT> {
     try {
@@ -142,7 +141,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
         return Versioned(
             entity,
             nextVersion,
-            createdAt = updateResult.created_at,
+            createdAt = updateResult.createdAt,
             modifiedAt = modifiedAt,
         )
       }
@@ -375,15 +374,15 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
               .list()
 
       val entities = rows.mapNotNull { row -> row.entity }
-      val count =
-          rows.firstOrNull()?.count
+      val totalCount =
+          rows.firstOrNull()?.totalCount
           /**
            * Should never happen: the query should always return 1 row with the count, even if the
-           * results are empty (see [EntityRowWithTotalCount]).
+           * results are empty (see [MappedEntityWithTotalCount]).
            */
           ?: throw IllegalStateException("Failed to get total count of objects in search query")
 
-      return ListWithTotalCount(entities, count)
+      return ListWithTotalCount(entities, totalCount)
     }
   }
 
