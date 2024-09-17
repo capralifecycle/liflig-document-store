@@ -9,8 +9,6 @@ import no.liflig.documentstore.testutils.examples.ExampleRepositoryForMigration
 import no.liflig.documentstore.testutils.examples.ExampleRepositoryWithStringEntityId
 import org.flywaydb.core.Flyway
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.KotlinPlugin
-import org.jdbi.v3.postgres.PostgresPlugin
 import org.testcontainers.containers.PostgreSQLContainer
 
 val jdbi: Jdbi by lazy { createTestDatabase() }
@@ -64,11 +62,7 @@ private fun createDataSource(
 }
 
 private fun createJdbiInstanceAndMigrate(dataSource: DataSource): Jdbi {
-  val jdbi: Jdbi =
-      Jdbi.create(dataSource)
-          .installPlugin(KotlinPlugin())
-          .installPlugin(PostgresPlugin())
-          .installPlugin(DocumentStorePlugin())
+  val jdbi: Jdbi = Jdbi.create(dataSource).installPlugin(DocumentStorePlugin())
 
   Flyway.configure()
       .baselineOnMigrate(true)
