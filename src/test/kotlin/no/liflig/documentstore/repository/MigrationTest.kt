@@ -91,7 +91,7 @@ class MigrationTest {
             .map { number ->
               // Create unique values for each field, to make the data more realistic
               LargeEntityPreMigration(
-                  field1 = TwoStrings("field1-${number}", "field1-${number +1}"),
+                  field1 = TwoStrings("field1-${number}", "field1-${number + 1}"),
                   field2 = StringAndInstant("field2-${number}", Instant.now()),
                   field3 =
                       EnumAndInstant(ExampleEnum.valueOf("VALUE_${number % 4}"), Instant.now()),
