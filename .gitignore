@@ -1,4 +1,7 @@
-/.idea
+.idea/*
 /target
 *.iml
 /.flattened-pom.xml
+
+!/.idea/ktfmt.xml
+!/.idea/externalDependencies.xml
