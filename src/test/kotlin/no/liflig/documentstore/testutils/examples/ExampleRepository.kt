@@ -5,7 +5,6 @@ package no.liflig.documentstore.testutils.examples
 import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.ListWithTotalCount
-import no.liflig.documentstore.repository.OPTIMAL_BATCH_SIZE
 import no.liflig.documentstore.repository.RepositoryJdbi
 import no.liflig.documentstore.repository.useHandle
 import no.liflig.documentstore.testutils.MIGRATION_TABLE
@@ -122,9 +121,9 @@ class ExampleRepositoryForMigration(jdbi: Jdbi) :
                     ORDER BY data->>'text'
                   """,
               )
-              // To avoid reading all into memory at all, which the JDBC Postgres driver does by
+              // To avoid reading all into memory at once, which the JDBC Postgres driver does by
               // default
-              .setFetchSize(OPTIMAL_BATCH_SIZE)
+              .setFetchSize(100)
               .map(rowMapper)
 
       consumer(entities)

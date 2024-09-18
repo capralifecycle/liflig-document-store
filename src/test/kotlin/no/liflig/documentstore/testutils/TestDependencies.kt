@@ -70,7 +70,7 @@ private fun createJdbiInstanceAndMigrate(dataSource: DataSource): Jdbi {
       .baselineOnMigrate(true)
       .baselineDescription("firstInit")
       .dataSource(dataSource)
-      .locations("db/migrations")
+      .locations("migrations")
       .load()
       .migrate()
 

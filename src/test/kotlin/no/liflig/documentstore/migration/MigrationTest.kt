@@ -44,24 +44,31 @@ class MigrateEntityTest {
     val existingEntities =
         (0 until 10_000)
             .asSequence()
-            .map { number -> ExampleEntity(text = "migration-test-${numberFormat.format(number)}") }
+            .map { number -> ExampleEntity(text = numberFormat.format(number)) }
             .asIterable()
     exampleRepoPreMigration.batchCreate(existingEntities)
 
-    useHandle(jdbi) { handle ->
-      migrateEntity(
-          handle.connection,
-          tableName = MIGRATION_TABLE,
-          serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
-          transformEntity = { (entity, _) -> entity.copy(newFieldAfterMigration = entity.text) },
-      )
+    @Suppress("ClassName") // Flyway expects this naming convention
+    class V001_1__Test_migration : BaseJavaMigration() {
+      override fun migrate(context: Context) {
+        migrateEntity(
+            context.connection,
+            tableName = MIGRATION_TABLE,
+            serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
+            transformEntity = { (entity, _) ->
+              entity.copy(newFieldAfterMigration = "new-field-${entity.text}")
+            },
+        )
+      }
     }
+
+    runMigration(V001_1__Test_migration())
 
     var count = 0
     exampleRepoPostMigration.streamAll { entities ->
       for ((index, entity) in entities.withIndex()) {
         assertEquals(
-            "migration-test-${numberFormat.format(index)}",
+            "new-field-${numberFormat.format(index)}",
             entity.item.newFieldAfterMigration,
         )
         count++
@@ -80,8 +87,8 @@ class MigrateEntityTest {
     exampleRepoPreMigration.batchCreate(entitiesToCreate)
     val createdEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
 
-    @Suppress("ClassName") // Flyway needs this naming convention
-    class V002__Failed_migration : BaseJavaMigration() {
+    @Suppress("ClassName") // Flyway expects this naming convention
+    class V001_2__Failed_migration : BaseJavaMigration() {
       override fun migrate(context: Context) {
         migrateEntity(
             context.connection,
@@ -98,13 +105,7 @@ class MigrateEntityTest {
       }
     }
 
-    assertFailsWith<Exception> {
-      Flyway.configure()
-          .dataSource(dataSource)
-          .javaMigrations(V002__Failed_migration())
-          .load()
-          .migrate()
-    }
+    assertFailsWith<Exception> { runMigration(V001_2__Failed_migration()) }
 
     val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.item.id })
     assertEquals(createdEntities.size, fetchedEntities.size)
@@ -140,15 +141,29 @@ class MigrateEntityTest {
     // Give some time after batchCreate, to more accurately simulate migration after creation
     Thread.sleep(1000)
 
-    useHandle(jdbi) { handle ->
-      migrateEntity(
-          handle.connection,
-          tableName = MIGRATION_TABLE,
-          serializationAdapter = KotlinSerialization(LargeEntityPostMigration.serializer()),
-      )
+    @Suppress("ClassName") // Flyway expects this naming convention
+    class V001_3__Load_test_migration : BaseJavaMigration() {
+      override fun migrate(context: Context) {
+        migrateEntity(
+            context.connection,
+            tableName = MIGRATION_TABLE,
+            serializationAdapter = KotlinSerialization(LargeEntityPostMigration.serializer()),
+        )
+      }
     }
 
-    println("Successfully migrated!")
+    runMigration(V001_3__Load_test_migration())
+  }
+
+  private fun runMigration(migration: BaseJavaMigration) {
+    Flyway.configure()
+        .baselineOnMigrate(true)
+        .baselineDescription("firstInit")
+        .dataSource(dataSource)
+        .locations("migrations")
+        .javaMigrations(migration)
+        .load()
+        .migrate()
   }
 }
 

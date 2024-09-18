@@ -8,9 +8,9 @@ import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.entity.getEntityIdType
+import no.liflig.documentstore.utils.executeBatchOperation
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.mapper.RowMapper
-import org.jdbi.v3.core.statement.PreparedBatch
 import org.jdbi.v3.core.statement.Query
 
 /**
@@ -113,8 +113,8 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                     """
                       UPDATE "${tableName}"
                       SET
-                        version = :nextVersion,
                         data = :data::jsonb,
+                        version = :nextVersion,
                         modified_at = :modifiedAt
                       WHERE
                         id = :id AND
@@ -124,10 +124,10 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                     """
                         .trimIndent(),
                 )
-                .bind("nextVersion", nextVersion)
                 .bind("data", serializationAdapter.toJson(entity))
-                .bind("id", entity.id)
+                .bind("nextVersion", nextVersion)
                 .bind("modifiedAt", modifiedAt)
+                .bind("id", entity.id)
                 .bind("previousVersion", previousVersion)
                 .map(updateResultMapper)
                 .firstOrNull()
@@ -159,7 +159,9 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
               .createUpdate(
                   """
                     DELETE FROM "${tableName}"
-                    WHERE id = :id AND version = :previousVersion
+                    WHERE
+                      id = :id AND
+                      version = :previousVersion
                   """
                       .trimIndent(),
               )
@@ -190,77 +192,94 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   }
 
   override fun batchCreate(entities: Iterable<EntityT>) {
-    val now = Instant.now()
-    val version = Version.initial()
+    transactional {
+      useHandle(jdbi) { handle ->
+        val now = Instant.now()
+        val version = Version.initial()
 
-    executeBatchOperation(
-        entities,
-        statement =
-            """
-              INSERT INTO "${tableName}" (id, data, version, created_at, modified_at)
-              VALUES (:id, :data::jsonb, :version, :createdAt, :modifiedAt)
-            """
-                .trimIndent(),
-        bindParameters = { batch, entity ->
-          batch
-              .bind("id", entity.id)
-              .bind("data", serializationAdapter.toJson(entity))
-              .bind("version", version)
-              .bind("createdAt", now)
-              .bind("modifiedAt", now)
-        },
-    )
+        executeBatchOperation(
+            handle,
+            entities,
+            statement =
+                """
+                  INSERT INTO "${tableName}" (id, data, version, created_at, modified_at)
+                  VALUES (:id, :data::jsonb, :version, :createdAt, :modifiedAt)
+                """
+                    .trimIndent(),
+            bindParameters = { batch, entity ->
+              batch
+                  .bind("id", entity.id)
+                  .bind("data", serializationAdapter.toJson(entity))
+                  .bind("version", version)
+                  .bind("createdAt", now)
+                  .bind("modifiedAt", now)
+            },
+        )
+      }
+    }
   }
 
   override fun batchUpdate(entities: Iterable<Versioned<EntityT>>) {
-    val now = Instant.now()
+    transactional {
+      useHandle(jdbi) { handle ->
+        val now = Instant.now()
 
-    executeBatchOperation(
-        entities,
-        statement =
-            """
-              UPDATE "${tableName}"
-              SET
-                version = :nextVersion,
-                data = :data::jsonb,
-                modified_at = :modifiedAt
-              WHERE
-                id = :id AND
-                version = :previousVersion
-            """
-                .trimIndent(),
-        bindParameters = { batch, entity ->
-          val nextVersion = entity.version.next()
+        executeBatchOperation(
+            handle,
+            entities,
+            statement =
+                """
+                  UPDATE "${tableName}"
+                  SET
+                    data = :data::jsonb,
+                    version = :nextVersion,
+                    modified_at = :modifiedAt
+                  WHERE
+                    id = :id AND
+                    version = :previousVersion
+                """
+                    .trimIndent(),
+            bindParameters = { batch, entity ->
+              val nextVersion = entity.version.next()
 
-          batch
-              .bind("nextVersion", nextVersion)
-              .bind("data", serializationAdapter.toJson(entity.item))
-              .bind("modifiedAt", now)
-              .bind("id", entity.item.id)
-              .bind("previousVersion", entity.version)
-        },
-        handleModifiedRowCounts = { counts, batchStartIndex ->
-          handleModifiedRowCounts(counts, batchStartIndex, entities, operation = "update")
-        },
-    )
+              batch
+                  .bind("data", serializationAdapter.toJson(entity.item))
+                  .bind("nextVersion", nextVersion)
+                  .bind("modifiedAt", now)
+                  .bind("id", entity.item.id)
+                  .bind("previousVersion", entity.version)
+            },
+            handleModifiedRowCounts = { counts, batchStartIndex ->
+              handleModifiedRowCounts(counts, batchStartIndex, entities, operation = "update")
+            },
+        )
+      }
+    }
   }
 
   override fun batchDelete(entities: Iterable<Versioned<EntityT>>) {
-    executeBatchOperation(
-        entities,
-        statement =
-            """
-              DELETE FROM "${tableName}"
-              WHERE id = :id AND version = :previousVersion
-            """
-                .trimIndent(),
-        bindParameters = { batch, entity ->
-          batch.bind("id", entity.item.id).bind("previousVersion", entity.version)
-        },
-        handleModifiedRowCounts = { counts, batchStartIndex ->
-          handleModifiedRowCounts(counts, batchStartIndex, entities, operation = "delete")
-        },
-    )
+    transactional {
+      useHandle(jdbi) { handle ->
+        executeBatchOperation(
+            handle,
+            entities,
+            statement =
+                """
+                  DELETE FROM "${tableName}"
+                  WHERE
+                    id = :id AND
+                    version = :previousVersion
+                """
+                    .trimIndent(),
+            bindParameters = { batch, entity ->
+              batch.bind("id", entity.item.id).bind("previousVersion", entity.version)
+            },
+            handleModifiedRowCounts = { counts, batchStartIndex ->
+              handleModifiedRowCounts(counts, batchStartIndex, entities, operation = "delete")
+            },
+        )
+      }
+    }
   }
 
   /**
@@ -413,12 +432,13 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                 // entities in batches. To do that, we set the fetch size, which is the number of
                 // rows to fetch at a time. Solution found here:
                 // https://www.postgresql.org/message-id/BANLkTi=Df1CR72Bx0L8CBZWBcSfwpmnc-g@mail.gmail.com
-                .setFetchSize(OPTIMAL_BATCH_SIZE)
+                .setFetchSize(100)
                 .map(rowMapper)
 
         val modifiedAt = Instant.now()
 
         executeBatchOperation(
+            handle,
             entities,
             // We don't have to check version here, since we use FOR UPDATE above, so we know we
             // have the latest version
@@ -483,66 +503,6 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   }
 
   /**
-   * Uses [Prepared Batches from JDBI](https://jdbi.org/releases/3.45.1/#_prepared_batches) to
-   * execute the given [statement] on the given [items]. For each item, [bindParameters] is called
-   * to bind parameters to the statement. The items are divided into multiple batches if the number
-   * of items exceeds [OPTIMAL_BATCH_SIZE].
-   *
-   * [PreparedBatch.execute] returns an array of modified row counts (1 count for every batch item).
-   * If you want to handle this, use [handleModifiedRowCounts]. This function is called once for
-   * every executed batch, which may be more than 1 if the number of items exceeds
-   * [OPTIMAL_BATCH_SIZE]. A second parameter is provided to [handleModifiedRowCounts] with the
-   * start index of the current batch, which can then be used to get the corresponding entity for
-   * diagnostics purposes.
-   *
-   * Uses a generic param here for batch items, so we can use this for both whole entities (for
-   * create/update) and entity IDs (for delete).
-   */
-  private fun <BatchItemT> executeBatchOperation(
-      items: Iterable<BatchItemT>,
-      statement: String,
-      bindParameters: (PreparedBatch, BatchItemT) -> PreparedBatch,
-      handleModifiedRowCounts: ((IntArray, Int) -> Unit)? = null,
-  ) {
-    transactional {
-      useHandle(jdbi) { handle ->
-        var currentBatch: PreparedBatch? = null
-        var elementCountInCurrentBatch = 0
-        var startIndexOfCurrentBatch = 0
-
-        for ((index, element) in items.withIndex()) {
-          if (currentBatch == null) {
-            currentBatch = handle.prepareBatch(statement)!! // Should never return null
-            startIndexOfCurrentBatch = index
-          }
-
-          currentBatch = bindParameters(currentBatch, element)
-          currentBatch.add()
-          elementCountInCurrentBatch++
-
-          if (elementCountInCurrentBatch >= OPTIMAL_BATCH_SIZE) {
-            val modifiedRowCounts = currentBatch.execute()
-            if (handleModifiedRowCounts != null) {
-              handleModifiedRowCounts(modifiedRowCounts, startIndexOfCurrentBatch)
-            }
-
-            currentBatch = null
-            elementCountInCurrentBatch = 0
-          }
-        }
-
-        // If currentBatch is non-null here, that means we still have remaining entities to update
-        if (currentBatch != null) {
-          val executeResult = currentBatch.execute()
-          if (handleModifiedRowCounts != null) {
-            handleModifiedRowCounts(executeResult, startIndexOfCurrentBatch)
-          }
-        }
-      }
-    }
-  }
-
-  /**
    * [batchUpdate] and [batchDelete] use optimistic locking: we only update/delete an entity if it
    * matches an expected [Version] - if it does not, then it likely has been concurrently modified
    * in the meantime, in which case we roll back the batch operation and throw a
@@ -573,11 +533,3 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     }
   }
 }
-
-/**
- * According to Oracle, the optimal size for batch database operations with JDBC is 50-100:
- * https://docs.oracle.com/cd/E11882_01/java.112/e16548/oraperf.htm#JJDBC28754
- *
- * We stay on the conservative end of 50, since we send JSON which is rather memory inefficient.
- */
-internal const val OPTIMAL_BATCH_SIZE = 50
