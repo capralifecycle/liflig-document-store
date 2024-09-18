@@ -1,6 +1,6 @@
 @file:UseSerializers(InstantSerializer::class)
 
-package no.liflig.documentstore.repository
+package no.liflig.documentstore.migration
 
 import java.text.DecimalFormat
 import java.time.Instant
@@ -9,7 +9,10 @@ import kotlin.test.assertFailsWith
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.entity.Entity
+import no.liflig.documentstore.repository.RepositoryJdbi
+import no.liflig.documentstore.repository.useHandle
 import no.liflig.documentstore.testutils.MIGRATION_TABLE
+import no.liflig.documentstore.testutils.dataSource
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.exampleRepoPostMigration
 import no.liflig.documentstore.testutils.exampleRepoPreMigration
@@ -17,14 +20,17 @@ import no.liflig.documentstore.testutils.examples.ExampleEntity
 import no.liflig.documentstore.testutils.examples.ExampleId
 import no.liflig.documentstore.testutils.examples.InstantSerializer
 import no.liflig.documentstore.testutils.examples.KotlinSerialization
+import no.liflig.documentstore.testutils.examples.MigratedExampleEntity
 import no.liflig.documentstore.testutils.jdbi
+import org.flywaydb.core.Flyway
+import org.flywaydb.core.api.migration.BaseJavaMigration
+import org.flywaydb.core.api.migration.Context
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
-@OptIn(ExperimentalMigrationApi::class)
-class MigrationTest {
+class MigrateEntityTest {
   @AfterEach
   fun clear() {
     useHandle(jdbi) { handle -> handle.createUpdate("TRUNCATE ${MIGRATION_TABLE}").execute() }
@@ -42,9 +48,14 @@ class MigrationTest {
             .asIterable()
     exampleRepoPreMigration.batchCreate(existingEntities)
 
-    exampleRepoPostMigration.migrate(
-        transformEntity = { (entity, _) -> entity.copy(newFieldAfterMigration = entity.text) },
-    )
+    useHandle(jdbi) { handle ->
+      migrateEntity(
+          handle.connection,
+          tableName = MIGRATION_TABLE,
+          serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
+          transformEntity = { (entity, _) -> entity.copy(newFieldAfterMigration = entity.text) },
+      )
+    }
 
     var count = 0
     exampleRepoPostMigration.streamAll { entities ->
@@ -62,18 +73,37 @@ class MigrationTest {
 
   @Test
   fun `migration rolls back on failed transaction`() {
-    val entitiesToCreate = (0 until 10).map { ExampleEntity(text = "Original") }
+    val entitiesToCreate =
+        (0 until 10).map { number ->
+          ExampleEntity(text = "Original", moreText = number.toString())
+        }
     exampleRepoPreMigration.batchCreate(entitiesToCreate)
-
     val createdEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
 
-    assertFailsWith<Exception> {
-      transactional(jdbi) {
-        exampleRepoPostMigration.migrate(
-            transformEntity = { (entity, _) -> entity.copy(text = "Migrated") },
+    @Suppress("ClassName") // Flyway needs this naming convention
+    class V002__Failed_migration : BaseJavaMigration() {
+      override fun migrate(context: Context) {
+        migrateEntity(
+            context.connection,
+            tableName = MIGRATION_TABLE,
+            serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
+            transformEntity = { (entity, _) ->
+              // Throw halfway through transaction
+              if (entity.moreText == "5") {
+                throw Exception("Rolling back transaction")
+              }
+              entity.copy(text = "Migrated")
+            },
         )
-        throw Exception("Rolling back transaction")
       }
+    }
+
+    assertFailsWith<Exception> {
+      Flyway.configure()
+          .dataSource(dataSource)
+          .javaMigrations(V002__Failed_migration())
+          .load()
+          .migrate()
     }
 
     val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.item.id })
@@ -110,7 +140,13 @@ class MigrationTest {
     // Give some time after batchCreate, to more accurately simulate migration after creation
     Thread.sleep(1000)
 
-    largeEntityRepoPostMigration.migrate()
+    useHandle(jdbi) { handle ->
+      migrateEntity(
+          handle.connection,
+          tableName = MIGRATION_TABLE,
+          serializationAdapter = KotlinSerialization(LargeEntityPostMigration.serializer()),
+      )
+    }
 
     println("Successfully migrated!")
   }
@@ -126,18 +162,6 @@ private class LargeEntityRepoPreMigration(jdbi: Jdbi) :
         // We can re-use the migration table here, since we truncate it between every test
         tableName = MIGRATION_TABLE,
         serializationAdapter = KotlinSerialization(LargeEntityPreMigration.serializer()),
-    )
-
-private val largeEntityRepoPostMigration: LargeEntityRepoPostMigration by lazy {
-  LargeEntityRepoPostMigration(jdbi)
-}
-
-private class LargeEntityRepoPostMigration(jdbi: Jdbi) :
-    RepositoryJdbi<ExampleId, LargeEntityPostMigration>(
-        jdbi,
-        // We can re-use the migration table here, since we truncate it between every test
-        tableName = MIGRATION_TABLE,
-        serializationAdapter = KotlinSerialization(LargeEntityPostMigration.serializer()),
     )
 
 /**

@@ -24,6 +24,14 @@ internal class EntityRowMapper<EntityT : Entity<*>>(
     private val serializationAdapter: SerializationAdapter<EntityT>,
 ) : RowMapper<Versioned<EntityT>> {
   override fun map(resultSet: ResultSet, ctx: StatementContext): Versioned<EntityT> {
+    return mapEntity(resultSet)
+  }
+
+  /**
+   * Separate from [map], so we can use this in [no.liflig.documentstore.migration.migrateEntity]
+   * without having to provide the JDBI-specific [StatementContext].
+   */
+  fun mapEntity(resultSet: ResultSet): Versioned<EntityT> {
     val data = getStringFromRowOrThrow(resultSet, Columns.DATA)
     val version = getLongFromRowOrThrow(resultSet, Columns.VERSION)
     val createdAt = getInstantFromRowOrThrow(resultSet, Columns.CREATED_AT)

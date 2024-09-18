@@ -11,7 +11,14 @@ import org.flywaydb.core.Flyway
 import org.jdbi.v3.core.Jdbi
 import org.testcontainers.containers.PostgreSQLContainer
 
-val jdbi: Jdbi by lazy { createTestDatabase() }
+val dataSource: DataSource by lazy {
+  val pgContainer = PostgreSQLContainer("postgres:16")
+  pgContainer.withDatabaseName("example").withUsername("user").withPassword("pass").start()
+
+  createDataSource(pgContainer.jdbcUrl, "user", "pass")
+}
+
+val jdbi: Jdbi by lazy { createJdbiInstanceAndMigrate(dataSource) }
 
 val exampleRepo: ExampleRepository by lazy { ExampleRepository(jdbi, tableName = "example") }
 
@@ -32,19 +39,14 @@ val exampleRepoWithStringId: ExampleRepositoryWithStringEntityId by lazy {
   ExampleRepositoryWithStringEntityId(jdbi)
 }
 
+const val MIGRATION_TABLE = "example_for_migration"
+
 val exampleRepoPreMigration: ExampleRepository by lazy {
-  ExampleRepository(jdbi, tableName = "example_for_migration")
+  ExampleRepository(jdbi, tableName = MIGRATION_TABLE)
 }
 
 val exampleRepoPostMigration: ExampleRepositoryForMigration by lazy {
   ExampleRepositoryForMigration(jdbi)
-}
-
-private fun createTestDatabase(): Jdbi {
-  val pgContainer = PostgreSQLContainer("postgres:16")
-  pgContainer.withDatabaseName("example").withUsername("user").withPassword("pass").start()
-
-  return createJdbiInstanceAndMigrate(createDataSource(pgContainer.jdbcUrl, "user", "pass"))
 }
 
 private fun createDataSource(
@@ -62,7 +64,7 @@ private fun createDataSource(
 }
 
 private fun createJdbiInstanceAndMigrate(dataSource: DataSource): Jdbi {
-  val jdbi: Jdbi = Jdbi.create(dataSource).installPlugin(DocumentStorePlugin())
+  val jdbi = Jdbi.create(dataSource).installPlugin(DocumentStorePlugin())
 
   Flyway.configure()
       .baselineOnMigrate(true)

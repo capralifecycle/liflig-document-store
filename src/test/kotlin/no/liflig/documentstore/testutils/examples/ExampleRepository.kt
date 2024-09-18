@@ -5,8 +5,10 @@ package no.liflig.documentstore.testutils.examples
 import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.ListWithTotalCount
+import no.liflig.documentstore.repository.OPTIMAL_BATCH_SIZE
 import no.liflig.documentstore.repository.RepositoryJdbi
 import no.liflig.documentstore.repository.useHandle
+import no.liflig.documentstore.testutils.MIGRATION_TABLE
 import org.jdbi.v3.core.Jdbi
 
 enum class OrderBy {
@@ -99,7 +101,7 @@ class ExampleRepositoryWithStringEntityId(jdbi: Jdbi) :
 class ExampleRepositoryForMigration(jdbi: Jdbi) :
     RepositoryJdbi<ExampleId, MigratedExampleEntity>(
         jdbi,
-        tableName = "example_for_migration",
+        tableName = MIGRATION_TABLE,
         KotlinSerialization(MigratedExampleEntity.serializer()),
     ) {
   /**
@@ -115,11 +117,14 @@ class ExampleRepositoryForMigration(jdbi: Jdbi) :
           handle
               .createQuery(
                   """
-              SELECT id, data, version, created_at, modified_at
-              FROM "${tableName}"
-              ORDER BY data->>'text'
-            """,
+                    SELECT id, data, version, created_at, modified_at
+                    FROM "${tableName}"
+                    ORDER BY data->>'text'
+                  """,
               )
+              // To avoid reading all into memory at all, which the JDBC Postgres driver does by
+              // default
+              .setFetchSize(OPTIMAL_BATCH_SIZE)
               .map(rowMapper)
 
       consumer(entities)
