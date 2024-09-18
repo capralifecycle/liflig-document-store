@@ -38,9 +38,9 @@ import org.jdbi.v3.core.Jdbi
  *
  * ### Example
  *
- * File named `V001_1__Test_migration.kt`, under `src/main/kotlin/migrations`. If you've configured
- * "migrations" as a Flyway location, it will automatically find this and run it when you call
- * `Flyway.migrate()`.
+ * File named `V001_1__Test_migration.kt` (will get version number 1.1), under
+ * `src/main/kotlin/migrations`. If you've configured "migrations" as a Flyway location, it will
+ * automatically find this and run it when you call `Flyway.migrate()`.
  *
  * For an implementation of `KotlinSerialization`, see [SerializationAdapter].
  *
@@ -52,7 +52,7 @@ import org.jdbi.v3.core.Jdbi
  * import org.flywaydb.core.api.migration.Context
  *
  * @Suppress("unused", "ClassName") // Flyway uses this, and expects this naming convention
- * class V001_1__Test_migration : BaseJavaMigration() {
+ * class V001_1__Example_migration : BaseJavaMigration() {
  *   override fun migrate(context: Context) {
  *     migrateEntity(
  *         context.connection,

@@ -30,7 +30,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
-class MigrateEntityTest {
+class MigrationTest {
   @AfterEach
   fun clear() {
     useHandle(jdbi) { handle -> handle.createUpdate("TRUNCATE ${MIGRATION_TABLE}").execute() }
