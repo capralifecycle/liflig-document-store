@@ -1,13 +1,16 @@
-# liflig-document-store
+# Liflig Document Store
 
 Kotlin library implementing the repository pattern for storing documents as JSONB in Postgres.
 
-- CRUD-like repository with extendable methods for flexibility.
-- Optimistic locking.
-- JDBI library for convenience.
-- Serialization and deserialization of objects using Kotlinx Serialization.
-- Connection pool with HikariCP.
-- Database migrations with Flyway.
+Provides:
+
+- Extendible repository class, with default implementations of CRUD operations
+- Optimistic locking
+- Transaction management
+- Migration utilities
+
+Document Store uses the [JDBI library](https://jdbi.org/releases/3.45.1/#_introduction_to_jdbi_3)
+for convenient database access.
 
 This library is currently only distributed in Liflig internal repositories.
 
@@ -17,13 +20,10 @@ See [docs/usage.md](docs/usage.md).
 
 ## Contributing
 
-This project follows
-https://confluence.capraconsulting.no/x/fckBC
-
 To check build before pushing:
 
 ```bash
 mvn verify
 ```
 
-The CI server will automatically release new version for builds on master.
+GitHub Actions will automatically release a new version for commits on master.
