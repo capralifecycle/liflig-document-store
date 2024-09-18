@@ -48,7 +48,7 @@ class ExampleRepository(jdbi: Jdbi) :
   RepositoryJdbi<ExampleId, ExampleEntity>(
     jdbi,
     tableName = "example",
-    KotlinSerialization(ExampleEntity.serializer()),
+    serializationAdapter = KotlinSerialization(ExampleEntity.serializer()),
   ) {
 
   fun getByName(name: String): Versioned<ExampleEntity>? {

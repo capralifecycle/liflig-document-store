@@ -32,11 +32,12 @@ import no.liflig.documentstore.entity.Entity
  *     RepositoryJdbi<ExampleId, ExampleEntity>(
  *         jdbi,
  *         tableName = "example",
- *         KotlinSerialization(ExampleEntity.serializer()),
+ *         serializationAdapter = KotlinSerialization(ExampleEntity.serializer()),
  *     )
  * ```
  */
 interface SerializationAdapter<EntityT> where EntityT : Entity<*> {
   fun toJson(entity: EntityT): String
+
   fun fromJson(value: String): EntityT
 }

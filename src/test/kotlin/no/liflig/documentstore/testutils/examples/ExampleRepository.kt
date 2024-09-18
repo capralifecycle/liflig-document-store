@@ -27,7 +27,7 @@ class ExampleRepository(
     RepositoryJdbi<ExampleId, ExampleEntity>(
         jdbi,
         tableName,
-        KotlinSerialization(ExampleEntity.serializer()),
+        serializationAdapter = KotlinSerialization(ExampleEntity.serializer()),
     ) {
   fun search(
       text: String? = null,
@@ -94,14 +94,14 @@ class ExampleRepositoryWithStringEntityId(jdbi: Jdbi) :
     RepositoryJdbi<ExampleStringId, EntityWithStringId>(
         jdbi,
         tableName = "example_with_string_id",
-        KotlinSerialization(EntityWithStringId.serializer()),
+        serializationAdapter = KotlinSerialization(EntityWithStringId.serializer()),
     )
 
 class ExampleRepositoryForMigration(jdbi: Jdbi) :
     RepositoryJdbi<ExampleId, MigratedExampleEntity>(
         jdbi,
         tableName = MIGRATION_TABLE,
-        KotlinSerialization(MigratedExampleEntity.serializer()),
+        serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
     ) {
   /**
    * We test migration with 10 000 entities. To avoid allocating a list of that size, we instead
