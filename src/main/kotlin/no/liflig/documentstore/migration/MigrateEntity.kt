@@ -63,13 +63,13 @@ import org.jdbi.v3.core.Jdbi
  * }
  * ```
  *
- * ## Batch size
+ * ## Batching
  *
  * The migration of the table is done in a streaming fashion, to avoid reading the whole table into
  * memory. It operates on [MIGRATION_BATCH_SIZE] number of entities at a time. According to Oracle,
  * [the optimal size for batch operations in JDBC is 50-100](https://docs.oracle.com/cd/E11882_01/java.112/e16548/oraperf.htm#JJDBC28754).
- * We default to the higher end of the recommended batch size for migrations, since migrations are
- * called on startup when there is presumably less memory contention.
+ * We use the higher end of the recommended batch size for migrations, since migrations are called
+ * on startup when there is presumably less memory contention.
  */
 fun <EntityT : Entity<*>> migrateEntity(
     dbConnection: Connection,
