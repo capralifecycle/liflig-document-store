@@ -114,40 +114,6 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   }
 
   /**
-   * When using a document store, the application must take care to stay backwards-compatible with
-   * entities that are stored in the database. Thus, new fields added to entitites must always have
-   * a default value, so that entities stored before the field was added can still be deserialized.
-   *
-   * Sometimes we may add a field with a default value, but also want to query on that field in e.g.
-   * [RepositoryJdbi.getByPredicate]. In this case, it's not enough to add a default value to the
-   * field that is populated on deserializing from the database - we actually have to migrate the
-   * stored entity. This method exists for those cases.
-   *
-   * In the implementation for [RepositoryJdbi.migrate], all entities are read from the database
-   * table, in a streaming fashion to avoid reading them all into memory. It then updates the
-   * entities in batches (see [OPTIMAL_BATCH_SIZE]).
-   *
-   * It is important that the migration is done in an idempotent manner, i.e. that it may be
-   * executed repeatedly with the same results. This is because we call this method from application
-   * code, and if for example there are multiple instances of the service running, [migrate] will be
-   * called by each one.
-   *
-   * Any new fields on the entity with default values will be stored in the database through the
-   * process of deserializing and re-serializing here. If you want to do further transforms, you can
-   * use the [transformEntity] parameter.
-   */
-  @ExperimentalMigrationApi
-  fun migrate(transformEntity: ((Versioned<EntityT>) -> EntityT)? = null) {
-    // A default implementation is provided here on the interface, so that implementors don't have
-    // to implement this themselves (for e.g. mock repositories).
-    var entities = listAll()
-    if (transformEntity != null) {
-      entities = entities.map { entity -> entity.copy(item = transformEntity(entity)) }
-    }
-    batchUpdate(entities)
-  }
-
-  /**
    * Initiates a database transaction, and executes the given [block] inside of it. Any calls to
    * other repository methods inside this block will use the same transaction, and roll back if an
    * exception is thrown.
@@ -161,8 +127,3 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
     return block()
   }
 }
-
-@RequiresOptIn(
-    "The migration API of Liflig Document Store is currently under development, and may change",
-)
-internal annotation class ExperimentalMigrationApi
