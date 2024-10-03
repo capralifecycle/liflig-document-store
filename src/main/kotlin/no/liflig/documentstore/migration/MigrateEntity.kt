@@ -75,7 +75,33 @@ fun <EntityT : Entity<*>> migrateEntity(
     dbConnection: Connection,
     tableName: String,
     serializationAdapter: SerializationAdapter<EntityT>,
-    transformEntity: ((Versioned<EntityT>) -> EntityT)? = null,
+    transformEntity: (Versioned<EntityT>) -> EntityT = { entity -> entity.item }, // Default no-op
+) {
+  // We use the same logic as migrateEntityType here, but with OriginalEntityT == TargetEntityT.
+  migrateEntityType(
+      dbConnection,
+      tableName = tableName,
+      originalSerializationAdapter = serializationAdapter,
+      targetSerializationAdapter = serializationAdapter,
+      transformEntity = transformEntity,
+  )
+}
+
+/**
+ * Same as [migrateEntity], but allows migrating from one entity type to another, by using one
+ * serializer ([originalSerializationAdapter]) when reading entities out, and a different serializer
+ * when writing back to the database ([targetSerializationAdapter]). You must pass a
+ * [transformEntity] function to map from the original entity to the target entity type.
+ *
+ * You must be careful when using this, and make sure that the migration is done in a backwards
+ * compatible manner
+ */
+fun <OriginalEntityT : Entity<*>, TargetEntityT : Entity<*>> migrateEntityType(
+    dbConnection: Connection,
+    tableName: String,
+    originalSerializationAdapter: SerializationAdapter<OriginalEntityT>,
+    targetSerializationAdapter: SerializationAdapter<TargetEntityT>,
+    transformEntity: (Versioned<OriginalEntityT>) -> TargetEntityT,
 ) {
   /**
    * When using Java-based migrations with Flyway, we receive a Context with a plain
@@ -112,7 +138,7 @@ fun <EntityT : Entity<*>> migrateEntity(
             // rows to fetch at a time. Solution found here:
             // https://www.postgresql.org/message-id/BANLkTi=Df1CR72Bx0L8CBZWBcSfwpmnc-g@mail.gmail.com
             .setFetchSize(MIGRATION_BATCH_SIZE)
-            .map(EntityRowMapper(serializationAdapter))
+            .map(EntityRowMapper(originalSerializationAdapter))
 
     val modifiedAt = Instant.now()
 
@@ -134,10 +160,10 @@ fun <EntityT : Entity<*>> migrateEntity(
                 .trimIndent(),
         bindParameters = { batch, entity ->
           val nextVersion = entity.version.next()
-          val updatedEntity = if (transformEntity == null) entity.item else transformEntity(entity)
+          val updatedEntity = transformEntity(entity)
 
           batch
-              .bind("data", serializationAdapter.toJson(updatedEntity))
+              .bind("data", targetSerializationAdapter.toJson(updatedEntity))
               .bind("nextVersion", nextVersion)
               .bind("modifiedAt", modifiedAt)
               .bind("id", entity.item.id)
