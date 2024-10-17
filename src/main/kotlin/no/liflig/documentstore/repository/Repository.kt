@@ -70,7 +70,7 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
 
   /**
    * Takes a list of entities along with their previous [Version], to implement optimistic locking
-   * like [update]. Returns the updated entities along with their new version.
+   * like [update].
    *
    * The implementation in [RepositoryJdbi.batchUpdate] uses
    * [Prepared Batches from JDBI](https://jdbi.org/releases/3.45.1/#_prepared_batches) to make the
