@@ -1,4 +1,4 @@
-package no.liflig.documentstore.testutils.examples
+package no.liflig.documentstore.testutils
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json

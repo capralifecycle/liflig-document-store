@@ -1,13 +1,12 @@
 @file:UseSerializers(InstantSerializer::class)
 
-package no.liflig.documentstore.testutils.examples
+package no.liflig.documentstore.testutils
 
 import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.ListWithTotalCount
 import no.liflig.documentstore.repository.RepositoryJdbi
 import no.liflig.documentstore.repository.useHandle
-import no.liflig.documentstore.testutils.MIGRATION_TABLE
 import org.jdbi.v3.core.Jdbi
 
 enum class OrderBy {

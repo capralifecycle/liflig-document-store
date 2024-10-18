@@ -5,8 +5,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import no.liflig.documentstore.entity.mapEntities
+import no.liflig.documentstore.testutils.ExampleEntity
 import no.liflig.documentstore.testutils.exampleRepo
-import no.liflig.documentstore.testutils.examples.ExampleEntity
 import no.liflig.documentstore.testutils.jdbi
 import org.junit.jupiter.api.Test
 

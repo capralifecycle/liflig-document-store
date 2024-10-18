@@ -4,9 +4,6 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import no.liflig.documentstore.DocumentStorePlugin
-import no.liflig.documentstore.testutils.examples.ExampleRepository
-import no.liflig.documentstore.testutils.examples.ExampleRepositoryForMigration
-import no.liflig.documentstore.testutils.examples.ExampleRepositoryWithStringEntityId
 import org.flywaydb.core.Flyway
 import org.jdbi.v3.core.Jdbi
 import org.testcontainers.containers.PostgreSQLContainer

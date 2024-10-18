@@ -2,10 +2,10 @@ package no.liflig.documentstore.repository
 
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import no.liflig.documentstore.testutils.ExampleEntity
+import no.liflig.documentstore.testutils.OrderBy
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.exampleRepoWithCount
-import no.liflig.documentstore.testutils.examples.ExampleEntity
-import no.liflig.documentstore.testutils.examples.OrderBy
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource

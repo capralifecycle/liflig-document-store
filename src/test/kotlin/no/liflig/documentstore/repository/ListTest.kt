@@ -2,12 +2,12 @@ package no.liflig.documentstore.repository
 
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import no.liflig.documentstore.testutils.EntityWithStringId
+import no.liflig.documentstore.testutils.ExampleEntity
+import no.liflig.documentstore.testutils.ExampleStringId
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.exampleRepoForListAll
 import no.liflig.documentstore.testutils.exampleRepoWithStringId
-import no.liflig.documentstore.testutils.examples.EntityWithStringId
-import no.liflig.documentstore.testutils.examples.ExampleEntity
-import no.liflig.documentstore.testutils.examples.ExampleStringId
 import org.junit.jupiter.api.Test
 
 class ListTest {

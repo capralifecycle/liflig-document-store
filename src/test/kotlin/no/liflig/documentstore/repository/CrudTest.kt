@@ -8,11 +8,11 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import no.liflig.documentstore.entity.Version
+import no.liflig.documentstore.testutils.EntityWithStringId
+import no.liflig.documentstore.testutils.ExampleEntity
+import no.liflig.documentstore.testutils.ExampleStringId
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.exampleRepoWithStringId
-import no.liflig.documentstore.testutils.examples.EntityWithStringId
-import no.liflig.documentstore.testutils.examples.ExampleEntity
-import no.liflig.documentstore.testutils.examples.ExampleStringId
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 

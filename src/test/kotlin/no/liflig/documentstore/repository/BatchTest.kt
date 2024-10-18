@@ -7,8 +7,8 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
+import no.liflig.documentstore.testutils.ExampleEntity
 import no.liflig.documentstore.testutils.exampleRepo
-import no.liflig.documentstore.testutils.examples.ExampleEntity
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test

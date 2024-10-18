@@ -1,4 +1,4 @@
-package no.liflig.documentstore.testutils.examples
+package no.liflig.documentstore.testutils
 
 import java.time.Instant
 import java.util.UUID

@@ -1,10 +1,10 @@
 package no.liflig.documentstore.repository
 
 import kotlin.test.assertFailsWith
+import no.liflig.documentstore.testutils.ExampleEntity
+import no.liflig.documentstore.testutils.ExampleRepository
+import no.liflig.documentstore.testutils.UniqueFieldAlreadyExists
 import no.liflig.documentstore.testutils.exampleRepo
-import no.liflig.documentstore.testutils.examples.ExampleEntity
-import no.liflig.documentstore.testutils.examples.ExampleRepository
-import no.liflig.documentstore.testutils.examples.UniqueFieldAlreadyExists
 import org.junit.jupiter.api.Test
 
 class MapExceptionTest {

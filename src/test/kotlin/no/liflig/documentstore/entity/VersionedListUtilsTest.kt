@@ -3,7 +3,7 @@ package no.liflig.documentstore.entity
 import java.time.Instant
 import kotlin.test.assertEquals
 import no.liflig.documentstore.repository.ListWithTotalCount
-import no.liflig.documentstore.testutils.examples.ExampleEntity
+import no.liflig.documentstore.testutils.ExampleEntity
 import org.junit.jupiter.api.Test
 
 class VersionedListUtilsTest {
