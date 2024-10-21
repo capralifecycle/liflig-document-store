@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <!--
+        %replace( [%marker]){' \[\]', ''} and %replace( [%mdc]){' \[\]', ''} below adds log markers and MDC
+        (thread-local log markers) in square brackets, but hides the square brackets if they're empty.
+      -->
+      <!-- @formatter:off -->
+      <pattern>
+        %white([%d{HH:mm:ss}]) %highlight(%level) %cyan(%logger{36}) %white(\(%file:%line\):) %msg%replace( [%marker]){' \[]', ''}%replace( [%mdc]){' \[]', ''}%n
+      </pattern>
+      <!-- @formatter:on -->
+    </encoder>
+  </appender>
+
+  <logger name="no.liflig" level="DEBUG"/>
+  <logger name="org.jdbi.sql" level="DEBUG"/>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
+</configuration>
