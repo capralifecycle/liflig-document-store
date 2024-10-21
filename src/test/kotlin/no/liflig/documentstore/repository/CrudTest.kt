@@ -143,8 +143,7 @@ class CrudTest {
             .map { entity -> exampleRepoWithGeneratedIntegerId.create(entity) }
 
     // After calling RepositoryJdbi.create, the IDs should now have been set by the database
-    val entityIds = entities.map { it.item.id }
-    entityIds.forEach { id -> assertNotEquals(IntegerEntityId.GENERATED, id.value) }
+    entities.forEach { entity -> assertNotEquals(IntegerEntityId.GENERATED, entity.item.id.value) }
 
     val getResult = exampleRepoWithGeneratedIntegerId.get(entities[0].item.id)
     assertNotNull(getResult)

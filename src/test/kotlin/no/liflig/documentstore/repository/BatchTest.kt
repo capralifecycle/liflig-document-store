@@ -35,15 +35,19 @@ class BatchTest {
         (1..largeBatchSize).map { number ->
           ExampleEntity(text = "batch-test-${testNumberFormat.format(number)}")
         }
-    exampleRepo.batchCreate(entitiesToCreate)
+    entities = exampleRepo.batchCreate(entitiesToCreate)
 
-    entities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
     assertNotEquals(0, entities.size)
     assertEquals(entitiesToCreate.size, entities.size)
     for ((index, entity) in entities.withIndex()) {
       // We order by text in ExampleRepository.getByTexts, so they should be returned in same order
       assertEquals(entity, entities[index])
     }
+
+    // Verify that fetching out the created entities gives the same results as the ones we got back
+    // from batchCreate
+    val fetchedEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
+    assertEquals(fetchedEntities, entities)
   }
 
   @Order(2)
@@ -57,14 +61,18 @@ class BatchTest {
               )
           entity.copy(item = updatedEntity)
         }
-    exampleRepo.batchUpdate(updatedEntities)
+    entities = exampleRepo.batchUpdate(updatedEntities)
 
-    entities = exampleRepo.listByIds(updatedEntities.map { it.item.id })
     assertEquals(updatedEntities.size, entities.size)
     for ((index, entity) in entities.withIndex()) {
       assertNotNull(entity.item.moreText)
       assertEquals(entity, entities[index])
     }
+
+    // Verify that fetching out the updated entities gives the same results as the ones we got back
+    // from batchUpdate
+    val fetchedEntities = exampleRepo.listByIds(updatedEntities.map { it.item.id })
+    assertEquals(fetchedEntities, entities)
   }
 
   @Order(3)
@@ -103,14 +111,21 @@ class BatchTest {
               text = "batch-test-with-generated-id-${testNumberFormat.format(number)}",
           )
         }
-    exampleRepoWithGeneratedIntegerId.batchCreate(entitiesToCreate)
+    val createdEntities = exampleRepoWithGeneratedIntegerId.batchCreate(entitiesToCreate)
 
-    val entities = exampleRepoWithGeneratedIntegerId.listAll()
-    assertNotEquals(0, entities.size)
-    assert(entities.size >= entitiesToCreate.size)
+    assertEquals(entitiesToCreate.size, createdEntities.size)
+    // Verify that returned entities are in the same order that we gave them
+    for ((index, createdEntity) in createdEntities.withIndex()) {
+      assertEquals(entitiesToCreate[index].text, createdEntity.item.text)
 
-    val expectedTextFields = entitiesToCreate.map { it.text }
-    val actualTextFields = entities.map { it.item.text }
-    assert(actualTextFields.containsAll(expectedTextFields))
+      // After calling batchCreate, the IDs should now have been set by the database
+      assertNotEquals(IntegerEntityId.GENERATED, createdEntity.item.id.value)
+    }
+
+    // Verify that fetching out the created entities gives the same results as the ones we got back
+    // from batchCreate
+    val fetchedEntities =
+        exampleRepoWithGeneratedIntegerId.listByIds(createdEntities.map { it.item.id })
+    assertEquals(fetchedEntities, createdEntities)
   }
 }

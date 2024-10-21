@@ -1,6 +1,7 @@
 package no.liflig.documentstore.utils
 
 import org.jdbi.v3.core.Handle
+import org.jdbi.v3.core.result.BatchResultBearing
 import org.jdbi.v3.core.statement.PreparedBatch
 
 /**
@@ -18,6 +19,10 @@ import org.jdbi.v3.core.statement.PreparedBatch
  * executed batch, which may be more than 1 if the number of items exceeds [batchSize]. A second
  * parameter is provided to [handleModifiedRowCounts] with the start index of the current batch,
  * which can then be used to get the corresponding entity for diagnostics purposes.
+ *
+ * If you need to return something from the query, pass columns names in [columnsToReturn]. This
+ * will append `RETURNING` to the SQL statement with the given column names. You can then iterate
+ * over the results with [handleReturnedColumns].
  */
 internal fun <BatchItemT> executeBatchOperation(
     handle: Handle,
@@ -25,6 +30,8 @@ internal fun <BatchItemT> executeBatchOperation(
     statement: String,
     bindParameters: (PreparedBatch, BatchItemT) -> PreparedBatch,
     handleModifiedRowCounts: ((IntArray, Int) -> Unit)? = null,
+    columnsToReturn: Array<String>? = null,
+    handleReturnedColumns: ((BatchResultBearing) -> Unit)? = null,
     batchSize: Int = 50,
 ) {
   runWithAutoCommitDisabled(handle) {
@@ -43,10 +50,13 @@ internal fun <BatchItemT> executeBatchOperation(
       elementCountInCurrentBatch++
 
       if (elementCountInCurrentBatch >= batchSize) {
-        val modifiedRowCounts = currentBatch.execute()
-        if (handleModifiedRowCounts != null) {
-          handleModifiedRowCounts(modifiedRowCounts, startIndexOfCurrentBatch)
-        }
+        executeBatch(
+            currentBatch,
+            startIndexOfCurrentBatch,
+            handleModifiedRowCounts,
+            columnsToReturn,
+            handleReturnedColumns,
+        )
 
         currentBatch = null
         elementCountInCurrentBatch = 0
@@ -55,10 +65,44 @@ internal fun <BatchItemT> executeBatchOperation(
 
     // If currentBatch is non-null here, that means we still have remaining entities to update
     if (currentBatch != null) {
-      val executeResult = currentBatch.execute()
-      if (handleModifiedRowCounts != null) {
-        handleModifiedRowCounts(executeResult, startIndexOfCurrentBatch)
-      }
+      executeBatch(
+          currentBatch,
+          startIndexOfCurrentBatch,
+          handleModifiedRowCounts,
+          columnsToReturn,
+          handleReturnedColumns,
+      )
+    }
+  }
+}
+
+/**
+ * We have 2 different variants here:
+ * - If the batch query is not returning anything, we can call [PreparedBatch.execute], which just
+ *   returns the modified row counts.
+ * - If the batch query does return something (i.e. [columnsToReturn] is set), then we must call
+ *   [PreparedBatch.executePreparedBatch]. That appends the given columns in a `RETURNING` clause on
+ *   the query, and gives us a result object which we can handle in [handleReturnedColumns].
+ */
+private fun executeBatch(
+    currentBatch: PreparedBatch,
+    startIndexOfCurrentBatch: Int,
+    handleModifiedRowCounts: ((IntArray, Int) -> Unit)?,
+    columnsToReturn: Array<String>?,
+    handleReturnedColumns: ((BatchResultBearing) -> Unit)?,
+) {
+  if (columnsToReturn.isNullOrEmpty()) {
+    val modifiedRowCounts = currentBatch.execute()
+    if (handleModifiedRowCounts != null) {
+      handleModifiedRowCounts(modifiedRowCounts, startIndexOfCurrentBatch)
+    }
+  } else {
+    val result = currentBatch.executePreparedBatch(*columnsToReturn)
+    if (handleModifiedRowCounts != null) {
+      handleModifiedRowCounts(result.modifiedRowCounts(), startIndexOfCurrentBatch)
+    }
+    if (handleReturnedColumns != null) {
+      handleReturnedColumns(result)
     }
   }
 }
