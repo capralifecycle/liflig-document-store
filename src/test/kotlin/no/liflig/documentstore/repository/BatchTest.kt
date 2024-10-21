@@ -68,6 +68,7 @@ class BatchTest {
     assertEquals(entitiesToUpdate.size, entities.size)
     for (i in entitiesToUpdate.indices) {
       assertEquals(entitiesToUpdate[i].item, entities[i].item)
+      assertEqualWithinMicrosecond(entitiesToUpdate[i].createdAt, entities[i].createdAt)
       assertNotEquals(entitiesToUpdate[i].version, entities[i].version)
       assertNotEquals(entitiesToUpdate[i].modifiedAt, entities[i].modifiedAt)
     }
@@ -153,22 +154,12 @@ private fun <EntityT : Entity<*>> assertVersionedEntitiesEqual(
   for (i in expected.indices) {
     assertEquals(expected[i].item, actual[i].item)
     assertEquals(expected[i].version, actual[i].version)
-    assertEquals(
-        expected[i].createdAt.roundUpToNearestMicrosecond(),
-        actual[i].createdAt.roundUpToNearestMicrosecond(),
-    )
-    assertEquals(
-        expected[i].modifiedAt.roundUpToNearestMicrosecond(),
-        actual[i].modifiedAt.roundUpToNearestMicrosecond(),
-    )
+    assertEqualWithinMicrosecond(expected[i].createdAt, actual[i].createdAt)
+    assertEqualWithinMicrosecond(expected[i].modifiedAt, actual[i].modifiedAt)
   }
 }
 
-private fun Instant.roundUpToNearestMicrosecond(): Instant {
-  val roundedDown = this.truncatedTo(ChronoUnit.MICROS)
-  return if (this == roundedDown) {
-    this // In this case, no rounding is required
-  } else {
-    roundedDown.plus(1, ChronoUnit.MICROS)
-  }
+private fun assertEqualWithinMicrosecond(expected: Instant, actual: Instant) {
+  assert(actual.isAfter(expected.minus(1, ChronoUnit.MICROS)))
+  assert(actual.isBefore(expected.plus(1, ChronoUnit.MICROS)))
 }
