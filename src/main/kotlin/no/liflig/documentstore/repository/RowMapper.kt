@@ -39,6 +39,21 @@ internal class EntityRowMapper<EntityT : Entity<*>>(
 }
 
 /**
+ * If [RepositoryJdbi.idsGeneratedByDatabase] is set to true, we need to return the entity from our
+ * INSERT query in order to get the generated ID. In this case, we don't need to return the
+ * version/createdAt/modifiedAt fields, so we use this row mapper that only maps the entity data.
+ */
+internal class EntityDataRowMapper<EntityT : Entity<*>>(
+    private val serializationAdapter: SerializationAdapter<EntityT>,
+) : RowMapper<EntityT> {
+  override fun map(resultSet: ResultSet, ctx: StatementContext): EntityT {
+    val data = getStringFromRowOrThrow(resultSet, Columns.DATA)
+
+    return serializationAdapter.fromJson(data)
+  }
+}
+
+/**
  * In [RepositoryJdbi.update], we receive an entity and its previous [Version], and want to return a
  * [Versioned] wrapper around that entity. We know the [Versioned.modifiedAt] field, since that is
  * set to `Instant.now()` when updating, but the [Versioned.createdAt] we need to get ourselves.

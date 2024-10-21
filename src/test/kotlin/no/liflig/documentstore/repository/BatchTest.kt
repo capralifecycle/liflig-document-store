@@ -5,10 +5,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import no.liflig.documentstore.entity.IntegerEntityId
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
+import no.liflig.documentstore.testutils.EntityWithIntegerId
 import no.liflig.documentstore.testutils.ExampleEntity
+import no.liflig.documentstore.testutils.ExampleIntegerId
 import no.liflig.documentstore.testutils.exampleRepo
+import no.liflig.documentstore.testutils.exampleRepoWithGeneratedIntegerId
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
@@ -88,5 +92,25 @@ class BatchTest {
 
     entities = exampleRepo.listByIds(entities.map { it.item.id })
     assertEquals(0, entities.size)
+  }
+
+  @Test
+  fun `test batchCreate with generated IDs`() {
+    val entitiesToCreate =
+        (1..largeBatchSize).map { number ->
+          EntityWithIntegerId(
+              id = ExampleIntegerId(IntegerEntityId.GENERATED),
+              text = "batch-test-with-generated-id-${testNumberFormat.format(number)}",
+          )
+        }
+    exampleRepoWithGeneratedIntegerId.batchCreate(entitiesToCreate)
+
+    val entities = exampleRepoWithGeneratedIntegerId.listAll()
+    assertNotEquals(0, entities.size)
+    assert(entities.size >= entitiesToCreate.size)
+
+    val expectedTextFields = entitiesToCreate.map { it.text }
+    val actualTextFields = entities.map { it.item.text }
+    assert(actualTextFields.containsAll(expectedTextFields))
   }
 }

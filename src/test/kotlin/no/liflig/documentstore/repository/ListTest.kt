@@ -44,7 +44,8 @@ class ListTest {
    * We want to test that [listByIds][no.liflig.documentstore.repository.RepositoryJdbi.listByIds]
    * works with both [UuidEntityId][no.liflig.documentstore.entity.UuidEntityId] and
    * [StringEntityId][no.liflig.documentstore.entity.StringEntityId], since we want to verify that
-   * both ID types work with the `registerArrayType` we use in [DocumentStorePlugin].
+   * both ID types work with the `registerArrayType` we use in
+   * [no.liflig.documentstore.DocumentStorePlugin].
    */
   @Test
   fun `test listByIds for StringEntityId`() {

@@ -3,6 +3,7 @@
 package no.liflig.documentstore
 
 import java.sql.Types
+import no.liflig.documentstore.entity.IntegerEntityId
 import no.liflig.documentstore.entity.StringEntityId
 import no.liflig.documentstore.entity.UuidEntityId
 import no.liflig.documentstore.entity.Version
@@ -22,23 +23,27 @@ import org.jdbi.v3.core.spi.JdbiPlugin
  * Once this plugin is installed, the following types can be used as JDBI bind arguments:
  * - [UuidEntityId]
  * - [StringEntityId]
+ * - [IntegerEntityId]
  * - [Version]
  *
- * In addition, [UuidEntityId] and [StringEntityId] may be used as arguments to
+ * In addition, [UuidEntityId], [StringEntityId] and [IntegerEntityId] may be used as arguments to
  * [bindArray][org.jdbi.v3.core.statement.Query.bindArray], like this:
  * ```
  * bindArray("ids", UuidEntityId::class.java, ids) // where ids: List<T extends UuidEntityId>
  * bindArray("ids", StringEntityId::class.java, ids) // where ids: List<T extends StringEntityId>
+ * bindArray("ids", IntegerEntityId::class.java, ids) // where ids: List<T extends IntegerEntityId>
  * ```
  */
 class DocumentStorePlugin : JdbiPlugin.Singleton() {
   override fun customizeJdbi(jdbi: Jdbi) {
     jdbi
+        .registerArgument(VersionArgumentFactory())
         .registerArgument(UuidEntityIdArgumentFactory())
         .registerArgument(StringEntityIdArgumentFactory())
-        .registerArgument(VersionArgumentFactory())
+        .registerArgument(IntegerEntityIdArgumentFactory())
         .registerArrayType(UuidEntityId::class.java, "uuid", { id -> id.value })
         .registerArrayType(StringEntityId::class.java, "text", { id -> id.value })
+        .registerArrayType(IntegerEntityId::class.java, "bigint", { id -> id.value })
   }
 }
 
@@ -55,6 +60,15 @@ private class StringEntityIdArgumentFactory : AbstractArgumentFactory<StringEnti
   override fun build(value: StringEntityId, config: ConfigRegistry?): Argument =
       Argument { position, statement, _ ->
         statement.setString(position, value.value)
+      }
+}
+
+/** JDBI argument factory that lets us use [IntegerEntityId] as a bind argument. */
+private class IntegerEntityIdArgumentFactory :
+    AbstractArgumentFactory<IntegerEntityId>(Types.BIGINT) {
+  override fun build(value: IntegerEntityId, config: ConfigRegistry?): Argument =
+      Argument { position, statement, _ ->
+        statement.setLong(position, value.value)
       }
 }
 

@@ -36,6 +36,14 @@ val exampleRepoWithStringId: ExampleRepositoryWithStringEntityId by lazy {
   ExampleRepositoryWithStringEntityId(jdbi)
 }
 
+val exampleRepoWithIntegerId: ExampleRepositoryWithIntegerEntityId by lazy {
+  ExampleRepositoryWithIntegerEntityId(jdbi)
+}
+
+val exampleRepoWithGeneratedIntegerId: ExampleRepositoryWithGeneratedIntegerEntityId by lazy {
+  ExampleRepositoryWithGeneratedIntegerEntityId(jdbi)
+}
+
 const val MIGRATION_TABLE = "example_for_migration"
 
 val exampleRepoPreMigration: ExampleRepository by lazy {

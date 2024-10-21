@@ -6,7 +6,7 @@ column type from Postgres to store data. So you first have to create your table 
 ```sql
 CREATE TABLE example
 (
-  -- Can have type `text` if using `StringEntityId`
+  -- Can have type `text` if using `StringEntityId`, or `bigint` if using `IntegerEntityId`
   id          uuid        NOT NULL PRIMARY KEY,
   created_at  timestamptz NOT NULL,
   modified_at timestamptz NOT NULL,

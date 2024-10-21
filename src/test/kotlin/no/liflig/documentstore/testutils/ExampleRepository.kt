@@ -96,6 +96,21 @@ class ExampleRepositoryWithStringEntityId(jdbi: Jdbi) :
         serializationAdapter = KotlinSerialization(EntityWithStringId.serializer()),
     )
 
+class ExampleRepositoryWithIntegerEntityId(jdbi: Jdbi) :
+    RepositoryJdbi<ExampleIntegerId, EntityWithIntegerId>(
+        jdbi,
+        tableName = "example_with_integer_id",
+        serializationAdapter = KotlinSerialization(EntityWithIntegerId.serializer()),
+    )
+
+class ExampleRepositoryWithGeneratedIntegerEntityId(jdbi: Jdbi) :
+    RepositoryJdbi<ExampleIntegerId, EntityWithIntegerId>(
+        jdbi,
+        tableName = "example_with_generated_integer_id",
+        serializationAdapter = KotlinSerialization(EntityWithIntegerId.serializer()),
+        idsGeneratedByDatabase = true,
+    )
+
 class ExampleRepositoryForMigration(jdbi: Jdbi) :
     RepositoryJdbi<ExampleId, MigratedExampleEntity>(
         jdbi,

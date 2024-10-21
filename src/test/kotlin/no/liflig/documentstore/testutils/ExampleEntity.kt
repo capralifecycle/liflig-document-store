@@ -6,6 +6,7 @@ import java.util.UUID
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.entity.Entity
+import no.liflig.documentstore.entity.IntegerEntityId
 import no.liflig.documentstore.entity.StringEntityId
 import no.liflig.documentstore.entity.UuidEntityId
 
@@ -29,6 +30,15 @@ data class EntityWithStringId(
 ) : Entity<ExampleStringId>
 
 @Serializable @JvmInline value class ExampleStringId(override val value: String) : StringEntityId
+
+@Serializable
+data class EntityWithIntegerId(
+    override val id: ExampleIntegerId,
+    val text: String,
+    val moreText: String? = null,
+) : Entity<ExampleIntegerId>
+
+@Serializable @JvmInline value class ExampleIntegerId(override val value: Long) : IntegerEntityId
 
 @Serializable
 data class MigratedExampleEntity(
