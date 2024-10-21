@@ -1,6 +1,7 @@
 package no.liflig.documentstore.repository
 
 import java.text.DecimalFormat
+import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -153,12 +154,21 @@ private fun <EntityT : Entity<*>> assertVersionedEntitiesEqual(
     assertEquals(expected[i].item, actual[i].item)
     assertEquals(expected[i].version, actual[i].version)
     assertEquals(
-        expected[i].createdAt.truncatedTo(ChronoUnit.MICROS),
-        actual[i].createdAt.truncatedTo(ChronoUnit.MICROS),
+        expected[i].createdAt.roundUpToNearestMicrosecond(),
+        actual[i].createdAt.roundUpToNearestMicrosecond(),
     )
     assertEquals(
-        expected[i].modifiedAt.truncatedTo(ChronoUnit.MICROS),
-        actual[i].modifiedAt.truncatedTo(ChronoUnit.MICROS),
+        expected[i].modifiedAt.roundUpToNearestMicrosecond(),
+        actual[i].modifiedAt.roundUpToNearestMicrosecond(),
     )
+  }
+}
+
+private fun Instant.roundUpToNearestMicrosecond(): Instant {
+  val roundedDown = this.truncatedTo(ChronoUnit.MICROS)
+  return if (this == roundedDown) {
+    this // In this case, no rounding is required
+  } else {
+    roundedDown.plus(1, ChronoUnit.MICROS)
   }
 }
