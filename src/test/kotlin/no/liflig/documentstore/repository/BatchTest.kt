@@ -59,7 +59,7 @@ class BatchTest {
         entities.withIndex().map { (index, entity) ->
           val updatedEntity =
               entity.item.copy(
-                  moreText = "batch-update-test-${testNumberFormat.format(index + 1)}",
+                  optionalText = "batch-update-test-${testNumberFormat.format(index + 1)}",
               )
           entity.copy(item = updatedEntity)
         }

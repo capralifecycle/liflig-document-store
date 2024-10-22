@@ -6,11 +6,44 @@ import no.liflig.documentstore.testutils.ExampleEntity
 import no.liflig.documentstore.testutils.OrderBy
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.exampleRepoWithCount
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
+import org.junit.jupiter.params.provider.MethodSource
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS) // To keep state between tests
 class GetByPredicateTest {
+  companion object {
+    private val entitiesForOrderByTest =
+        listOf(
+            ExampleEntity(text = "test", optionalText = "A"),
+            ExampleEntity(text = "test", optionalText = "B"),
+            ExampleEntity(text = "test", optionalText = null),
+        )
+
+    @BeforeAll
+    @JvmStatic
+    fun `setup for orderBy test`() {
+      exampleRepo.batchCreate(entitiesForOrderByTest)
+    }
+
+    /**
+     * Test case for testing the orderBy/orderDesc/nullsFirst/handleJsonNullsInOrderBy parameters of
+     * getByPredicate.
+     */
+    data class OrderByTest(val orderDesc: Boolean, val nullsFirst: Boolean)
+
+    @JvmStatic
+    fun orderByTestCases() =
+        listOf(
+            OrderByTest(orderDesc = true, nullsFirst = true),
+            OrderByTest(orderDesc = true, nullsFirst = false),
+            OrderByTest(orderDesc = false, nullsFirst = true),
+            OrderByTest(orderDesc = false, nullsFirst = false),
+        )
+  }
+
   @Test
   fun `getByPredicate returns expected matches`() {
     val entity1 = ExampleEntity(text = "Very specific name for text query test 1")
@@ -31,23 +64,36 @@ class GetByPredicateTest {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = [true, false])
-  fun `orderBy orders by correct data`(orderDesc: Boolean) {
-    val (entity1, _) = exampleRepo.create(ExampleEntity(text = "A"))
-    val (entity2, _) = exampleRepo.create(ExampleEntity(text = "B"))
+  @MethodSource("orderByTestCases")
+  fun `orderBy orders by correct data`(test: OrderByTest) {
+    val (entityA, entityB, entityNull) = entitiesForOrderByTest
 
-    val result = exampleRepo.search(orderBy = OrderBy.TEXT, orderDesc = orderDesc).map { it.item }
+    val result =
+        exampleRepo
+            .search(
+                orderBy = OrderBy.OPTIONAL_TEXT,
+                orderDesc = test.orderDesc,
+                nullsFirst = test.nullsFirst,
+                handleJsonNullsInOrderBy = true,
+            )
+            .map { it.item }
 
-    val indexOf1 = result.indexOf(entity1)
-    assertNotEquals(-1, indexOf1)
+    val indexOfA = result.indexOf(entityA)
+    val indexOfB = result.indexOf(entityB)
+    val indexOfNull = result.indexOf(entityNull)
 
-    val indexOf2 = result.indexOf(entity2)
-    assertNotEquals(-1, indexOf2)
-
-    if (orderDesc) {
-      assert(indexOf1 > indexOf2)
+    if (test.orderDesc) {
+      assert(indexOfA > indexOfB)
     } else {
-      assert(indexOf1 < indexOf2)
+      assert(indexOfA < indexOfB)
+    }
+
+    if (test.nullsFirst) {
+      assert(indexOfNull < indexOfA)
+      assert(indexOfNull < indexOfB)
+    } else {
+      assert(indexOfNull > indexOfA)
+      assert(indexOfNull > indexOfB)
     }
   }
 

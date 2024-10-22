@@ -82,7 +82,7 @@ class MigrationTest {
   fun `migration rolls back on failed transaction`() {
     val entitiesToCreate =
         (0 until 10).map { number ->
-          ExampleEntity(text = "Original", moreText = number.toString())
+          ExampleEntity(text = "Original", optionalText = number.toString())
         }
     exampleRepoPreMigration.batchCreate(entitiesToCreate)
     val createdEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
@@ -96,7 +96,7 @@ class MigrationTest {
             serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
             transformEntity = { (entity, _) ->
               // Throw halfway through transaction
-              if (entity.moreText == "5") {
+              if (entity.optionalText == "5") {
                 throw Exception("Rolling back transaction")
               }
               entity.copy(text = "Migrated")

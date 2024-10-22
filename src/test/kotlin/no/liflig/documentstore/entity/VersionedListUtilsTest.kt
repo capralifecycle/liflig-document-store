@@ -11,7 +11,7 @@ class VersionedListUtilsTest {
   fun `test mapEntities`() {
     val entities = createTestEntities("test1", "test2")
 
-    val mappedEntities = entities.mapEntities { entity -> entity.copy(moreText = "New text!") }
+    val mappedEntities = entities.mapEntities { entity -> entity.copy(optionalText = "New text!") }
     assertEquals(entities.size, mappedEntities.size)
 
     for (i in entities.indices) {
@@ -20,7 +20,7 @@ class VersionedListUtilsTest {
 
       assertEquals(original.version, mapped.version)
       assertEquals(original.item.text, mapped.item.text)
-      assertEquals("New text!", mapped.item.moreText)
+      assertEquals("New text!", mapped.item.optionalText)
     }
   }
 
@@ -65,7 +65,7 @@ class VersionedListUtilsTest {
   fun `test mapEntities for ListWithTotalCount`() {
     val entities = createTestEntitiesWithTotalCount("test1", "test2")
 
-    val mappedEntities = entities.mapEntities { entity -> entity.copy(moreText = "New text!") }
+    val mappedEntities = entities.mapEntities { entity -> entity.copy(optionalText = "New text!") }
     assertEquals(entities.list.size, mappedEntities.list.size)
     assertEquals(entities.totalCount, mappedEntities.totalCount)
 
@@ -75,7 +75,7 @@ class VersionedListUtilsTest {
 
       assertEquals(original.version, mapped.version)
       assertEquals(original.item.text, mapped.item.text)
-      assertEquals("New text!", mapped.item.moreText)
+      assertEquals("New text!", mapped.item.optionalText)
     }
   }
 

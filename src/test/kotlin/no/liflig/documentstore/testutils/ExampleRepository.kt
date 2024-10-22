@@ -11,6 +11,7 @@ import org.jdbi.v3.core.Jdbi
 
 enum class OrderBy {
   TEXT,
+  OPTIONAL_TEXT,
   CREATED_AT,
 }
 
@@ -34,18 +35,23 @@ class ExampleRepository(
       offset: Int? = null,
       orderBy: OrderBy? = null,
       orderDesc: Boolean = false,
+      nullsFirst: Boolean = false,
+      handleJsonNullsInOrderBy: Boolean = false,
   ): List<Versioned<ExampleEntity>> {
     return getByPredicate(
         ":text IS NULL OR (data->>'text' ILIKE '%' || :text || '%')",
         limit = limit,
         offset = offset,
-        orderDesc = orderDesc,
         orderBy =
             when (orderBy) {
               OrderBy.TEXT -> "data->>'text'"
-              OrderBy.CREATED_AT -> "createdAt"
+              OrderBy.OPTIONAL_TEXT -> "data->'optionalText'"
+              OrderBy.CREATED_AT -> "created_at"
               null -> null
             },
+        orderDesc = orderDesc,
+        nullsFirst = nullsFirst,
+        handleJsonNullsInOrderBy = handleJsonNullsInOrderBy,
     ) {
       bind("text", text)
     }
@@ -57,18 +63,21 @@ class ExampleRepository(
       offset: Int? = null,
       orderBy: OrderBy? = null,
       orderDesc: Boolean = false,
+      nullsFirst: Boolean = false,
   ): ListWithTotalCount<Versioned<ExampleEntity>> {
     return getByPredicateWithTotalCount(
         "(:textQuery IS NULL OR (data ->>'text' ILIKE '%' || :textQuery || '%'))",
         limit = limit,
         offset = offset,
-        orderDesc = orderDesc,
         orderBy =
             when (orderBy) {
               OrderBy.TEXT -> "data->>'text'"
-              OrderBy.CREATED_AT -> "createdAt"
+              OrderBy.OPTIONAL_TEXT -> "NULLIF(data->'optionalText', 'null')"
+              OrderBy.CREATED_AT -> "created_at"
               null -> null
             },
+        orderDesc = orderDesc,
+        nullsFirst = nullsFirst,
     ) {
       bind("textQuery", text)
     }

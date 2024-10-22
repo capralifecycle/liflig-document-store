@@ -1,4 +1,9 @@
-@file:Suppress("MemberVisibilityCanBePrivate") // This is a library, we want to expose fields
+@file:Suppress(
+    // This is a library, we want to expose fields
+    "MemberVisibilityCanBePrivate",
+    // We duplicate code some places to make it more visible when jumping to it in the editor
+    "DuplicatedCode",
+)
 
 package no.liflig.documentstore.repository
 
@@ -486,6 +491,24 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    *   }
    * }
    * ```
+   *
+   * @param nullsFirst Controls whether to use
+   *   [`NULLS FIRST` or `NULLS LAST`](https://www.postgresql.org/docs/17/queries-order.html) in the
+   *   `ORDER BY` clause. The default behavior in Postgres is `NULLS FIRST` when the order direction
+   *   is `DESC`, and `NULLS LAST` otherwise, so we keep that behavior here.
+   *
+   *   If you use this together with a nullable field JSONB field on `orderBy`, you may also want to
+   *   use [handleJsonNullsInOrderBy].
+   *
+   * @param handleJsonNullsInOrderBy One quirk with JSONB in Postgres is that a `null` JSON value is
+   *   not the same as a `NULL` in SQL. This matters when sorting on a JSON field in [orderBy],
+   *   since that sorts SQL `NULL`s first/last (depending on [nullsFirst]), but not JSON `null`s.
+   *   This parameter makes `ORDER BY` treat JSON `null`s as SQL `NULL`s, so it works as expected
+   *   with e.g. [nullsFirst]. It is ignored if [orderBy] is `null`.
+   *
+   *   If you use this, you should use `->` rather than `->>` as the JSON field selector in
+   *   [orderBy]. This is because `->>` converts the JSON field into a string, which means that the
+   *   string `"null"` will be treated as `null`.
    */
   protected open fun getByPredicate(
       sqlWhere: String = "TRUE",
@@ -493,12 +516,20 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       offset: Int? = null,
       orderBy: String? = null,
       orderDesc: Boolean = false,
+      nullsFirst: Boolean = orderDesc,
+      handleJsonNullsInOrderBy: Boolean = false,
       forUpdate: Boolean = false,
       bind: Query.() -> Query = { this }
   ): List<Versioned<EntityT>> {
     useHandle(jdbi) { handle ->
+      val orderByString: String =
+          when {
+            orderBy == null -> Columns.CREATED_AT
+            handleJsonNullsInOrderBy -> "NULLIF(${orderBy}, 'null')"
+            else -> orderBy
+          }
       val orderDirection = if (orderDesc) "DESC" else "ASC"
-      val orderByString = orderBy ?: "created_at"
+      val orderNulls = if (nullsFirst) "NULLS FIRST" else "NULLS LAST"
 
       val limitString = if (limit != null) "LIMIT ${limit}" else ""
       val offsetString = if (offset != null) "OFFSET ${offset}" else ""
@@ -510,7 +541,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                 SELECT id, data, version, created_at, modified_at
                 FROM "${tableName}"
                 WHERE (${sqlWhere})
-                ORDER BY ${orderByString} ${orderDirection}
+                ORDER BY ${orderByString} ${orderDirection} ${orderNulls}
                 ${limitString}
                 ${offsetString}
                 ${forUpdateString}
@@ -538,13 +569,22 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       offset: Int? = null,
       orderBy: String? = null,
       orderDesc: Boolean = false,
+      nullsFirst: Boolean = orderDesc,
+      handleJsonNullsInOrderBy: Boolean = false,
       bind: Query.() -> Query = { this }
   ): ListWithTotalCount<Versioned<EntityT>> {
     useHandle(jdbi) { handle ->
+      val orderByString: String =
+          when {
+            orderBy == null -> Columns.CREATED_AT
+            handleJsonNullsInOrderBy -> "NULLIF(${orderBy}, 'null')"
+            else -> orderBy
+          }
+      val orderDirection = if (orderDesc) "DESC" else "ASC"
+      val orderNulls = if (nullsFirst) "NULLS FIRST" else "NULLS LAST"
+
       val limitString = limit?.let { "LIMIT $it" } ?: ""
       val offsetString = offset?.let { "OFFSET $it" } ?: ""
-      val orderDirection = if (orderDesc) "DESC" else "ASC"
-      val orderByString = orderBy ?: "created_at"
 
       val rows =
           handle
@@ -561,7 +601,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                     SELECT id, data, version, created_at, modified_at, count
                     FROM (
                       TABLE base_query
-                      ORDER BY ${orderByString} ${orderDirection}
+                      ORDER BY ${orderByString} ${orderDirection} ${orderNulls}
                       ${limitString}
                       ${offsetString}
                     ) sub_query

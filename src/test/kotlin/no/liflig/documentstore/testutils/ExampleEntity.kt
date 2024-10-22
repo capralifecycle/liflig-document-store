@@ -14,7 +14,7 @@ import no.liflig.documentstore.entity.UuidEntityId
 data class ExampleEntity(
     override val id: ExampleId = ExampleId(),
     val text: String,
-    val moreText: String? = null,
+    val optionalText: String? = null,
     val uniqueField: Int? = null,
 ) : Entity<ExampleId>
 
@@ -26,7 +26,7 @@ value class ExampleId(override val value: UUID = UUID.randomUUID()) : UuidEntity
 data class EntityWithStringId(
     override val id: ExampleStringId,
     val text: String,
-    val moreText: String? = null,
+    val optionalText: String? = null,
 ) : Entity<ExampleStringId>
 
 @Serializable @JvmInline value class ExampleStringId(override val value: String) : StringEntityId
@@ -35,7 +35,7 @@ data class EntityWithStringId(
 data class EntityWithIntegerId(
     override val id: ExampleIntegerId,
     val text: String,
-    val moreText: String? = null,
+    val optionalText: String? = null,
 ) : Entity<ExampleIntegerId>
 
 @Serializable @JvmInline value class ExampleIntegerId(override val value: Long) : IntegerEntityId
@@ -44,7 +44,7 @@ data class EntityWithIntegerId(
 data class MigratedExampleEntity(
     override val id: ExampleId = ExampleId(),
     val text: String,
-    val moreText: String? = null,
+    val optionalText: String? = null,
     val uniqueField: Int? = null,
     val newFieldAfterMigration: String? = null,
 ) : Entity<ExampleId>
