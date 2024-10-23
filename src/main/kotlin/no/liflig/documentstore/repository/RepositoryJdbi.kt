@@ -502,8 +502,8 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    *   `ORDER BY` clause. The default behavior in Postgres is `NULLS FIRST` when the order direction
    *   is `DESC`, and `NULLS LAST` otherwise, so we keep that behavior here.
    *
-   *   If you use this together with a nullable field JSONB field on `orderBy`, you may also want to
-   *   use [handleJsonNullsInOrderBy].
+   *   If you use this together with a nullable JSONB field in `orderBy`, you may also want to use
+   *   [handleJsonNullsInOrderBy].
    *
    * @param handleJsonNullsInOrderBy One quirk with JSONB in Postgres is that a `null` JSON value is
    *   not the same as a `NULL` in SQL. This matters when sorting on a JSON field in [orderBy],
