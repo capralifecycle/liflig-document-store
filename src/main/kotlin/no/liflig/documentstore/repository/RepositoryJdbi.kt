@@ -272,14 +272,18 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     }
   }
 
-  override fun listByIds(ids: List<EntityIdT>): List<Versioned<EntityT>> {
+  override fun listByIds(ids: List<EntityIdT>, forUpdate: Boolean): List<Versioned<EntityT>> {
     if (ids.isEmpty()) {
       return emptyList()
     }
 
-    /** See [getEntityIdType]. */
-    val elementType = getEntityIdType(ids.first())
-    return getByPredicate("id = ANY (:ids)") { bindArray("ids", elementType, ids) }
+    return getByPredicate(
+        "id = ANY (:ids)",
+        forUpdate = forUpdate,
+    ) {
+      /** See [getEntityIdType]. */
+      bindArray("ids", getEntityIdType(ids.first()), ids)
+    }
   }
 
   override fun listAll(): List<Versioned<EntityT>> {
@@ -510,6 +514,10 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    *   If you use this, you should use `->` rather than `->>` as the JSON field selector in
    *   [orderBy]. This is because `->>` converts the JSON field into a string, which means that the
    *   string `"null"` will be treated as `null`.
+   *
+   * @param forUpdate Set this to true to lock the rows of the returned entities in the database
+   *   until a subsequent call to [update]/[delete], preventing concurrent modification. This only
+   *   works when done inside a transaction (see [transactional]).
    */
   protected open fun getByPredicate(
       sqlWhere: String = "TRUE",

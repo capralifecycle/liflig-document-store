@@ -11,8 +11,8 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
 
   /**
    * @param forUpdate Set this to true to lock the entity's row in the database until a subsequent
-   *   call to [update], preventing concurrent modification. If setting this to true, you should use
-   *   a transaction for the get and update (see [transactional]).
+   *   call to [update]/[delete], preventing concurrent modification. This only works when done
+   *   inside a transaction (see [transactional]).
    */
   fun get(id: EntityIdT, forUpdate: Boolean = false): Versioned<EntityT>?
 
@@ -42,7 +42,16 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    */
   fun delete(id: EntityIdT, previousVersion: Version)
 
-  fun listByIds(ids: List<EntityIdT>): List<Versioned<EntityT>>
+  /**
+   * @param forUpdate Set this to true to lock the rows of the returned entities in the database
+   *   until a subsequent call to [update]/[delete], preventing concurrent modification. This only
+   *   works when done inside a transaction (see [transactional]).
+   */
+  fun listByIds(ids: List<EntityIdT>, forUpdate: Boolean = false): List<Versioned<EntityT>> {
+    // A default implementation is provided here on the interface, so that implementers don't have
+    // to implement this themselves (for e.g. mock repositories).
+    return ids.mapNotNull { id -> get(id) }
+  }
 
   fun listAll(): List<Versioned<EntityT>>
 
@@ -54,7 +63,7 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    * implementation as efficient as possible.
    */
   fun batchCreate(entities: Iterable<EntityT>): List<Versioned<EntityT>> {
-    // A default implementation is provided here on the interface, so that implementors don't have
+    // A default implementation is provided here on the interface, so that implementers don't have
     // to implement this themselves (for e.g. mock repositories).
     return entities.map { create(it) }
   }
@@ -71,7 +80,7 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *   the current version of the entity in the database.
    */
   fun batchUpdate(entities: Iterable<Versioned<EntityT>>): List<Versioned<EntityT>> {
-    // A default implementation is provided here on the interface, so that implementors don't have
+    // A default implementation is provided here on the interface, so that implementers don't have
     // to implement this themselves (for e.g. mock repositories).
     return entities.map { update(it.item, it.version) }
   }
@@ -88,7 +97,7 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *   the current version of the entity in the database.
    */
   fun batchDelete(entities: Iterable<Versioned<EntityT>>) {
-    // A default implementation is provided here on the interface, so that implementors don't have
+    // A default implementation is provided here on the interface, so that implementers don't have
     // to implement this themselves (for e.g. mock repositories).
     for (entity in entities) {
       delete(entity.item.id, entity.version)
@@ -104,7 +113,7 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    * transaction.
    */
   fun <ReturnT> transactional(block: () -> ReturnT): ReturnT {
-    // A default implementation is provided here on the interface, so that implementors don't have
+    // A default implementation is provided here on the interface, so that implementers don't have
     // to implement this themselves (for e.g. mock repositories).
     return block()
   }
