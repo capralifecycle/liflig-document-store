@@ -4,14 +4,10 @@ import java.text.DecimalFormat
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
-import no.liflig.documentstore.entity.IntegerEntityId
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
-import no.liflig.documentstore.testutils.EntityWithIntegerId
 import no.liflig.documentstore.testutils.ExampleEntity
-import no.liflig.documentstore.testutils.ExampleIntegerId
 import no.liflig.documentstore.testutils.exampleRepo
-import no.liflig.documentstore.testutils.exampleRepoWithGeneratedIntegerId
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
@@ -101,32 +97,5 @@ class BatchTest {
 
     entities = exampleRepo.listByIds(entities.map { it.item.id })
     assertEquals(0, entities.size)
-  }
-
-  @Test
-  fun `test batchCreate with generated IDs`() {
-    val entitiesToCreate =
-        (1..largeBatchSize).map { number ->
-          EntityWithIntegerId(
-              id = ExampleIntegerId(IntegerEntityId.GENERATED),
-              text = "batch-test-with-generated-id-${testNumberFormat.format(number)}",
-          )
-        }
-    val createdEntities = exampleRepoWithGeneratedIntegerId.batchCreate(entitiesToCreate)
-
-    assertEquals(entitiesToCreate.size, createdEntities.size)
-    // Verify that returned entities are in the same order that we gave them
-    for (i in entitiesToCreate.indices) {
-      assertEquals(entitiesToCreate[i].text, createdEntities[i].item.text)
-
-      // After calling batchCreate, the IDs should now have been set by the database
-      assertNotEquals(IntegerEntityId.GENERATED, createdEntities[i].item.id.value)
-    }
-
-    // Verify that fetching out the created entities gives the same results as the ones we got back
-    // from batchCreate
-    val fetchedEntities =
-        exampleRepoWithGeneratedIntegerId.listByIds(createdEntities.map { it.item.id })
-    assertEquals(fetchedEntities, createdEntities)
   }
 }

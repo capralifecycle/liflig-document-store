@@ -6,6 +6,7 @@ import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.ListWithTotalCount
 import no.liflig.documentstore.repository.RepositoryJdbi
+import no.liflig.documentstore.repository.RepositoryWithGeneratedIds
 import no.liflig.documentstore.repository.useHandle
 import org.jdbi.v3.core.Jdbi
 
@@ -113,11 +114,10 @@ class ExampleRepositoryWithIntegerEntityId(jdbi: Jdbi) :
     )
 
 class ExampleRepositoryWithGeneratedIntegerEntityId(jdbi: Jdbi) :
-    RepositoryJdbi<ExampleIntegerId, EntityWithIntegerId>(
+    RepositoryWithGeneratedIds<ExampleIntegerId, EntityWithIntegerId>(
         jdbi,
         tableName = "example_with_generated_integer_id",
         serializationAdapter = KotlinSerialization(EntityWithIntegerId.serializer()),
-        idsGeneratedByDatabase = true,
     )
 
 class ExampleRepositoryForMigration(jdbi: Jdbi) :

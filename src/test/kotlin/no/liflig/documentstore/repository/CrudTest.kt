@@ -3,10 +3,8 @@ package no.liflig.documentstore.repository
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import no.liflig.documentstore.entity.IntegerEntityId
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.testutils.EntityWithIntegerId
 import no.liflig.documentstore.testutils.EntityWithStringId
@@ -14,7 +12,6 @@ import no.liflig.documentstore.testutils.ExampleEntity
 import no.liflig.documentstore.testutils.ExampleIntegerId
 import no.liflig.documentstore.testutils.ExampleStringId
 import no.liflig.documentstore.testutils.exampleRepo
-import no.liflig.documentstore.testutils.exampleRepoWithGeneratedIntegerId
 import no.liflig.documentstore.testutils.exampleRepoWithIntegerId
 import no.liflig.documentstore.testutils.exampleRepoWithStringId
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
@@ -120,47 +117,9 @@ class CrudTest {
 
     assertThrows<Exception> {
       exampleRepoWithStringId.create(
-          EntityWithStringId(
-              id = ExampleStringId("test1"),
-              text = "test",
-          ),
+          EntityWithStringId(id = ExampleStringId("test1"), text = "test"),
       )
     }
-  }
-
-  @Test
-  fun `test entity with generated integer ID`() {
-    val entities =
-        listOf(
-                EntityWithIntegerId(
-                    id = ExampleIntegerId(IntegerEntityId.GENERATED),
-                    text = "test",
-                ),
-                EntityWithIntegerId(
-                    id = ExampleIntegerId(IntegerEntityId.GENERATED),
-                    text = "test",
-                ),
-                EntityWithIntegerId(
-                    id = ExampleIntegerId(IntegerEntityId.GENERATED),
-                    text = "test",
-                ),
-            )
-            .map { entity -> exampleRepoWithGeneratedIntegerId.create(entity) }
-
-    // After calling RepositoryJdbi.create, the IDs should now have been set by the database
-    entities.forEach { entity -> assertNotEquals(IntegerEntityId.GENERATED, entity.item.id.value) }
-
-    val getResult = exampleRepoWithGeneratedIntegerId.get(entities[0].item.id)
-    assertNotNull(getResult)
-    assertEquals(entities[0].item, getResult.item)
-
-    val listResult =
-        exampleRepoWithGeneratedIntegerId.listByIds(entities.take(2).map { it.item.id })
-    assertEquals(2, listResult.size)
-
-    val listEntities = listResult.map { it.item }
-    assertContains(listEntities, entities[0].item)
-    assertContains(listEntities, entities[1].item)
   }
 
   @Test
@@ -175,22 +134,22 @@ class CrudTest {
       exampleRepoWithIntegerId.create(entity)
     }
 
-    val result1 = exampleRepoWithIntegerId.get(ExampleIntegerId(1))
-    assertNotNull(result1)
-    assertEquals(entities[0], result1.item)
+    val getResult = exampleRepoWithIntegerId.get(ExampleIntegerId(1))
+    assertNotNull(getResult)
+    assertEquals(entities[0], getResult.item)
 
-    val result2 =
+    val listResult =
         exampleRepoWithIntegerId.listByIds(
             listOf(
                 ExampleIntegerId(2),
                 ExampleIntegerId(3),
             ),
         )
-    assertEquals(2, result2.size)
+    assertEquals(2, listResult.size)
 
-    val resultEntities = result2.map { it.item }
-    assertContains(resultEntities, entities[1])
-    assertContains(resultEntities, entities[2])
+    val listEntities = listResult.map { it.item }
+    assertContains(listEntities, entities[1])
+    assertContains(listEntities, entities[2])
 
     assertThrows<Exception> {
       exampleRepoWithIntegerId.create(
