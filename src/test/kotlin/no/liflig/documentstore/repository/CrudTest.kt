@@ -1,6 +1,5 @@
 package no.liflig.documentstore.repository
 
-import java.time.Instant
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -18,6 +17,7 @@ import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.exampleRepoWithGeneratedIntegerId
 import no.liflig.documentstore.testutils.exampleRepoWithIntegerId
 import no.liflig.documentstore.testutils.exampleRepoWithStringId
+import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
@@ -26,9 +26,9 @@ class CrudTest {
   fun `store and retrieve new entity`() {
     val entity = ExampleEntity(text = "hello world")
 
-    val timeBeforeCreate = Instant.now()
+    val timeBeforeCreate = currentTimeWithMicrosecondPrecision()
     exampleRepo.create(entity)
-    val timeAfterCreate = Instant.now()
+    val timeAfterCreate = currentTimeWithMicrosecondPrecision()
 
     val retrievedEntity = exampleRepo.get(entity.id)
 
@@ -46,13 +46,18 @@ class CrudTest {
   fun `update entity`() {
     val createdEntity = exampleRepo.create(ExampleEntity(text = "hello world"))
 
+    val timeBeforeUpdate = currentTimeWithMicrosecondPrecision()
     exampleRepo.update(createdEntity.item.copy(text = "new value"), createdEntity.version)
+    val timeAfterUpdate = currentTimeWithMicrosecondPrecision()
 
     val retrievedEntity = exampleRepo.get(createdEntity.item.id)
     assertNotNull(retrievedEntity)
 
     assertEquals("new value", retrievedEntity.item.text)
-    assertNotEquals(createdEntity.version, retrievedEntity.version)
+    assertEquals(createdEntity.version.next(), retrievedEntity.version)
+
+    assert(retrievedEntity.modifiedAt.isAfter(timeBeforeUpdate))
+    assert(retrievedEntity.modifiedAt.isBefore(timeAfterUpdate))
   }
 
   @Test

@@ -15,6 +15,7 @@ import no.liflig.documentstore.entity.IntegerEntityId
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.entity.getEntityIdType
+import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import no.liflig.documentstore.utils.executeBatchOperation
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.mapper.RowMapper
@@ -74,7 +75,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
 
   override fun create(entity: EntityT): Versioned<EntityT> {
     try {
-      val createdAt = Instant.now()
+      val createdAt = currentTimeWithMicrosecondPrecision()
       val version = Version.initial()
 
       if (idsGeneratedByDatabase) {
@@ -199,7 +200,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     try {
       useHandle(jdbi) { handle ->
         val nextVersion = previousVersion.next()
-        val modifiedAt = Instant.now()
+        val modifiedAt = currentTimeWithMicrosecondPrecision()
         val updateResult =
             handle
                 .createQuery(
@@ -291,7 +292,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       return emptyList()
     }
 
-    val createdAt = Instant.now()
+    val createdAt = currentTimeWithMicrosecondPrecision()
     val version = Version.initial()
 
     if (idsGeneratedByDatabase) {
@@ -397,7 +398,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       return emptyList()
     }
 
-    val modifiedAt = Instant.now()
+    val modifiedAt = currentTimeWithMicrosecondPrecision()
 
     transactional {
       useHandle(jdbi) { handle ->

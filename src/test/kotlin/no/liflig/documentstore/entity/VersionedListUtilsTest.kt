@@ -1,9 +1,9 @@
 package no.liflig.documentstore.entity
 
-import java.time.Instant
 import kotlin.test.assertEquals
 import no.liflig.documentstore.repository.ListWithTotalCount
 import no.liflig.documentstore.testutils.ExampleEntity
+import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import org.junit.jupiter.api.Test
 
 class VersionedListUtilsTest {
@@ -124,8 +124,8 @@ private fun createTestEntities(vararg texts: String): List<Versioned<ExampleEnti
     Versioned(
         ExampleEntity(text = text),
         Version.initial(),
-        createdAt = Instant.now(),
-        modifiedAt = Instant.now(),
+        createdAt = currentTimeWithMicrosecondPrecision(),
+        modifiedAt = currentTimeWithMicrosecondPrecision(),
     )
   }
 }

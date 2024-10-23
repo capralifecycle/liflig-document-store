@@ -1,12 +1,12 @@
 package no.liflig.documentstore.migration
 
 import java.sql.Connection
-import java.time.Instant
 import no.liflig.documentstore.DocumentStorePlugin
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.EntityRowMapper
 import no.liflig.documentstore.repository.SerializationAdapter
+import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import no.liflig.documentstore.utils.executeBatchOperation
 import org.jdbi.v3.core.Jdbi
 
@@ -114,7 +114,7 @@ fun <EntityT : Entity<*>> migrateEntity(
             .setFetchSize(MIGRATION_BATCH_SIZE)
             .map(EntityRowMapper(serializationAdapter))
 
-    val modifiedAt = Instant.now()
+    val modifiedAt = currentTimeWithMicrosecondPrecision()
 
     executeBatchOperation(
         handle,

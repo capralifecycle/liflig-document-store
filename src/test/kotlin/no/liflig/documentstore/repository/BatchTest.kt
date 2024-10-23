@@ -1,12 +1,9 @@
 package no.liflig.documentstore.repository
 
 import java.text.DecimalFormat
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
-import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.IntegerEntityId
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
@@ -49,7 +46,7 @@ class BatchTest {
     // Verify that fetching out the created entities gives the same results as the ones we got back
     // from batchCreate
     val fetchedEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
-    assertVersionedEntitiesEqual(fetchedEntities, entities)
+    assertEquals(fetchedEntities, entities)
   }
 
   @Order(2)
@@ -68,15 +65,15 @@ class BatchTest {
     assertEquals(entitiesToUpdate.size, entities.size)
     for (i in entitiesToUpdate.indices) {
       assertEquals(entitiesToUpdate[i].item, entities[i].item)
-      assertEqualWithinMicrosecond(entitiesToUpdate[i].createdAt, entities[i].createdAt)
-      assertNotEquals(entitiesToUpdate[i].version, entities[i].version)
+      assertEquals(entitiesToUpdate[i].createdAt, entities[i].createdAt)
+      assertEquals(entitiesToUpdate[i].version.next(), entities[i].version)
       assertNotEquals(entitiesToUpdate[i].modifiedAt, entities[i].modifiedAt)
     }
 
     // Verify that fetching out the updated entities gives the same results as the ones we got back
     // from batchUpdate
     val fetchedEntities = exampleRepo.listByIds(entitiesToUpdate.map { it.item.id })
-    assertVersionedEntitiesEqual(fetchedEntities, entities)
+    assertEquals(fetchedEntities, entities)
   }
 
   @Order(3)
@@ -130,36 +127,6 @@ class BatchTest {
     // from batchCreate
     val fetchedEntities =
         exampleRepoWithGeneratedIntegerId.listByIds(createdEntities.map { it.item.id })
-    assertVersionedEntitiesEqual(fetchedEntities, createdEntities)
+    assertEquals(fetchedEntities, createdEntities)
   }
-}
-
-/**
- * Postgres stores timestamps with
- * [microsecond precision](https://www.postgresql.org/docs/17/datatype-datetime.html), while Java's
- * `Instant.now()` gives nanosecond precision by default. In some of the asserts we do in these
- * tests, this caused the tests to fail because of differences in precision, although the timestamps
- * really were the same.
- *
- * We may consider changing all calls to `Instant.now()` in the library to truncate to microsecond
- * precision, to match Postgres. But for now, we fix the tests by truncating the timestamps when
- * asserting.
- */
-private fun <EntityT : Entity<*>> assertVersionedEntitiesEqual(
-    expected: List<Versioned<EntityT>>,
-    actual: List<Versioned<EntityT>>
-) {
-  assertEquals(expected.size, actual.size)
-
-  for (i in expected.indices) {
-    assertEquals(expected[i].item, actual[i].item)
-    assertEquals(expected[i].version, actual[i].version)
-    assertEqualWithinMicrosecond(expected[i].createdAt, actual[i].createdAt)
-    assertEqualWithinMicrosecond(expected[i].modifiedAt, actual[i].modifiedAt)
-  }
-}
-
-private fun assertEqualWithinMicrosecond(expected: Instant, actual: Instant) {
-  assert(actual.isAfter(expected.minus(1, ChronoUnit.MICROS)))
-  assert(actual.isBefore(expected.plus(1, ChronoUnit.MICROS)))
 }

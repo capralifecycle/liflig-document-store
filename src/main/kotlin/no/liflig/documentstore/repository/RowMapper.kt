@@ -56,7 +56,7 @@ internal class EntityDataRowMapper<EntityT : Entity<*>>(
 /**
  * In [RepositoryJdbi.update], we receive an entity and its previous [Version], and want to return a
  * [Versioned] wrapper around that entity. We know the [Versioned.modifiedAt] field, since that is
- * set to `Instant.now()` when updating, but the [Versioned.createdAt] we need to get ourselves.
+ * set to the current time when updating, but the [Versioned.createdAt] we need to get ourselves.
  *
  * We do this by using the [RETURNING clause](https://www.postgresql.org/docs/16/dml-returning.html)
  * in the SQL query, to return data from our UPDATE statement. Since we only need the `created_at`
