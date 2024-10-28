@@ -33,6 +33,26 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   ): Versioned<EntityOrSubClassT>
 
   /**
+   * Utility overload of [update], allowing you to pass a [Versioned] instance instead of a separate
+   * version argument.
+   *
+   * Example usage:
+   * ```
+   * val entity = exampleRepo.get(exampleId) ?: return null
+   *
+   * exampleRepo.update(entity.map { it.copy(name = "New name") })
+   * ```
+   *
+   * @throws ConflictRepositoryException If `entity.version` does not match the version of the
+   *   entity in the database.
+   */
+  fun <EntityOrSubClassT : EntityT> update(
+      entity: Versioned<EntityOrSubClassT>
+  ): Versioned<EntityOrSubClassT> {
+    return update(entity.item, entity.version)
+  }
+
+  /**
    * Deletes the entity with the given ID, taking the previous [Version] of the entity for
    * optimistic locking: if we have retrieved an entity and then try to delete it, but someone else
    * modified the entity in the meantime, a [ConflictRepositoryException] will be thrown.
@@ -41,6 +61,17 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *   entity in the database.
    */
   fun delete(id: EntityIdT, previousVersion: Version)
+
+  /**
+   * Utility overload of [delete], allowing you to pass a [Versioned] instance instead of a separate
+   * version argument.
+   *
+   * @throws ConflictRepositoryException If `entity.version` does not match the version of the
+   *   entity in the database.
+   */
+  fun delete(entity: Versioned<EntityT>) {
+    return delete(entity.item.id, entity.version)
+  }
 
   /**
    * @param forUpdate Set this to true to lock the rows of the returned entities in the database
