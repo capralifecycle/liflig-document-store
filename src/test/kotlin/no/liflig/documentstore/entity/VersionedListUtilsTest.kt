@@ -45,10 +45,10 @@ class VersionedListUtilsTest {
   fun `test filterEntities`() {
     val entities = createTestEntities("test1", "test2")
 
-    val mappedEntities = entities.filterEntities { entity -> entity.text == "test2" }
+    val filteredEntities = entities.filterEntities { entity -> entity.text == "test2" }
 
-    assertEquals(1, mappedEntities.size)
-    assertEquals("test2", mappedEntities[0].item.text)
+    assertEquals(1, filteredEntities.size)
+    assertEquals("test2", filteredEntities[0].item.text)
   }
 
   @Test
@@ -101,11 +101,11 @@ class VersionedListUtilsTest {
   fun `test filterEntities for ListWithTotalCount`() {
     val entities = createTestEntitiesWithTotalCount("test1", "test2")
 
-    val mappedEntities = entities.filterEntities { entity -> entity.text == "test2" }
+    val filteredEntities = entities.filterEntities { entity -> entity.text == "test2" }
 
-    assertEquals(1, mappedEntities.list.size)
-    assertEquals(entities.totalCount, mappedEntities.totalCount)
-    assertEquals("test2", mappedEntities.list[0].item.text)
+    assertEquals(1, filteredEntities.list.size)
+    assertEquals(entities.totalCount, filteredEntities.totalCount)
+    assertEquals("test2", filteredEntities.list[0].item.text)
   }
 
   @Test

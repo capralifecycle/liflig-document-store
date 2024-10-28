@@ -20,9 +20,25 @@ data class Version(val value: Long) {
  * and [delete][no.liflig.documentstore.repository.Repository.delete]), when it was created and when
  * it was last modified.
  */
-data class Versioned<out EntityT : Entity<*>>(
+data class Versioned<EntityT : Entity<*>>(
     val item: EntityT,
     val version: Version,
     val createdAt: Instant,
     val modifiedAt: Instant,
-)
+) {
+  /**
+   * Applies the given transform function to the entity ([item]), leaving [version], [createdAt] and
+   * [modifiedAt] unchanged.
+   *
+   * Example usage:
+   * ```
+   * val entity = exampleRepo.get(exampleId) ?: return null
+   *
+   * exampleRepo.update(entity.map { it.copy(name = "New name") })
+   * ```
+   */
+  inline fun map(transform: (EntityT) -> EntityT): Versioned<EntityT> {
+    val mappedEntity = transform(item)
+    return copy(item = mappedEntity)
+  }
+}

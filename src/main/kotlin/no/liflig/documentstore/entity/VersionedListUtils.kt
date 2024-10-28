@@ -8,9 +8,9 @@ import no.liflig.documentstore.repository.ListWithTotalCount
  * Utility function for mapping a list of entities, but keeping the same version for each element.
  */
 inline fun <EntityT : Entity<*>> List<Versioned<EntityT>>.mapEntities(
-    mapper: (EntityT) -> EntityT
+    transform: (EntityT) -> EntityT
 ): List<Versioned<EntityT>> {
-  return map { entity -> entity.copy(item = mapper(entity.item)) }
+  return map { entity -> entity.copy(item = transform(entity.item)) }
 }
 
 /**
@@ -18,10 +18,10 @@ inline fun <EntityT : Entity<*>> List<Versioned<EntityT>>.mapEntities(
  * Discards entities that return null from the given mapper function.
  */
 inline fun <EntityT : Entity<*>> List<Versioned<EntityT>>.mapEntitiesNotNull(
-    mapper: (EntityT) -> EntityT?
+    transform: (EntityT) -> EntityT?
 ): List<Versioned<EntityT>> {
   return mapNotNull { entity ->
-    val mappedEntity = mapper(entity.item) ?: return@mapNotNull null
+    val mappedEntity = transform(entity.item) ?: return@mapNotNull null
     entity.copy(item = mappedEntity)
   }
 }
@@ -47,9 +47,9 @@ inline fun <EntityT : Entity<*>> List<Versioned<EntityT>>.forEachEntity(action: 
  * and the same total count.
  */
 inline fun <EntityT : Entity<*>> ListWithTotalCount<Versioned<EntityT>>.mapEntities(
-    mapper: (EntityT) -> EntityT
+    transform: (EntityT) -> EntityT
 ): ListWithTotalCount<Versioned<EntityT>> {
-  return this.copy(list = this.list.mapEntities(mapper))
+  return this.copy(list = this.list.mapEntities(transform))
 }
 
 /**
@@ -57,9 +57,9 @@ inline fun <EntityT : Entity<*>> ListWithTotalCount<Versioned<EntityT>>.mapEntit
  * and the same total count. Discards entities that return null from the given mapper function.
  */
 fun <EntityT : Entity<*>> ListWithTotalCount<Versioned<EntityT>>.mapEntitiesNotNull(
-    mapper: (EntityT) -> EntityT?
+    transform: (EntityT) -> EntityT?
 ): ListWithTotalCount<Versioned<EntityT>> {
-  return this.copy(list = this.list.mapEntitiesNotNull(mapper))
+  return this.copy(list = this.list.mapEntitiesNotNull(transform))
 }
 
 /**
