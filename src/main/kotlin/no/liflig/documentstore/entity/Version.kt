@@ -27,8 +27,8 @@ data class Versioned<EntityT : Entity<*>>(
     val modifiedAt: Instant,
 ) {
   /**
-   * Applies the given transform function to the entity ([item]), leaving [version], [createdAt] and
-   * [modifiedAt] unchanged.
+   * Applies the given transform function to the entity ([Versioned.item]), leaving [version],
+   * [createdAt] and [modifiedAt] unchanged.
    *
    * Example usage:
    * ```
@@ -38,7 +38,6 @@ data class Versioned<EntityT : Entity<*>>(
    * ```
    */
   inline fun map(transform: (EntityT) -> EntityT): Versioned<EntityT> {
-    val mappedEntity = transform(item)
-    return copy(item = mappedEntity)
+    return this.copy(item = transform(item))
   }
 }
