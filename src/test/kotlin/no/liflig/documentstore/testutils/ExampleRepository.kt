@@ -94,9 +94,11 @@ class ExampleRepository(
   }
 }
 
-class UniqueFieldAlreadyExists(entity: ExampleEntity, override val cause: Exception) :
-    RuntimeException() {
-  override val message = "Received entity with unique field that already exists: ${entity}"
+class UniqueFieldAlreadyExists(
+    val failingEntity: ExampleEntity,
+    override val cause: Exception,
+) : RuntimeException() {
+  override val message = "Received entity with unique field that already exists: ${failingEntity}"
 }
 
 class ExampleRepositoryWithStringEntityId(jdbi: Jdbi) :
