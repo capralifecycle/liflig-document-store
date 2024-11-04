@@ -10,7 +10,7 @@ import no.liflig.documentstore.testutils.ExampleIntegerId
 import no.liflig.documentstore.testutils.exampleRepoWithGeneratedIntegerId
 import org.junit.jupiter.api.Test
 
-class RepositoryWithGeneratedIdsTest {
+class GeneratedIdsTest {
   @Test
   fun `test create`() {
     val entities =
