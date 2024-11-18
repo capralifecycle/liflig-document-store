@@ -36,11 +36,11 @@ class MigrationTest {
     useHandle(jdbi) { handle -> handle.createUpdate("TRUNCATE ${MIGRATION_TABLE}").execute() }
   }
 
+  // For deterministic sorting
+  private val numberFormat = DecimalFormat("00000")
+
   @Test
   fun `test migration`() {
-    // For deterministic sorting
-    val numberFormat = DecimalFormat("00000")
-
     val existingEntities =
         (0 until 10_000)
             .asSequence()
@@ -114,6 +114,39 @@ class MigrationTest {
     }
   }
 
+  @Test
+  fun `migration with WHERE clause only migrates matching entities`() {
+    val entitiesToMigrate = (0 until 50).map { ExampleEntity(text = "SHOULD_MIGRATE") }
+    val entitiesNotToMigrate = (0 until 50).map { ExampleEntity(text = "SHOULD_NOT_MIGRATE") }
+    exampleRepoPreMigration.batchCreate(entitiesToMigrate + entitiesNotToMigrate)
+
+    @Suppress("ClassName") // Flyway expects this naming convention
+    class V001_3__Migration_with_WHERE_clause : BaseJavaMigration() {
+      override fun migrate(context: Context) {
+        migrateEntity(
+            context.connection,
+            tableName = MIGRATION_TABLE,
+            serializationAdapter = KotlinSerialization(ExampleEntity.serializer()),
+            transformEntity = { (entity, _) -> entity.copy(text = "MIGRATED") },
+            where = "data->>'text' = :text",
+            bindParameters = { bind("text", "SHOULD_MIGRATE") },
+        )
+      }
+    }
+
+    runMigration(V001_3__Migration_with_WHERE_clause())
+
+    // We use exampleRepoPreMigration, since we don't want to add fields in this case, just change
+    // existing ones
+    val migratedEntities = exampleRepoPreMigration.listByIds(entitiesToMigrate.map { it.id })
+    assertEquals(entitiesToMigrate.size, migratedEntities.size)
+    migratedEntities.forEach { entity -> assertEquals("MIGRATED", entity.item.text) }
+
+    val notMigratedEntities = exampleRepoPreMigration.listByIds(entitiesNotToMigrate.map { it.id })
+    assertEquals(entitiesNotToMigrate.size, notMigratedEntities.size)
+    notMigratedEntities.forEach { entity -> assertEquals("SHOULD_NOT_MIGRATE", entity.item.text) }
+  }
+
   // Disabled for automatic tests, since this is a heavy test that we don't want to run in CI
   @Disabled
   @Test
@@ -142,7 +175,7 @@ class MigrationTest {
     Thread.sleep(1000)
 
     @Suppress("ClassName") // Flyway expects this naming convention
-    class V001_3__Load_test_migration : BaseJavaMigration() {
+    class V001_4__Load_test_migration : BaseJavaMigration() {
       override fun migrate(context: Context) {
         migrateEntity(
             context.connection,
@@ -152,7 +185,7 @@ class MigrationTest {
       }
     }
 
-    runMigration(V001_3__Load_test_migration())
+    runMigration(V001_4__Load_test_migration())
   }
 
   private fun runMigration(migration: BaseJavaMigration) {
@@ -162,6 +195,8 @@ class MigrationTest {
         .dataSource(dataSource)
         .locations("migrations")
         .javaMigrations(migration)
+        // Ignore missing migrations, since we run different migrations in different tests
+        .ignoreMigrationPatterns("versioned:missing")
         .load()
         .migrate()
   }

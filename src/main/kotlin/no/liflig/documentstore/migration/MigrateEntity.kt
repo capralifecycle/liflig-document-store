@@ -5,10 +5,12 @@ import no.liflig.documentstore.DocumentStorePlugin
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.EntityRowMapper
+import no.liflig.documentstore.repository.RepositoryJdbi
 import no.liflig.documentstore.repository.SerializationAdapter
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import no.liflig.documentstore.utils.executeBatchOperation
 import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.statement.Query
 
 /**
  * When using a document store, the application must take care to stay backwards-compatible with
@@ -17,12 +19,15 @@ import org.jdbi.v3.core.Jdbi
  *
  * Sometimes we may add a field with a default value, but also want to add the field to the actual
  * stored entities. For example, we may want to query on the field with
- * [getByPredicate][no.liflig.documentstore.repository.RepositoryJdbi.getByPredicate] without having
- * to handle the field not being present. This function exists for those cases, when you want to
- * migrate the stored entities of a table. It works by reading out all entities from the table, and
- * then writing them back. In the process of this deserialization and re-serialization, default
- * values will be populated. You can perform further transformations with the [transformEntity]
- * parameter.
+ * [RepositoryJdbi.getByPredicate] without having to handle the field not being present. This
+ * function exists for those cases, when you want to migrate the stored entities of a table. It
+ * works by reading out all entities from the table, and then writing them back. In the process of
+ * this deserialization and re-serialization, default values will be populated. You can perform
+ * further transformations with the [transformEntity] parameter.
+ *
+ * If you want to migrate only some entities in the table, pass a WHERE clause in the optional
+ * [where] parameter, either with static parameters in the clause or with bound parameters in
+ * [bindParameters]. This works like [RepositoryJdbi.getByPredicate].
  *
  * ## Usage with Flyway
  *
@@ -76,6 +81,8 @@ fun <EntityT : Entity<*>> migrateEntity(
     tableName: String,
     serializationAdapter: SerializationAdapter<EntityT>,
     transformEntity: ((Versioned<EntityT>) -> EntityT)? = null,
+    where: String? = null,
+    bindParameters: Query.() -> Query = { this },
 ) {
   /**
    * When using Java-based migrations with Flyway, we receive a Context with a plain
@@ -97,12 +104,13 @@ fun <EntityT : Entity<*>> migrateEntity(
         handle
             .createQuery(
                 """
-                    SELECT id, data, version, created_at, modified_at
-                    FROM "${tableName}"
-                    FOR UPDATE
-                  """
+                  SELECT id, data, version, created_at, modified_at
+                  FROM "${tableName}"${if (where != null) " WHERE (${where})" else ""}
+                  FOR UPDATE
+                """
                     .trimIndent(),
             )
+            .bindParameters()
             // If we don't specify fetch size, the JDBC driver for Postgres fetches all results
             // by default:
             // https://jdbc.postgresql.org/documentation/query/#getting-results-based-on-a-cursor
