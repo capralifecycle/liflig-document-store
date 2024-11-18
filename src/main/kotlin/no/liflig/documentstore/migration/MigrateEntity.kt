@@ -23,7 +23,7 @@ import org.jdbi.v3.core.statement.Query
  * function exists for those cases, when you want to migrate the stored entities of a table. It
  * works by reading out all entities from the table, and then writing them back. In the process of
  * this deserialization and re-serialization, default values will be populated. You can perform
- * further transformations with the [transformEntity] parameter.
+ * further transformations with the [transform] parameter.
  *
  * If you want to migrate only some entities in the table, pass a WHERE clause in the optional
  * [where] parameter, either with static parameters in the clause or with bound parameters in
@@ -80,7 +80,7 @@ fun <EntityT : Entity<*>> migrateEntity(
     dbConnection: Connection,
     tableName: String,
     serializationAdapter: SerializationAdapter<EntityT>,
-    transformEntity: ((Versioned<EntityT>) -> EntityT)? = null,
+    transform: ((Versioned<EntityT>) -> EntityT)? = null,
     where: String? = null,
     bindParameters: Query.() -> Query = { this },
 ) {
@@ -142,7 +142,7 @@ fun <EntityT : Entity<*>> migrateEntity(
                 .trimIndent(),
         bindParameters = { batch, entity ->
           val nextVersion = entity.version.next()
-          val updatedEntity = if (transformEntity == null) entity.item else transformEntity(entity)
+          val updatedEntity = if (transform == null) entity.item else transform(entity)
 
           batch
               .bind("data", serializationAdapter.toJson(updatedEntity))

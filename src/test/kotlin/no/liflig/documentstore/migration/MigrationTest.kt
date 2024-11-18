@@ -55,7 +55,7 @@ class MigrationTest {
             context.connection,
             tableName = MIGRATION_TABLE,
             serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
-            transformEntity = { (entity, _) ->
+            transform = { (entity, _) ->
               entity.copy(newFieldAfterMigration = "new-field-${entity.text}")
             },
         )
@@ -94,7 +94,7 @@ class MigrationTest {
             context.connection,
             tableName = MIGRATION_TABLE,
             serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
-            transformEntity = { (entity, _) ->
+            transform = { (entity, _) ->
               // Throw halfway through transaction
               if (entity.optionalText == "5") {
                 throw Exception("Rolling back transaction")
@@ -127,7 +127,7 @@ class MigrationTest {
             context.connection,
             tableName = MIGRATION_TABLE,
             serializationAdapter = KotlinSerialization(ExampleEntity.serializer()),
-            transformEntity = { (entity, _) -> entity.copy(text = "MIGRATED") },
+            transform = { (entity, _) -> entity.copy(text = "MIGRATED") },
             where = "data->>'text' = :text",
             bindParameters = { bind("text", "SHOULD_MIGRATE") },
         )
