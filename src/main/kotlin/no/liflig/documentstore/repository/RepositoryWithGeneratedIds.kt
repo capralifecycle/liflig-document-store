@@ -68,11 +68,10 @@ open class RepositoryWithGeneratedIds<EntityIdT : EntityId, EntityT : Entity<Ent
       val createdAt = currentTimeWithMicrosecondPrecision()
       val version = Version.initial()
 
-      val entityWithGeneratedId =
-          useHandle(jdbi) { handle ->
-            handle
-                .createQuery(
-                    """
+      val entityWithGeneratedId = useHandle { handle ->
+        handle
+            .createQuery(
+                """
                       WITH generated_id AS (
                         SELECT nextval(pg_get_serial_sequence('${tableName}', 'id')) AS value
                       )
@@ -86,18 +85,18 @@ open class RepositoryWithGeneratedIds<EntityIdT : EntityId, EntityT : Entity<Ent
                       FROM generated_id
                       RETURNING data
                     """
-                        .trimIndent(),
-                )
-                .bind("data", serializationAdapter.toJson(entity))
-                .bind("version", version)
-                .bind("createdAt", createdAt)
-                .bind("modifiedAt", createdAt)
-                .map(entityDataMapper)
-                .firstOrNull()
-                ?: throw IllegalStateException(
-                    "INSERT query for entity with generated ID did not return entity data",
-                )
-          }
+                    .trimIndent(),
+            )
+            .bind("data", serializationAdapter.toJson(entity))
+            .bind("version", version)
+            .bind("createdAt", createdAt)
+            .bind("modifiedAt", createdAt)
+            .map(entityDataMapper)
+            .firstOrNull()
+            ?: throw IllegalStateException(
+                "INSERT query for entity with generated ID did not return entity data",
+            )
+      }
 
       return Versioned(entityWithGeneratedId, version, createdAt, modifiedAt = createdAt)
     } catch (e: Exception) {
@@ -129,7 +128,7 @@ open class RepositoryWithGeneratedIds<EntityIdT : EntityId, EntityT : Entity<Ent
         if (size != null) ArrayList(size) else ArrayList()
 
     transactional {
-      useHandle(jdbi) { handle ->
+      useHandle { handle ->
         executeBatchOperation(
             handle,
             entities,

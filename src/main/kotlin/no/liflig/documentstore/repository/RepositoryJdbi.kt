@@ -17,6 +17,7 @@ import no.liflig.documentstore.utils.BatchOperationException
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import no.liflig.documentstore.utils.executeBatchOperation
 import no.liflig.documentstore.utils.isEmpty
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.Query
@@ -63,7 +64,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       val createdAt = currentTimeWithMicrosecondPrecision()
       val version = Version.initial()
 
-      useHandle(jdbi) { handle ->
+      useHandle { handle ->
         handle
             .createUpdate(
                 """
@@ -89,7 +90,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   }
 
   override fun get(id: EntityIdT, forUpdate: Boolean): Versioned<EntityT>? {
-    useHandle(jdbi) { handle ->
+    useHandle { handle ->
       return handle
           .createQuery(
               """
@@ -112,7 +113,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       previousVersion: Version
   ): Versioned<EntityOrSubClassT> {
     try {
-      useHandle(jdbi) { handle ->
+      useHandle { handle ->
         val nextVersion = previousVersion.next()
         val modifiedAt = currentTimeWithMicrosecondPrecision()
         val updateResult =
@@ -157,7 +158,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   }
 
   override fun delete(id: EntityIdT, previousVersion: Version) {
-    useHandle(jdbi) { handle ->
+    useHandle { handle ->
       val deleted =
           handle
               .createUpdate(
@@ -209,7 +210,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
 
     try {
       transactional {
-        useHandle(jdbi) { handle ->
+        useHandle { handle ->
           executeBatchOperation(
               handle,
               entities,
@@ -252,7 +253,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
 
     try {
       transactional {
-        useHandle(jdbi) { handle ->
+        useHandle { handle ->
           executeBatchOperation(
               handle,
               entities,
@@ -303,7 +304,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     }
 
     transactional {
-      useHandle(jdbi) { handle ->
+      useHandle { handle ->
         executeBatchOperation(
             handle,
             entities,
@@ -381,7 +382,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       forUpdate: Boolean = false,
       bind: Query.() -> Query = { this }
   ): List<Versioned<EntityT>> {
-    useHandle(jdbi) { handle ->
+    useHandle { handle ->
       val orderByString: String =
           when {
             orderBy == null -> Columns.CREATED_AT
@@ -433,7 +434,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       handleJsonNullsInOrderBy: Boolean = false,
       bind: Query.() -> Query = { this }
   ): ListWithTotalCount<Versioned<EntityT>> {
-    useHandle(jdbi) { handle ->
+    useHandle { handle ->
       val orderByString: String =
           when {
             orderBy == null -> Columns.CREATED_AT
@@ -490,6 +491,18 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
 
   override fun <ReturnT> transactional(block: () -> ReturnT): ReturnT {
     return transactional(jdbi, block)
+  }
+
+  /**
+   * Gets a database handle either from an ongoing transaction (from [transactional]), or if none is
+   * found, gets a new handle with [Jdbi.open] (automatically closed after the given [block]
+   * returns), using the JDBI instance on this repository.
+   *
+   * You should use this function whenever you want to write custom SQL using Liflig Document Store,
+   * so that your implementation plays well with transactions.
+   */
+  protected inline fun <ReturnT> useHandle(block: (Handle) -> ReturnT): ReturnT {
+    return useHandle(jdbi, block)
   }
 
   /**
