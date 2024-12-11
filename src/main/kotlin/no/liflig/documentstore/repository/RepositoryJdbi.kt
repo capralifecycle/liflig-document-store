@@ -454,7 +454,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    *   works when done inside a transaction (see [transactional]).
    */
   @ExperimentalDocumentStoreApi
-  protected inline fun <ReturnT> streamByPredicate(
+  protected fun <ReturnT> streamByPredicate(
       sqlWhere: String = "TRUE",
       limit: Int? = null,
       offset: Int? = null,
@@ -463,25 +463,28 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       nullsFirst: Boolean = orderDesc,
       handleJsonNullsInOrderBy: Boolean = false,
       forUpdate: Boolean = false,
-      noinline bind: Query.() -> Query = { this },
+      bind: Query.() -> Query = { this },
       useStream: (Stream<Versioned<EntityT>>) -> ReturnT,
   ): ReturnT {
-    useHandle { handle ->
-      val results =
-          internalGetByPredicate(
-              handle = handle,
-              sqlWhere = sqlWhere,
-              limit = limit,
-              offset = offset,
-              orderBy = orderBy,
-              orderDesc = orderDesc,
-              nullsFirst = nullsFirst,
-              handleJsonNullsInOrderBy = handleJsonNullsInOrderBy,
-              forUpdate = forUpdate,
-              bind = bind,
-              fetchSize = 50,
-          )
-      return results.stream().use(useStream)
+    // Must wrap the query in a transaction for streaming to work
+    return transactional {
+      useHandle { handle ->
+        val results =
+            internalGetByPredicate(
+                handle = handle,
+                sqlWhere = sqlWhere,
+                limit = limit,
+                offset = offset,
+                orderBy = orderBy,
+                orderDesc = orderDesc,
+                nullsFirst = nullsFirst,
+                handleJsonNullsInOrderBy = handleJsonNullsInOrderBy,
+                forUpdate = forUpdate,
+                bind = bind,
+                fetchSize = 50,
+            )
+        results.stream().use(useStream)
+      }
     }
   }
 
@@ -508,6 +511,11 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       handleJsonNullsInOrderBy: Boolean = false,
       forUpdate: Boolean = false,
       bind: Query.() -> Query = { this },
+      /**
+       * Set this to enable streaming from the database in chunks of the given size. This only works
+       * when used inside a transaction (so if you set this, wrap the call to this method in
+       * [transactional]).
+       */
       fetchSize: Int? = null,
   ): ResultIterable<Versioned<EntityT>> {
     val orderByString: String =
