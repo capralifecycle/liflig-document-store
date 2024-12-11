@@ -11,6 +11,7 @@ import no.liflig.documentstore.entity.Versioned
 import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.StatementContext
 
+@PublishedApi // For use in inline functions
 internal object Columns {
   const val DATA = "data"
   const val VERSION = "version"

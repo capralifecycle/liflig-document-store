@@ -7,7 +7,9 @@
 
 package no.liflig.documentstore.repository
 
+import java.util.stream.Stream
 import no.liflig.documentstore.DocumentStorePlugin
+import no.liflig.documentstore.ExperimentalDocumentStoreApi
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.Version
@@ -20,6 +22,7 @@ import no.liflig.documentstore.utils.isEmpty
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.mapper.RowMapper
+import org.jdbi.v3.core.result.ResultIterable
 import org.jdbi.v3.core.statement.Query
 
 /**
@@ -198,6 +201,11 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
 
   override fun listAll(): List<Versioned<EntityT>> {
     return getByPredicate() // Defaults to all
+  }
+
+  @ExperimentalDocumentStoreApi
+  fun <ReturnT> streamAll(useStream: (Stream<Versioned<EntityT>>) -> ReturnT): ReturnT {
+    return streamByPredicate(useStream = useStream)
   }
 
   override fun batchCreate(entities: Iterable<EntityT>): List<Versioned<EntityT>> {
@@ -383,22 +391,141 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       bind: Query.() -> Query = { this }
   ): List<Versioned<EntityT>> {
     useHandle { handle ->
-      val orderByString: String =
-          when {
-            orderBy == null -> Columns.CREATED_AT
-            handleJsonNullsInOrderBy -> "NULLIF(${orderBy}, 'null')"
-            else -> orderBy
-          }
-      val orderDirection = if (orderDesc) "DESC" else "ASC"
-      val orderNulls = if (nullsFirst) "NULLS FIRST" else "NULLS LAST"
+      val results =
+          internalGetByPredicate(
+              handle = handle,
+              sqlWhere = sqlWhere,
+              limit = limit,
+              offset = offset,
+              orderBy = orderBy,
+              orderDesc = orderDesc,
+              nullsFirst = nullsFirst,
+              handleJsonNullsInOrderBy = handleJsonNullsInOrderBy,
+              forUpdate = forUpdate,
+              bind = bind,
+              fetchSize = 50,
+          )
+      return results.list()
+    }
+  }
 
-      val limitString = if (limit != null) "LIMIT ${limit}" else ""
-      val offsetString = if (offset != null) "OFFSET ${offset}" else ""
-      val forUpdateString = if (forUpdate) " FOR UPDATE" else ""
+  /**
+   * Runs a SELECT query using the given WHERE clause, limit, offset etc.
+   *
+   * When using parameters in [sqlWhere], you must remember to bind them through the [bind] function
+   * argument (do not concatenate user input directly in [sqlWhere], as that exposes you to SQL
+   * injections). When using a list parameter, use the [Query.bindArray] method and pass the class
+   * of the list's elements as the second argument (required for JDBI's reflection to work - see
+   * example below).
+   *
+   * [sqlWhere] will typically use Postgres JSON operators to filter on entity fields, since the
+   * document store uses `jsonb` to store entities (see
+   * [Postgres docs](https://www.postgresql.org/docs/16/functions-json.html)).
+   *
+   * Example implementing a query where we want to look up users from a list of names:
+   * ```
+   * fun getByNames(names: List<String>): List<Versioned<User>> {
+   *   return getByPredicate("data->>'name' = ANY(:names)") {
+   *     bindArray("names", String::class.java, names)
+   *   }
+   * }
+   * ```
+   *
+   * @param nullsFirst Controls whether to use
+   *   [`NULLS FIRST` or `NULLS LAST`](https://www.postgresql.org/docs/17/queries-order.html) in the
+   *   `ORDER BY` clause. The default behavior in Postgres is `NULLS FIRST` when the order direction
+   *   is `DESC`, and `NULLS LAST` otherwise, so we keep that behavior here.
+   *
+   *   If you use this together with a nullable JSONB field in `orderBy`, you may also want to use
+   *   [handleJsonNullsInOrderBy].
+   *
+   * @param handleJsonNullsInOrderBy One quirk with JSONB in Postgres is that a `null` JSON value is
+   *   not the same as a `NULL` in SQL. This matters when sorting on a JSON field in [orderBy],
+   *   since that sorts SQL `NULL`s first/last (depending on [nullsFirst]), but not JSON `null`s.
+   *   This parameter makes `ORDER BY` treat JSON `null`s as SQL `NULL`s, so it works as expected
+   *   with e.g. [nullsFirst]. It is ignored if [orderBy] is `null`.
+   *
+   *   If you use this, you should use `->` rather than `->>` as the JSON field selector in
+   *   [orderBy]. This is because `->>` converts the JSON field into a string, which means that the
+   *   string `"null"` will be treated as `null`.
+   *
+   * @param forUpdate Set this to true to lock the rows of the returned entities in the database
+   *   until a subsequent call to [update]/[delete], preventing concurrent modification. This only
+   *   works when done inside a transaction (see [transactional]).
+   */
+  @ExperimentalDocumentStoreApi
+  protected inline fun <ReturnT> streamByPredicate(
+      sqlWhere: String = "TRUE",
+      limit: Int? = null,
+      offset: Int? = null,
+      orderBy: String? = null,
+      orderDesc: Boolean = false,
+      nullsFirst: Boolean = orderDesc,
+      handleJsonNullsInOrderBy: Boolean = false,
+      forUpdate: Boolean = false,
+      noinline bind: Query.() -> Query = { this },
+      useStream: (Stream<Versioned<EntityT>>) -> ReturnT,
+  ): ReturnT {
+    useHandle { handle ->
+      val results =
+          internalGetByPredicate(
+              handle = handle,
+              sqlWhere = sqlWhere,
+              limit = limit,
+              offset = offset,
+              orderBy = orderBy,
+              orderDesc = orderDesc,
+              nullsFirst = nullsFirst,
+              handleJsonNullsInOrderBy = handleJsonNullsInOrderBy,
+              forUpdate = forUpdate,
+              bind = bind,
+              fetchSize = 50,
+          )
+      return results.stream().use(useStream)
+    }
+  }
 
-      return handle
-          .createQuery(
-              """
+  /**
+   * Shared implementation for [getByPredicate] and [streamByPredicate].
+   *
+   * We want to keep this internal, since the returned [ResultIterable] _must_ be closed in order to
+   * not leak database resources. We don't want to expose our users to this pitfall, so we instead
+   * expose [getByPredicate]/[streamByPredicate] that ensure that database resources are properly
+   * closed. In [getByPredicate], this is done by calling [ResultIterable.list], which iterates over
+   * all results and closes the iterable at the end. In [streamByPredicate], we take a lambda
+   * argument to use the stream instead of returning the stream itself, to ensure that the stream is
+   * only used inside a [use] block which closes the stream at the end of the block.
+   */
+  @PublishedApi
+  internal fun internalGetByPredicate(
+      handle: Handle,
+      sqlWhere: String = "TRUE",
+      limit: Int? = null,
+      offset: Int? = null,
+      orderBy: String? = null,
+      orderDesc: Boolean = false,
+      nullsFirst: Boolean = orderDesc,
+      handleJsonNullsInOrderBy: Boolean = false,
+      forUpdate: Boolean = false,
+      bind: Query.() -> Query = { this },
+      fetchSize: Int? = null,
+  ): ResultIterable<Versioned<EntityT>> {
+    val orderByString: String =
+        when {
+          orderBy == null -> Columns.CREATED_AT
+          handleJsonNullsInOrderBy -> "NULLIF(${orderBy}, 'null')"
+          else -> orderBy
+        }
+    val orderDirection = if (orderDesc) "DESC" else "ASC"
+    val orderNulls = if (nullsFirst) "NULLS FIRST" else "NULLS LAST"
+
+    val limitString = if (limit != null) "LIMIT ${limit}" else ""
+    val offsetString = if (offset != null) "OFFSET ${offset}" else ""
+    val forUpdateString = if (forUpdate) " FOR UPDATE" else ""
+
+    return handle
+        .createQuery(
+            """
                 SELECT id, data, version, created_at, modified_at
                 FROM "${tableName}"
                 WHERE (${sqlWhere})
@@ -407,12 +534,17 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                 ${offsetString}
                 ${forUpdateString}
               """
-                  .trimIndent(),
-          )
-          .bind()
-          .map(rowMapper)
-          .list()
-    }
+                .trimIndent(),
+        )
+        .bind()
+        .let { query ->
+          if (fetchSize != null) {
+            query.setFetchSize(fetchSize)
+          } else {
+            query
+          }
+        }
+        .map(rowMapper)
   }
 
   /**
