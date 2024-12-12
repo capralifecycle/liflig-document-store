@@ -2,7 +2,12 @@
 
 package no.liflig.documentstore.testutils
 
+import java.util.stream.Stream
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
+import no.liflig.documentstore.ExperimentalDocumentStoreApi
+import no.liflig.documentstore.entity.Entity
+import no.liflig.documentstore.entity.StringEntityId
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.ListWithTotalCount
 import no.liflig.documentstore.repository.RepositoryJdbi
@@ -155,3 +160,28 @@ class ExampleRepositoryForMigration(jdbi: Jdbi) :
     }
   }
 }
+
+class EventRepo(jdbi: Jdbi) :
+    RepositoryJdbi<EventId, Event>(
+        jdbi,
+        tableName = "",
+        serializationAdapter = KotlinSerialization(Event.serializer()),
+    ) {
+  @OptIn(ExperimentalDocumentStoreApi::class)
+  fun streamByEventType(
+      type: EventType,
+      // Place this as the final argument, so users can use trailing lambda syntax, like:
+      // eventRepo.streamByEventType(EventType.STATUS_UPDATE) { stream -> ... }
+      useStream: (Stream<Versioned<Event>>) -> Unit,
+  ) {
+    streamByPredicate(useStream, "data->>'type' = :type") { bind("type", type.name) }
+  }
+}
+
+enum class EventType {
+  STATUS_UPDATE,
+}
+
+@Serializable data class Event(override val id: EventId, val type: EventType) : Entity<EventId>
+
+@Serializable @JvmInline value class EventId(override val value: String) : StringEntityId

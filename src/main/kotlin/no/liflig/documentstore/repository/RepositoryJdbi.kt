@@ -204,8 +204,8 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   }
 
   @ExperimentalDocumentStoreApi
-  fun <ReturnT> streamAll(useStream: (Stream<Versioned<EntityT>>) -> ReturnT): ReturnT {
-    return streamByPredicate(useStream = useStream)
+  override fun <ReturnT> streamAll(useStream: (Stream<Versioned<EntityT>>) -> ReturnT): ReturnT {
+    return streamByPredicate(useStream) // Defaults to all
   }
 
   override fun batchCreate(entities: Iterable<EntityT>): List<Versioned<EntityT>> {
@@ -410,7 +410,11 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   }
 
   /**
-   * Runs a SELECT query using the given WHERE clause, limit, offset etc.
+   * Runs a SELECT query using the given WHERE clause, limit, offset etc., and gives you a stream of
+   * results through the given [useStream] argument. The stream must only be used inside the scope
+   * of [useStream] - after it returns, the result stream is closed and associated database
+   * resources are released (this is done in an exception-safe way, so database resources are never
+   * wasted).
    *
    * When using parameters in [sqlWhere], you must remember to bind them through the [bind] function
    * argument (do not concatenate user input directly in [sqlWhere], as that exposes you to SQL
@@ -422,11 +426,19 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * document store uses `jsonb` to store entities (see
    * [Postgres docs](https://www.postgresql.org/docs/16/functions-json.html)).
    *
-   * Example implementing a query where we want to look up users from a list of names:
+   * Example implementing a query where we want to stream events of a given type:
    * ```
-   * fun getByNames(names: List<String>): List<Versioned<User>> {
-   *   return getByPredicate("data->>'name' = ANY(:names)") {
-   *     bindArray("names", String::class.java, names)
+   * fun streamByEventType(
+   *     type: EventType,
+   *     // We must take a `useStream` lambda here instead of returning the stream, since the stream
+   *     // can only be used in the scope of the lambda passed to `streamByPredicate`.
+   *     //
+   *     // Place this as the final argument, so users can use trailing lambda syntax, like:
+   *     // eventRepo.streamByEventType(EventType.STATUS_UPDATE) { stream -> ... }
+   *     useStream: (Stream<Versioned<Event>>) -> Unit,
+   * ) {
+   *   streamByPredicate(useStream, "data->>'type' = :type") {
+   *     bind("type", type.name)
    *   }
    * }
    * ```
@@ -452,9 +464,11 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * @param forUpdate Set this to true to lock the rows of the returned entities in the database
    *   until a subsequent call to [update]/[delete], preventing concurrent modification. This only
    *   works when done inside a transaction (see [transactional]).
+   * @return The same as [useStream] (a generic return type based on the passed lambda).
    */
   @ExperimentalDocumentStoreApi
   protected fun <ReturnT> streamByPredicate(
+      useStream: (Stream<Versioned<EntityT>>) -> ReturnT,
       sqlWhere: String = "TRUE",
       limit: Int? = null,
       offset: Int? = null,
@@ -464,9 +478,8 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       handleJsonNullsInOrderBy: Boolean = false,
       forUpdate: Boolean = false,
       bind: Query.() -> Query = { this },
-      useStream: (Stream<Versioned<EntityT>>) -> ReturnT,
   ): ReturnT {
-    // Must wrap the query in a transaction for streaming to work
+    // Must wrap the query in a transaction for fetchSize to work
     return transactional {
       useHandle { handle ->
         val results =
@@ -534,14 +547,14 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     return handle
         .createQuery(
             """
-                SELECT id, data, version, created_at, modified_at
-                FROM "${tableName}"
-                WHERE (${sqlWhere})
-                ORDER BY ${orderByString} ${orderDirection} ${orderNulls}
-                ${limitString}
-                ${offsetString}
-                ${forUpdateString}
-              """
+              SELECT id, data, version, created_at, modified_at
+              FROM "${tableName}"
+              WHERE (${sqlWhere})
+              ORDER BY ${orderByString} ${orderDirection} ${orderNulls}
+              ${limitString}
+              ${offsetString}
+              ${forUpdateString}
+            """
                 .trimIndent(),
         )
         .bind()

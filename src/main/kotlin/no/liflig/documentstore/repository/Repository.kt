@@ -1,5 +1,7 @@
 package no.liflig.documentstore.repository
 
+import java.util.stream.Stream
+import no.liflig.documentstore.ExperimentalDocumentStoreApi
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.Version
@@ -85,6 +87,21 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   }
 
   fun listAll(): List<Versioned<EntityT>>
+
+  /**
+   * Gives you a stream of all entities in the table, through the given [useStream] argument. The
+   * stream must only be used inside the scope of [useStream] - after it returns, the result stream
+   * is closed and associated database resources are released (this is done in an exception-safe
+   * way, so database resources are never wasted).
+   *
+   * @return The same as [useStream] (a generic return type based on the passed lambda).
+   */
+  @ExperimentalDocumentStoreApi
+  fun <ReturnT> streamAll(useStream: (Stream<Versioned<EntityT>>) -> ReturnT): ReturnT {
+    // A default implementation is provided here on the interface, so that implementers don't have
+    // to implement this themselves (for e.g. mock repositories).
+    return useStream(listAll().stream())
+  }
 
   /**
    * Stores the given list of entities in the database.
