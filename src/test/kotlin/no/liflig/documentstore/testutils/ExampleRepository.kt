@@ -2,17 +2,11 @@
 
 package no.liflig.documentstore.testutils
 
-import java.util.stream.Stream
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
-import no.liflig.documentstore.ExperimentalDocumentStoreApi
-import no.liflig.documentstore.entity.Entity
-import no.liflig.documentstore.entity.StringEntityId
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.ListWithTotalCount
 import no.liflig.documentstore.repository.RepositoryJdbi
 import no.liflig.documentstore.repository.RepositoryWithGeneratedIds
-import no.liflig.documentstore.repository.useHandle
 import org.jdbi.v3.core.Jdbi
 
 enum class OrderBy {
@@ -132,56 +126,4 @@ class ExampleRepositoryForMigration(jdbi: Jdbi) :
         jdbi,
         tableName = MIGRATION_TABLE,
         serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
-    ) {
-  /**
-   * We test migration with 10 000 entities. To avoid allocating a list of that size, we instead
-   * operate on Iterables to make the tests go faster.
-   *
-   * We take a lambda to consume the entities here instead of returning the Iterable, since we need
-   * to close the database handle after using the entities.
-   */
-  fun streamAll(consumer: (Iterable<Versioned<MigratedExampleEntity>>) -> Unit) {
-    useHandle(jdbi) { handle ->
-      val entities =
-          handle
-              .createQuery(
-                  """
-                    SELECT id, data, version, created_at, modified_at
-                    FROM "${tableName}"
-                    ORDER BY data->>'text'
-                  """,
-              )
-              // To avoid reading all into memory at once, which the JDBC Postgres driver does by
-              // default
-              .setFetchSize(100)
-              .map(rowMapper)
-
-      consumer(entities)
-    }
-  }
-}
-
-class EventRepo(jdbi: Jdbi) :
-    RepositoryJdbi<EventId, Event>(
-        jdbi,
-        tableName = "",
-        serializationAdapter = KotlinSerialization(Event.serializer()),
-    ) {
-  @OptIn(ExperimentalDocumentStoreApi::class)
-  fun streamByEventType(
-      type: EventType,
-      // Place this as the final argument, so users can use trailing lambda syntax, like:
-      // eventRepo.streamByEventType(EventType.STATUS_UPDATE) { stream -> ... }
-      useStream: (Stream<Versioned<Event>>) -> Unit,
-  ) {
-    streamByPredicate(useStream, "data->>'type' = :type") { bind("type", type.name) }
-  }
-}
-
-enum class EventType {
-  STATUS_UPDATE,
-}
-
-@Serializable data class Event(override val id: EventId, val type: EventType) : Entity<EventId>
-
-@Serializable @JvmInline value class EventId(override val value: String) : StringEntityId
+    )

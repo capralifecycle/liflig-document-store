@@ -8,6 +8,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
+import no.liflig.documentstore.ExperimentalDocumentStoreApi
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.repository.RepositoryJdbi
 import no.liflig.documentstore.repository.useHandle
@@ -39,6 +40,7 @@ class MigrationTest {
   // For deterministic sorting
   private val numberFormat = DecimalFormat("00000")
 
+  @OptIn(ExperimentalDocumentStoreApi::class)
   @Test
   fun `test migration`() {
     val existingEntities =
@@ -66,9 +68,9 @@ class MigrationTest {
 
     var count = 0
     exampleRepoPostMigration.streamAll { entities ->
-      for ((index, entity) in entities.withIndex()) {
+      for (entity in entities) {
         assertEquals(
-            "new-field-${numberFormat.format(index)}",
+            "new-field-${numberFormat.format(count)}",
             entity.item.newFieldAfterMigration,
         )
         count++
