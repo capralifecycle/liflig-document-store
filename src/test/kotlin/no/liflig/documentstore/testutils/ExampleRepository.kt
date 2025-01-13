@@ -2,6 +2,7 @@
 
 package no.liflig.documentstore.testutils
 
+import java.util.stream.Stream
 import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.ListWithTotalCount
@@ -66,7 +67,7 @@ class ExampleRepository(
       nullsFirst: Boolean = false,
   ): ListWithTotalCount<Versioned<ExampleEntity>> {
     return getByPredicateWithTotalCount(
-        "(:textQuery IS NULL OR (data ->>'text' ILIKE '%' || :textQuery || '%'))",
+        "(:textQuery IS NULL OR (data->>'text' ILIKE '%' || :textQuery || '%'))",
         limit = limit,
         offset = offset,
         orderBy =
@@ -81,6 +82,10 @@ class ExampleRepository(
     ) {
       bind("textQuery", text)
     }
+  }
+
+  fun streamingSearch(text: String, useStream: (Stream<Versioned<ExampleEntity>>) -> Unit) {
+    return streamByPredicate(useStream, "data->>'text' = :text") { bind("text", text) }
   }
 
   override fun mapCreateOrUpdateException(e: Exception, entity: ExampleEntity): Exception {

@@ -69,3 +69,13 @@ CREATE TABLE "example_for_migration"
   data        jsonb       NOT NULL
 );
 CREATE INDEX example_for_migration_text_index ON "example_for_migration" ((data ->> 'text'));
+
+CREATE TABLE "example_for_streaming"
+(
+  id          uuid        NOT NULL PRIMARY KEY,
+  created_at  timestamptz NOT NULL,
+  modified_at timestamptz NOT NULL,
+  version     bigint      NOT NULL,
+  data        jsonb       NOT NULL
+);
+CREATE INDEX example_for_streaming_text_index ON "example_for_streaming" ((data ->> 'text'));

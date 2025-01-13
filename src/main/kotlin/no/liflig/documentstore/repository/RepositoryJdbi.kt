@@ -9,7 +9,6 @@ package no.liflig.documentstore.repository
 
 import java.util.stream.Stream
 import no.liflig.documentstore.DocumentStorePlugin
-import no.liflig.documentstore.ExperimentalDocumentStoreApi
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.Version
@@ -203,7 +202,6 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     return getByPredicate() // Defaults to all
   }
 
-  @ExperimentalDocumentStoreApi
   override fun <ReturnT> streamAll(useStream: (Stream<Versioned<EntityT>>) -> ReturnT): ReturnT {
     return streamByPredicate(useStream) // Defaults to all
   }
@@ -392,7 +390,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   ): List<Versioned<EntityT>> {
     useHandle { handle ->
       val results =
-          internalGetByPredicate(
+          getByPredicateInternal(
               handle = handle,
               sqlWhere = sqlWhere,
               limit = limit,
@@ -466,7 +464,6 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    *   works when done inside a transaction (see [transactional]).
    * @return The same as [useStream] (a generic return type based on the passed lambda).
    */
-  @ExperimentalDocumentStoreApi
   protected fun <ReturnT> streamByPredicate(
       useStream: (Stream<Versioned<EntityT>>) -> ReturnT,
       sqlWhere: String = "TRUE",
@@ -483,7 +480,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     return transactional {
       useHandle { handle ->
         val results =
-            internalGetByPredicate(
+            getByPredicateInternal(
                 handle = handle,
                 sqlWhere = sqlWhere,
                 limit = limit,
@@ -513,7 +510,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * only used inside a [use] block which closes the stream at the end of the block.
    */
   @PublishedApi
-  internal fun internalGetByPredicate(
+  internal fun getByPredicateInternal(
       handle: Handle,
       sqlWhere: String = "TRUE",
       limit: Int? = null,

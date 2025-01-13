@@ -1,7 +1,6 @@
 package no.liflig.documentstore.repository
 
 import java.util.stream.Stream
-import no.liflig.documentstore.ExperimentalDocumentStoreApi
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.Version
@@ -96,7 +95,6 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *
    * @return The same as [useStream] (a generic return type based on the passed lambda).
    */
-  @ExperimentalDocumentStoreApi
   fun <ReturnT> streamAll(useStream: (Stream<Versioned<EntityT>>) -> ReturnT): ReturnT {
     // A default implementation is provided here on the interface, so that implementers don't have
     // to implement this themselves (for e.g. mock repositories).

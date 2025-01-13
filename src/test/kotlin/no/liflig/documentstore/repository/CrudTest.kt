@@ -16,8 +16,10 @@ import no.liflig.documentstore.testutils.exampleRepoWithIntegerId
 import no.liflig.documentstore.testutils.exampleRepoWithStringId
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.assertThrows
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CrudTest {
   @Test
   fun `store and retrieve new entity`() {

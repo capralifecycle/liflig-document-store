@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import no.liflig.documentstore.DocumentStorePlugin
+import no.liflig.documentstore.repository.useHandle
 import org.flywaydb.core.Flyway
 import org.jdbi.v3.core.Jdbi
 import org.testcontainers.containers.PostgreSQLContainer
@@ -16,6 +17,10 @@ val dataSource: DataSource by lazy {
 }
 
 val jdbi: Jdbi by lazy { createJdbiInstanceAndMigrate(dataSource) }
+
+fun clearTable(tableName: String) {
+  useHandle(jdbi) { handle -> handle.execute("""TRUNCATE TABLE "${tableName}"""") }
+}
 
 val exampleRepo: ExampleRepository by lazy { ExampleRepository(jdbi, tableName = "example") }
 
@@ -52,6 +57,10 @@ val exampleRepoPreMigration: ExampleRepository by lazy {
 
 val exampleRepoPostMigration: ExampleRepositoryForMigration by lazy {
   ExampleRepositoryForMigration(jdbi)
+}
+
+val exampleRepoForStreaming: ExampleRepository by lazy {
+  ExampleRepository(jdbi, tableName = "example_for_streaming")
 }
 
 private fun createDataSource(
