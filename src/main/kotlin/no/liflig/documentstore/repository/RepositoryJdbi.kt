@@ -628,11 +628,11 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       val entities = rows.mapNotNull { row -> row.entity }
       val totalCount =
           rows.firstOrNull()?.totalCount
-              /**
-               * Should never happen: the query should always return 1 row with the count, even if
-               * the results are empty (see [MappedEntityWithTotalCount]).
-               */
-              ?: throw IllegalStateException("Failed to get total count of objects in search query")
+          /**
+           * Should never happen: the query should always return 1 row with the count, even if the
+           * results are empty (see [MappedEntityWithTotalCount]).
+           */
+          ?: throw IllegalStateException("Failed to get total count of objects in search query")
 
       return ListWithTotalCount(entities, totalCount)
     }
