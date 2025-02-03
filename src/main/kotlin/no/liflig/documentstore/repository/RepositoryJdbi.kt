@@ -401,7 +401,6 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
               handleJsonNullsInOrderBy = handleJsonNullsInOrderBy,
               forUpdate = forUpdate,
               bind = bind,
-              fetchSize = 50,
           )
       return results.list()
     }
@@ -512,15 +511,15 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   @PublishedApi
   internal fun getByPredicateInternal(
       handle: Handle,
-      sqlWhere: String = "TRUE",
-      limit: Int? = null,
-      offset: Int? = null,
-      orderBy: String? = null,
-      orderDesc: Boolean = false,
-      nullsFirst: Boolean = orderDesc,
-      handleJsonNullsInOrderBy: Boolean = false,
-      forUpdate: Boolean = false,
-      bind: Query.() -> Query = { this },
+      sqlWhere: String,
+      limit: Int?,
+      offset: Int?,
+      orderBy: String?,
+      orderDesc: Boolean,
+      nullsFirst: Boolean,
+      handleJsonNullsInOrderBy: Boolean,
+      forUpdate: Boolean,
+      bind: Query.() -> Query,
       /**
        * Set this to enable streaming from the database in chunks of the given size. This only works
        * when used inside a transaction (so if you set this, wrap the call to this method in
@@ -629,11 +628,11 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       val entities = rows.mapNotNull { row -> row.entity }
       val totalCount =
           rows.firstOrNull()?.totalCount
-          /**
-           * Should never happen: the query should always return 1 row with the count, even if the
-           * results are empty (see [MappedEntityWithTotalCount]).
-           */
-          ?: throw IllegalStateException("Failed to get total count of objects in search query")
+              /**
+               * Should never happen: the query should always return 1 row with the count, even if
+               * the results are empty (see [MappedEntityWithTotalCount]).
+               */
+              ?: throw IllegalStateException("Failed to get total count of objects in search query")
 
       return ListWithTotalCount(entities, totalCount)
     }
