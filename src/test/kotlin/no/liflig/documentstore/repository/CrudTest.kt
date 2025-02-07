@@ -1,5 +1,6 @@
 package no.liflig.documentstore.repository
 
+import java.util.UUID
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -9,6 +10,7 @@ import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.testutils.EntityWithIntegerId
 import no.liflig.documentstore.testutils.EntityWithStringId
 import no.liflig.documentstore.testutils.ExampleEntity
+import no.liflig.documentstore.testutils.ExampleId
 import no.liflig.documentstore.testutils.ExampleIntegerId
 import no.liflig.documentstore.testutils.ExampleStringId
 import no.liflig.documentstore.testutils.exampleRepo
@@ -86,6 +88,21 @@ class CrudTest {
 
     val entityAfterDelete = exampleRepo.get(entity.id)
     assertNull(entityAfterDelete)
+  }
+
+  @Test
+  fun `getOrThrow produces expected exception message`() {
+    val exception =
+        assertFailsWith<EntityNotFoundException> {
+          exampleRepo.getOrThrow(
+              ExampleId(UUID.fromString("b0bfc514-eb97-4916-8c32-3cf44bc547ec")),
+          )
+        }
+
+    assertEquals(
+        "Failed to find entity with ID 'b0bfc514-eb97-4916-8c32-3cf44bc547ec' in database (ExampleRepository)",
+        exception.message,
+    )
   }
 
   @Test

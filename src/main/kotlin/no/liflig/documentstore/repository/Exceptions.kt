@@ -19,6 +19,9 @@ class ConflictRepositoryException(override val message: String) : RepositoryExce
 /** Exception thrown when a database query failed due to connection/network issues. */
 class UnavailableRepositoryException(override val cause: Exception) : RepositoryException()
 
+/** Exception thrown by [Repository.getOrThrow] when an entity was not found in the database. */
+class EntityNotFoundException(override val message: String) : RepositoryException()
+
 // `@PublishedApi` lets us use this in inline functions. Renaming or removing this may be a breaking
 // change.
 @PublishedApi

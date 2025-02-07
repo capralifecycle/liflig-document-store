@@ -57,10 +57,18 @@ interface IntegerEntityId : EntityId {
  * runtime type of `EntityId` there, and we cannot use `reified` on class type parameters. Thus, we
  * use this function to get the runtime type of the `EntityId`, so we can bind it correctly.
  */
-internal fun getEntityIdType(entityId: EntityId): Class<out EntityId> {
-  return when (entityId) {
+internal fun getEntityIdType(id: EntityId): Class<out EntityId> {
+  return when (id) {
     is UuidEntityId -> UuidEntityId::class.java
     is StringEntityId -> StringEntityId::class.java
     is IntegerEntityId -> IntegerEntityId::class.java
+  }
+}
+
+internal fun entityIdValueToString(id: EntityId): String {
+  return when (id) {
+    is UuidEntityId -> id.value.toString()
+    is StringEntityId -> id.value
+    is IntegerEntityId -> id.value.toString()
   }
 }

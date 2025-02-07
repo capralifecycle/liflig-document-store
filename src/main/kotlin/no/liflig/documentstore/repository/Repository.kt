@@ -5,6 +5,7 @@ import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
+import no.liflig.documentstore.entity.entityIdValueToString
 
 /** Interface for interacting with entities in a database table. */
 interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
@@ -16,6 +17,27 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *   inside a transaction (see [transactional]).
    */
   fun get(id: EntityIdT, forUpdate: Boolean = false): Versioned<EntityT>?
+
+  /**
+   * Sometimes, we always expect to find an entity for a given ID - e.g. if we've stored the ID as a
+   * "foreign key" on one entity that points to another. In such cases, one may want to treat the
+   * entity not being found as an exception. This method does that for you, throwing
+   * [EntityNotFoundException] if [get] returns `null`, with a descriptive message that includes the
+   * entity ID and repository class name.
+   *
+   * @param forUpdate Set this to true to lock the entity's row in the database until a subsequent
+   *   call to [update]/[delete], preventing concurrent modification. This only works when done
+   *   inside a transaction (see [transactional]).
+   * @throws EntityNotFoundException If no entity was found with the given ID.
+   */
+  fun getOrThrow(id: EntityIdT, forUpdate: Boolean = false): Versioned<EntityT> {
+    // We implement this here on the interface instead of on `RepositoryJdbi`, since this default
+    // implementation will be
+    return get(id, forUpdate = forUpdate)
+        ?: throw EntityNotFoundException(
+            "Failed to find entity with ID '${entityIdValueToString(id)}' in database (${this::class.simpleName})",
+        )
+  }
 
   /**
    * Updates the given entity, taking the previous [Version] of the entity for optimistic locking:
