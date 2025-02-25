@@ -18,24 +18,16 @@ val dataSource: DataSource by lazy {
 
 val jdbi: Jdbi by lazy { createJdbiInstanceAndMigrate(dataSource) }
 
-fun clearTable(tableName: String) {
-  useHandle(jdbi) { handle -> handle.execute("""TRUNCATE TABLE "${tableName}"""") }
+fun clearDatabase() {
+  useHandle(jdbi) { handle ->
+    handle.execute("""TRUNCATE TABLE "example"""")
+    handle.execute("""TRUNCATE TABLE "example_with_string_id"""")
+    handle.execute("""TRUNCATE TABLE "example_with_integer_id"""")
+    handle.execute("""TRUNCATE TABLE "example_with_generated_integer_id"""")
+  }
 }
 
-val exampleRepo: ExampleRepository by lazy { ExampleRepository(jdbi, tableName = "example") }
-
-/**
- * Separate table, to avoid other tests interfering with the count returned by
- * getByPredicateWithTotalCount.
- */
-val exampleRepoWithCount: ExampleRepository by lazy {
-  ExampleRepository(jdbi, tableName = "example_with_count")
-}
-
-/** Separate table, to avoid other tests interfering with the list returned by listAll. */
-val exampleRepoForListAll: ExampleRepository by lazy {
-  ExampleRepository(jdbi, tableName = "example_for_list_all")
-}
+val exampleRepo: ExampleRepository by lazy { ExampleRepository(jdbi) }
 
 val exampleRepoWithStringId: ExampleRepositoryWithStringEntityId by lazy {
   ExampleRepositoryWithStringEntityId(jdbi)
@@ -49,18 +41,8 @@ val exampleRepoWithGeneratedIntegerId: ExampleRepositoryWithGeneratedIntegerEnti
   ExampleRepositoryWithGeneratedIntegerEntityId(jdbi)
 }
 
-const val MIGRATION_TABLE = "example_for_migration"
-
-val exampleRepoPreMigration: ExampleRepository by lazy {
-  ExampleRepository(jdbi, tableName = MIGRATION_TABLE)
-}
-
-val exampleRepoPostMigration: ExampleRepositoryForMigration by lazy {
-  ExampleRepositoryForMigration(jdbi)
-}
-
-val exampleRepoForStreaming: ExampleRepository by lazy {
-  ExampleRepository(jdbi, tableName = "example_for_streaming")
+val exampleRepoPostMigration: ExampleRepositoryAfterMigration by lazy {
+  ExampleRepositoryAfterMigration(jdbi)
 }
 
 private fun createDataSource(

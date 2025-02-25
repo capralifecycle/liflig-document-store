@@ -3,8 +3,8 @@ package no.liflig.documentstore.repository
 import io.kotest.matchers.shouldBe
 import java.text.DecimalFormat
 import no.liflig.documentstore.testutils.ExampleEntity
-import no.liflig.documentstore.testutils.clearTable
-import no.liflig.documentstore.testutils.exampleRepoForStreaming
+import no.liflig.documentstore.testutils.clearDatabase
+import no.liflig.documentstore.testutils.exampleRepo
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -13,7 +13,7 @@ import org.junit.jupiter.api.TestInstance
 class StreamingTest {
   @BeforeEach
   fun reset() {
-    clearTable("example_for_streaming")
+    clearDatabase()
   }
 
   // For deterministic sorting
@@ -26,10 +26,10 @@ class StreamingTest {
             .asSequence()
             .map { number -> ExampleEntity(text = numberFormat.format(number)) }
             .asIterable()
-    exampleRepoForStreaming.batchCreate(existingEntities)
+    exampleRepo.batchCreate(existingEntities)
 
     var count = 0
-    exampleRepoForStreaming.streamAll { stream ->
+    exampleRepo.streamAll { stream ->
       for (entity in stream) {
         entity.item.text shouldBe numberFormat.format(count)
         count++
@@ -49,10 +49,10 @@ class StreamingTest {
               ExampleEntity(text = text)
             }
             .asIterable()
-    exampleRepoForStreaming.batchCreate(existingEntities)
+    exampleRepo.batchCreate(existingEntities)
 
     var count = 0
-    exampleRepoForStreaming.streamingSearch(text = "Even") { stream ->
+    exampleRepo.streamingSearch(text = "Even") { stream ->
       for (entity in stream) {
         entity.item.text shouldBe "Even"
         count++

@@ -4,44 +4,19 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import no.liflig.documentstore.testutils.ExampleEntity
 import no.liflig.documentstore.testutils.OrderBy
+import no.liflig.documentstore.testutils.clearDatabase
 import no.liflig.documentstore.testutils.exampleRepo
-import no.liflig.documentstore.testutils.exampleRepoWithCount
-import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS) // To keep state between tests
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class GetByPredicateTest {
-  companion object {
-    private val entitiesForOrderByTest =
-        listOf(
-            ExampleEntity(text = "test", optionalText = "A"),
-            ExampleEntity(text = "test", optionalText = "B"),
-            ExampleEntity(text = "test", optionalText = null),
-        )
-
-    @BeforeAll
-    @JvmStatic
-    fun `setup for orderBy test`() {
-      exampleRepo.batchCreate(entitiesForOrderByTest)
-    }
-
-    /**
-     * Test case for testing the orderBy/orderDesc/nullsFirst/handleJsonNullsInOrderBy parameters of
-     * getByPredicate.
-     */
-    data class OrderByTest(val orderDesc: Boolean, val nullsFirst: Boolean)
-
-    @JvmStatic
-    fun orderByTestCases() =
-        listOf(
-            OrderByTest(orderDesc = true, nullsFirst = true),
-            OrderByTest(orderDesc = true, nullsFirst = false),
-            OrderByTest(orderDesc = false, nullsFirst = true),
-            OrderByTest(orderDesc = false, nullsFirst = false),
-        )
+  @BeforeEach
+  fun reset() {
+    clearDatabase()
   }
 
   @Test
@@ -63,10 +38,27 @@ class GetByPredicateTest {
     assertEquals(result[1].item.text, entity2.text)
   }
 
+  /**
+   * Test case for testing the orderBy/orderDesc/nullsFirst/handleJsonNullsInOrderBy parameters of
+   * getByPredicate.
+   */
+  data class OrderByTest(val orderDesc: Boolean, val nullsFirst: Boolean)
+
+  fun orderByTestCases() =
+      listOf(
+          OrderByTest(orderDesc = true, nullsFirst = true),
+          OrderByTest(orderDesc = true, nullsFirst = false),
+          OrderByTest(orderDesc = false, nullsFirst = true),
+          OrderByTest(orderDesc = false, nullsFirst = false),
+      )
+
   @ParameterizedTest
   @MethodSource("orderByTestCases")
   fun `orderBy orders by correct data`(test: OrderByTest) {
-    val (entityA, entityB, entityNull) = entitiesForOrderByTest
+    val entityA = ExampleEntity(text = "test", optionalText = "A")
+    val entityB = ExampleEntity(text = "test", optionalText = "B")
+    val entityNull = ExampleEntity(text = "test", optionalText = null)
+    exampleRepo.batchCreate(listOf(entityA, entityB, entityNull))
 
     val result =
         exampleRepo
@@ -116,21 +108,21 @@ class GetByPredicateTest {
   @Test
   fun `test getByPredicateWithTotalCount`() {
     val entity1 = ExampleEntity(text = "Very specific name for text query test 1")
-    exampleRepoWithCount.create(entity1)
-    exampleRepoWithCount.create(ExampleEntity(text = "Very specific name for text query test 2"))
-    exampleRepoWithCount.create(ExampleEntity(text = "Other entity"))
+    exampleRepo.create(entity1)
+    exampleRepo.create(ExampleEntity(text = "Very specific name for text query test 2"))
+    exampleRepo.create(ExampleEntity(text = "Other entity"))
 
     val limitLessThanCount = 2
-    val result1 = exampleRepoWithCount.searchWithTotalCount(limit = limitLessThanCount)
+    val result1 = exampleRepo.searchWithTotalCount(limit = limitLessThanCount)
     assertEquals(result1.list.size, limitLessThanCount)
     assertEquals(result1.totalCount, 3)
 
     val offsetHigherThanCount = 1000
-    val result2 = exampleRepoWithCount.searchWithTotalCount(offset = offsetHigherThanCount)
+    val result2 = exampleRepo.searchWithTotalCount(offset = offsetHigherThanCount)
     assertEquals(result2.totalCount, 3)
 
     val result3 =
-        exampleRepoWithCount.searchWithTotalCount(
+        exampleRepo.searchWithTotalCount(
             text = "Very specific name for text query test",
             limit = 1,
             offset = 0,

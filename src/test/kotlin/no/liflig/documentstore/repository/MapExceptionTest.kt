@@ -6,10 +6,17 @@ import no.liflig.documentstore.entity.mapEntities
 import no.liflig.documentstore.testutils.ExampleEntity
 import no.liflig.documentstore.testutils.ExampleRepository
 import no.liflig.documentstore.testutils.UniqueFieldAlreadyExists
+import no.liflig.documentstore.testutils.clearDatabase
 import no.liflig.documentstore.testutils.exampleRepo
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class MapExceptionTest {
+  @BeforeEach
+  fun reset() {
+    clearDatabase()
+  }
+
   @Test
   fun `mapCreateOrUpdateException catches and maps exceptions in create`() {
     /** We map to this custom exception in [ExampleRepository.mapCreateOrUpdateException]. */

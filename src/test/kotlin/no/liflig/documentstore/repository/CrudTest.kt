@@ -13,16 +13,23 @@ import no.liflig.documentstore.testutils.ExampleEntity
 import no.liflig.documentstore.testutils.ExampleId
 import no.liflig.documentstore.testutils.ExampleIntegerId
 import no.liflig.documentstore.testutils.ExampleStringId
+import no.liflig.documentstore.testutils.clearDatabase
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.exampleRepoWithIntegerId
 import no.liflig.documentstore.testutils.exampleRepoWithStringId
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.assertThrows
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CrudTest {
+  @BeforeEach
+  fun reset() {
+    clearDatabase()
+  }
+
   @Test
   fun `store and retrieve new entity`() {
     val entity = ExampleEntity(text = "hello world")

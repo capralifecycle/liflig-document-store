@@ -7,10 +7,17 @@ import kotlin.test.assertNotNull
 import no.liflig.documentstore.entity.IntegerEntityId
 import no.liflig.documentstore.testutils.EntityWithIntegerId
 import no.liflig.documentstore.testutils.ExampleIntegerId
+import no.liflig.documentstore.testutils.clearDatabase
 import no.liflig.documentstore.testutils.exampleRepoWithGeneratedIntegerId
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class GeneratedIdsTest {
+  @BeforeEach
+  fun reset() {
+    clearDatabase()
+  }
+
   @Test
   fun `test create`() {
     val entities =

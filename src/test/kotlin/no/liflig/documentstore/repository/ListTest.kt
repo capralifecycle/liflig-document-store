@@ -5,22 +5,28 @@ import kotlin.test.assertEquals
 import no.liflig.documentstore.testutils.EntityWithStringId
 import no.liflig.documentstore.testutils.ExampleEntity
 import no.liflig.documentstore.testutils.ExampleStringId
+import no.liflig.documentstore.testutils.clearDatabase
 import no.liflig.documentstore.testutils.exampleRepo
-import no.liflig.documentstore.testutils.exampleRepoForListAll
 import no.liflig.documentstore.testutils.exampleRepoWithStringId
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class ListTest {
+  @BeforeEach
+  fun reset() {
+    clearDatabase()
+  }
+
   @Test
   fun `test listAll`() {
     val createdEntities = (0..9).map { number -> ExampleEntity(text = "list-all-test-${number}") }
     for (entity in createdEntities) {
       // Use create instead of batchCreate here, since we want to verify that they are sorted by
       // createdAt
-      exampleRepoForListAll.create(entity)
+      exampleRepo.create(entity)
     }
 
-    val all = exampleRepoForListAll.listAll()
+    val all = exampleRepo.listAll()
     assertEquals(createdEntities.size, all.size)
     assertEquals(createdEntities, all.map { it.item })
   }

@@ -16,18 +16,10 @@ enum class OrderBy {
   CREATED_AT,
 }
 
-class ExampleRepository(
-    jdbi: Jdbi,
-    /**
-     * Normally, we would set this directly on the arg to [RepositoryJdbi] below - but here we want
-     * to reuse the same repository implementation for different tables, to have separate tables for
-     * different tests.
-     */
-    tableName: String,
-) :
+class ExampleRepository(jdbi: Jdbi) :
     RepositoryJdbi<ExampleId, ExampleEntity>(
         jdbi,
-        tableName,
+        tableName = "example",
         serializationAdapter = KotlinSerialization(ExampleEntity.serializer()),
     ) {
   fun search(
@@ -126,9 +118,9 @@ class ExampleRepositoryWithGeneratedIntegerEntityId(jdbi: Jdbi) :
         serializationAdapter = KotlinSerialization(EntityWithIntegerId.serializer()),
     )
 
-class ExampleRepositoryForMigration(jdbi: Jdbi) :
+class ExampleRepositoryAfterMigration(jdbi: Jdbi) :
     RepositoryJdbi<ExampleId, MigratedExampleEntity>(
         jdbi,
-        tableName = MIGRATION_TABLE,
+        tableName = "example",
         serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
     )

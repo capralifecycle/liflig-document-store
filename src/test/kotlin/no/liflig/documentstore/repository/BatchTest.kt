@@ -7,7 +7,9 @@ import kotlin.test.assertNotEquals
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.testutils.ExampleEntity
+import no.liflig.documentstore.testutils.clearDatabase
 import no.liflig.documentstore.testutils.exampleRepo
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
@@ -17,6 +19,11 @@ import org.junit.jupiter.api.TestMethodOrder
 @TestInstance(TestInstance.Lifecycle.PER_CLASS) // To keep the same entities field between tests
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class BatchTest {
+  @BeforeAll
+  fun reset() {
+    clearDatabase()
+  }
+
   // Pad numbers in test text with 0s so that we can sort by text
   private val testNumberFormat = DecimalFormat("000")
   private val largeBatchSize = 1000

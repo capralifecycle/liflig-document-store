@@ -10,30 +10,28 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.repository.RepositoryJdbi
-import no.liflig.documentstore.repository.useHandle
 import no.liflig.documentstore.testutils.ExampleEntity
 import no.liflig.documentstore.testutils.ExampleId
 import no.liflig.documentstore.testutils.InstantSerializer
 import no.liflig.documentstore.testutils.KotlinSerialization
-import no.liflig.documentstore.testutils.MIGRATION_TABLE
 import no.liflig.documentstore.testutils.MigratedExampleEntity
+import no.liflig.documentstore.testutils.clearDatabase
 import no.liflig.documentstore.testutils.dataSource
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.exampleRepoPostMigration
-import no.liflig.documentstore.testutils.exampleRepoPreMigration
 import no.liflig.documentstore.testutils.jdbi
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.migration.BaseJavaMigration
 import org.flywaydb.core.api.migration.Context
 import org.jdbi.v3.core.Jdbi
-import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 class MigrationTest {
-  @AfterEach
-  fun clear() {
-    useHandle(jdbi) { handle -> handle.createUpdate("TRUNCATE ${MIGRATION_TABLE}").execute() }
+  @BeforeEach
+  fun reset() {
+    clearDatabase()
   }
 
   // For deterministic sorting
@@ -46,14 +44,14 @@ class MigrationTest {
             .asSequence()
             .map { number -> ExampleEntity(text = numberFormat.format(number)) }
             .asIterable()
-    exampleRepoPreMigration.batchCreate(existingEntities)
+    exampleRepo.batchCreate(existingEntities)
 
     @Suppress("ClassName") // Flyway expects this naming convention
     class V001_1__Test_migration : BaseJavaMigration() {
       override fun migrate(context: Context) {
         migrateEntity(
             context.connection,
-            tableName = MIGRATION_TABLE,
+            tableName = "example",
             serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
             transform = { (entity, _) ->
               entity.copy(newFieldAfterMigration = "new-field-${entity.text}")
@@ -84,7 +82,7 @@ class MigrationTest {
         (0 until 10).map { number ->
           ExampleEntity(text = "Original", optionalText = number.toString())
         }
-    exampleRepoPreMigration.batchCreate(entitiesToCreate)
+    exampleRepo.batchCreate(entitiesToCreate)
     val createdEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
 
     @Suppress("ClassName") // Flyway expects this naming convention
@@ -92,7 +90,7 @@ class MigrationTest {
       override fun migrate(context: Context) {
         migrateEntity(
             context.connection,
-            tableName = MIGRATION_TABLE,
+            tableName = "example",
             serializationAdapter = KotlinSerialization(MigratedExampleEntity.serializer()),
             transform = { (entity, _) ->
               // Throw halfway through transaction
@@ -118,14 +116,14 @@ class MigrationTest {
   fun `migration with WHERE clause only migrates matching entities`() {
     val entitiesToMigrate = (0 until 50).map { ExampleEntity(text = "SHOULD_MIGRATE") }
     val entitiesNotToMigrate = (0 until 50).map { ExampleEntity(text = "SHOULD_NOT_MIGRATE") }
-    exampleRepoPreMigration.batchCreate(entitiesToMigrate + entitiesNotToMigrate)
+    exampleRepo.batchCreate(entitiesToMigrate + entitiesNotToMigrate)
 
     @Suppress("ClassName") // Flyway expects this naming convention
     class V001_3__Migration_with_WHERE_clause : BaseJavaMigration() {
       override fun migrate(context: Context) {
         migrateEntity(
             context.connection,
-            tableName = MIGRATION_TABLE,
+            tableName = "example",
             serializationAdapter = KotlinSerialization(ExampleEntity.serializer()),
             transform = { (entity, _) -> entity.copy(text = "MIGRATED") },
             where = "data->>'text' = :text",
@@ -138,11 +136,11 @@ class MigrationTest {
 
     // We use exampleRepoPreMigration, since we don't want to add fields in this case, just change
     // existing ones
-    val migratedEntities = exampleRepoPreMigration.listByIds(entitiesToMigrate.map { it.id })
+    val migratedEntities = exampleRepo.listByIds(entitiesToMigrate.map { it.id })
     assertEquals(entitiesToMigrate.size, migratedEntities.size)
     migratedEntities.forEach { entity -> assertEquals("MIGRATED", entity.item.text) }
 
-    val notMigratedEntities = exampleRepoPreMigration.listByIds(entitiesNotToMigrate.map { it.id })
+    val notMigratedEntities = exampleRepo.listByIds(entitiesNotToMigrate.map { it.id })
     assertEquals(entitiesNotToMigrate.size, notMigratedEntities.size)
     notMigratedEntities.forEach { entity -> assertEquals("SHOULD_NOT_MIGRATE", entity.item.text) }
   }
@@ -179,7 +177,7 @@ class MigrationTest {
       override fun migrate(context: Context) {
         migrateEntity(
             context.connection,
-            tableName = MIGRATION_TABLE,
+            tableName = "example",
             serializationAdapter = KotlinSerialization(LargeEntityPostMigration.serializer()),
         )
       }
@@ -209,8 +207,8 @@ private val largeEntityRepoPreMigration: LargeEntityRepoPreMigration by lazy {
 private class LargeEntityRepoPreMigration(jdbi: Jdbi) :
     RepositoryJdbi<ExampleId, LargeEntityPreMigration>(
         jdbi,
-        // We can re-use the migration table here, since we truncate it between every test
-        tableName = MIGRATION_TABLE,
+        // We can re-use the main example table here, since we truncate it between every test
+        tableName = "example",
         serializationAdapter = KotlinSerialization(LargeEntityPreMigration.serializer()),
     )
 
