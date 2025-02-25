@@ -123,6 +123,13 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
     return useStream(listAll().stream())
   }
 
+  /** Returns the total count of entities in this repository. */
+  fun countAll(): Long {
+    // A default implementation is provided here on the interface, so that implementers don't have
+    // to implement this themselves (for e.g. mock repositories).
+    return listAll().size.toLong()
+  }
+
   /**
    * Stores the given list of entities in the database.
    *

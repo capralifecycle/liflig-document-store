@@ -61,6 +61,8 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
 
   private val updateResultMapper: RowMapper<UpdateResult> = UpdateResultMapper()
 
+  private val countMapper: RowMapper<Long> = CountMapper()
+
   override fun create(entity: EntityT): Versioned<EntityT> {
     try {
       val createdAt = currentTimeWithMicrosecondPrecision()
@@ -635,6 +637,39 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
           ?: throw IllegalStateException("Failed to get total count of objects in search query")
 
       return ListWithTotalCount(entities, totalCount)
+    }
+  }
+
+  override fun countAll(): Long {
+    return countByPredicate() // Defaults to all
+  }
+
+  /**
+   * Runs a `SELECT count(*)` query using the given WHERE clause.
+   *
+   * When using parameters in [sqlWhere], you must remember to bind them through the [bind] function
+   * argument (do not concatenate user input directly in [sqlWhere], as that exposes you to SQL
+   * injections). When using a list parameter, use the [Query.bindArray] method and pass the class
+   * of the list's elements as the second argument (required for JDBI's reflection to work - see
+   * example on [getByPredicate]).
+   */
+  protected fun countByPredicate(
+      sqlWhere: String = "TRUE",
+      bind: Query.() -> Query = { this },
+  ): Long {
+    useHandle { handle ->
+      return handle
+          .createQuery(
+              """
+                SELECT count(*)
+                FROM "${tableName}"
+                WHERE (${sqlWhere})
+              """
+                  .trimIndent(),
+          )
+          .bind()
+          .map(countMapper)
+          .first()
     }
   }
 

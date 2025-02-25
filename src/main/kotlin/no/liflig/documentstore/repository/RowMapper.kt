@@ -58,6 +58,12 @@ internal class UpdateResultMapper : RowMapper<UpdateResult> {
   }
 }
 
+internal class CountMapper : RowMapper<Long> {
+  override fun map(resultSet: ResultSet, ctx: StatementContext): Long {
+    return resultSet.getLong("count")
+  }
+}
+
 /**
  * When using [RepositoryWithGeneratedIds], we need to return the entity from our INSERT query in
  * order to get the generated ID. In this case, we don't need to return the

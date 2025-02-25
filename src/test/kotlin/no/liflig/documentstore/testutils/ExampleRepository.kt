@@ -80,6 +80,10 @@ class ExampleRepository(jdbi: Jdbi) :
     return streamByPredicate(useStream, "data->>'text' = :text") { bind("text", text) }
   }
 
+  fun countEntitiesWithText(text: String): Long {
+    return countByPredicate("""data->>'text' = :text""") { bind("text", text) }
+  }
+
   override fun mapCreateOrUpdateException(e: Exception, entity: ExampleEntity): Exception {
     val message = e.message
     if (message != null && message.contains("example_unique_field_index")) {
