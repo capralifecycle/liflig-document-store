@@ -1,6 +1,7 @@
 package no.liflig.documentstore.entity
 
 import java.time.Instant
+import no.liflig.documentstore.entity.Version.Companion.initial
 
 /**
  * A [Version] is a count of how many times an entity has been modified, used to implement
@@ -10,7 +11,14 @@ data class Version(val value: Long) {
   fun next() = Version(value + 1)
 
   companion object {
-    fun initial() = Version(1)
+    /** Returns version 1. */
+    fun initial() = INITIAL
+
+    /**
+     * Since this class is immutable, we can use a single instance for the initial version, so we
+     * don't allocate on every call to [initial].
+     */
+    private val INITIAL = Version(1)
   }
 }
 

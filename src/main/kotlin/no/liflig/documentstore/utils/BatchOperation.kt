@@ -34,7 +34,7 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException
  */
 internal fun <EntityT> executeBatchOperation(
     handle: Handle,
-    entities: Iterable<EntityT>,
+    batchProvider: BatchProvider<EntityT>,
     statement: String,
     bindParameters: (PreparedBatch, EntityT) -> PreparedBatch,
     handleModifiedRowCounts: ((IntArray, List<EntityT>) -> Unit)? = null,
@@ -43,9 +43,7 @@ internal fun <EntityT> executeBatchOperation(
     batchSize: Int = 50,
 ) {
   runWithAutoCommitDisabled(handle) {
-    val batchProvider = BatchProvider.create(entities, batchSize)
-
-    var batch = batchProvider.nextBatch()
+    var batch = batchProvider.nextBatch(batchSize)
     while (batch != null) {
       var batchStatement: PreparedBatch = handle.prepareBatch(statement)
 
@@ -71,7 +69,7 @@ internal fun <EntityT> executeBatchOperation(
         }
       }
 
-      batch = batchProvider.nextBatch()
+      batch = batchProvider.nextBatch(batchSize)
     }
   }
 }
@@ -108,9 +106,8 @@ private fun <EntityT> executeBatch(
 }
 
 /**
- * We want [executeBatchOperation] to take an [Iterable], so that it can be used both with large
- * streams of entities (like we do in [no.liflig.documentstore.migration.migrateEntity]), and
- * in-memory lists of entities.
+ * We want [executeBatchOperation] to work with both large streams of entities (like for
+ * [no.liflig.documentstore.migration.migrateEntity]), and in-memory lists of entities.
  *
  * As we iterate over entities to add them to a batch, we also want to store a list of the current
  * batch of entities. We need this to get the failing entity for [BatchOperationException], which is
@@ -122,28 +119,38 @@ private fun <EntityT> executeBatch(
  * avoid the overhead of allocating these additional lists, and instead use [List.subList] to create
  * a view of the list without copying. This is what [InMemoryBatchProvider] does.
  */
-private interface BatchProvider<EntityT> {
+internal interface BatchProvider<EntityT> {
   /** Returns null when empty. */
-  fun nextBatch(): List<EntityT>?
+  fun nextBatch(batchSize: Int): List<EntityT>?
+
+  fun isEmpty(): Boolean
+
+  /**
+   * Gets the total size of all entities, if known (i.e., returns non-null for
+   * [InMemoryBatchProvider] and null for [StreamingBatchProvider]).
+   */
+  fun totalSize(): Int?
 
   companion object {
-    fun <EntityT> create(entities: Iterable<EntityT>, batchSize: Int): BatchProvider<EntityT> {
-      return if (entities is List) {
-        InMemoryBatchProvider(entities, batchSize)
-      } else {
-        StreamingBatchProvider(entities.iterator(), batchSize)
+    fun <EntityT> fromIterable(entities: Iterable<EntityT>): BatchProvider<EntityT> {
+      return when (entities) {
+        is List -> InMemoryBatchProvider(entities)
+        else -> StreamingBatchProvider(entities.iterator())
       }
+    }
+
+    fun <EntityT> fromIterator(entities: Iterator<EntityT>): BatchProvider<EntityT> {
+      return StreamingBatchProvider(entities)
     }
   }
 }
 
 private class InMemoryBatchProvider<EntityT>(
     private val entities: List<EntityT>,
-    private val batchSize: Int,
 ) : BatchProvider<EntityT> {
   private var startIndexOfCurrentBatch = 0
 
-  override fun nextBatch(): List<EntityT>? {
+  override fun nextBatch(batchSize: Int): List<EntityT>? {
     if (startIndexOfCurrentBatch >= entities.size) {
       return null
     }
@@ -153,24 +160,43 @@ private class InMemoryBatchProvider<EntityT>(
     startIndexOfCurrentBatch = endIndex
     return batch
   }
+
+  override fun isEmpty(): Boolean = entities.isEmpty()
+
+  override fun totalSize(): Int? = entities.size
 }
 
-private class StreamingBatchProvider<BatchItemT>(
-    private val entities: Iterator<BatchItemT>,
-    private val batchSize: Int,
-) : BatchProvider<BatchItemT> {
-  // Initialize with capacity equal to batchSize
-  private val currentBatch = ArrayList<BatchItemT>(batchSize)
+private class StreamingBatchProvider<EntityT>(
+    private val entities: Iterator<EntityT>,
+) : BatchProvider<EntityT> {
+  private var currentBatch: ArrayList<EntityT>? = null
 
-  override fun nextBatch(): List<BatchItemT>? {
-    currentBatch.clear()
+  override fun nextBatch(batchSize: Int): List<EntityT>? {
+    val batch = initializeBatch(batchSize)
 
-    while (entities.hasNext() && currentBatch.size < batchSize) {
-      currentBatch.add(entities.next())
+    while (entities.hasNext() && batch.size < batchSize) {
+      batch.add(entities.next())
     }
 
-    return if (currentBatch.isEmpty()) null else currentBatch
+    return if (batch.isEmpty()) null else batch
   }
+
+  private fun initializeBatch(batchSize: Int): ArrayList<EntityT> {
+    val currentBatch = this.currentBatch
+    if (currentBatch != null) {
+      currentBatch.clear()
+      return currentBatch
+    } else {
+      // Initialize with capacity equal to batchSize
+      val newBatch = ArrayList<EntityT>(batchSize)
+      this.currentBatch = newBatch
+      return newBatch
+    }
+  }
+
+  override fun isEmpty() = !entities.hasNext()
+
+  override fun totalSize(): Int? = null
 }
 
 /**
@@ -231,7 +257,7 @@ private fun <EntityT> getFailingEntity(
       is Versioned<*> -> entity.item
       else -> null
     }
-  } catch (e: Exception) {
+  } catch (_: Exception) {
     return null
   }
 }
@@ -243,19 +269,16 @@ private fun <EntityT> getFailingEntity(
  * [This is what the JDBC docs recommend](https://docs.oracle.com/javase/tutorial/jdbc/basics/retrieving.html#batch_updates).
  */
 private inline fun runWithAutoCommitDisabled(handle: Handle, block: () -> Unit) {
-  var autoCommitWasEnabled = false
-  if (handle.connection.autoCommit) {
-    handle.connection.autoCommit = false
-    autoCommitWasEnabled = true
+  if (!handle.connection.autoCommit) {
+    return block()
   }
 
+  handle.connection.autoCommit = false
   try {
     block()
   } finally {
-    if (autoCommitWasEnabled) {
-      try {
-        handle.connection.autoCommit = true
-      } catch (_: Exception) {}
-    }
+    try {
+      handle.connection.autoCommit = true
+    } catch (_: Exception) {}
   }
 }

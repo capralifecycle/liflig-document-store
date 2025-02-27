@@ -9,9 +9,12 @@ import no.liflig.documentstore.entity.entityIdValueToString
 
 /** Interface for interacting with entities in a database table. */
 interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
+  /** Stores the given entity in the database. */
   fun create(entity: EntityT): Versioned<EntityT>
 
   /**
+   * Returns the entity with the given ID from the database, or null if not found.
+   *
    * @param forUpdate Set this to true to lock the entity's row in the database until a subsequent
    *   call to [update]/[delete], preventing concurrent modification. This only works when done
    *   inside a transaction (see [transactional]).
@@ -40,9 +43,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   }
 
   /**
-   * Updates the given entity, taking the previous [Version] of the entity for optimistic locking:
-   * if we have retrieved an entity and then try to update it, but someone else modified the entity
-   * in the meantime, a [ConflictRepositoryException] will be thrown.
+   * Updates the given entity in the database, taking the previous [Version] of the entity for
+   * optimistic locking: if we have retrieved an entity and then try to update it, but someone else
+   * modified the entity in the meantime, a [ConflictRepositoryException] will be thrown.
    *
    * Uses a generic argument, so that a sub-type can be passed in and be returned as its proper
    * type.
@@ -56,8 +59,8 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   ): Versioned<EntityOrSubClassT>
 
   /**
-   * Utility overload of [update], allowing you to pass a [Versioned] instance instead of a separate
-   * version argument.
+   * Utility overload of [update][Repository.update], allowing you to pass a [Versioned] instance
+   * instead of a separate version argument.
    *
    * Example usage:
    * ```
@@ -86,8 +89,8 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   fun delete(id: EntityIdT, previousVersion: Version)
 
   /**
-   * Utility overload of [delete], allowing you to pass a [Versioned] instance instead of a separate
-   * version argument.
+   * Utility overload of [delete][Repository.delete], allowing you to pass a [Versioned] instance
+   * instead of a separate version argument.
    *
    * @throws ConflictRepositoryException If `entity.version` does not match the version of the
    *   entity in the database.
@@ -97,6 +100,8 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   }
 
   /**
+   * Returns entities from the database matching the given list of IDs.
+   *
    * @param forUpdate Set this to true to lock the rows of the returned entities in the database
    *   until a subsequent call to [update]/[delete], preventing concurrent modification. This only
    *   works when done inside a transaction (see [transactional]).
@@ -131,7 +136,7 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   }
 
   /**
-   * Stores the given list of entities in the database.
+   * Stores the given entities in the database.
    *
    * The implementation in [RepositoryJdbi.batchCreate] uses
    * [Prepared Batches from JDBI](https://jdbi.org/releases/3.45.1/#_prepared_batches) to make the
@@ -144,8 +149,19 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   }
 
   /**
-   * Takes a list of entities along with their previous [Version], to implement optimistic locking
-   * like [update].
+   * Overload of [batchCreate][Repository.batchCreate] that takes an [Iterator] instead of an
+   * [Iterable], and does not return the created entities. Use this if you're storing a large batch,
+   * e.g. from a database stream, and you don't need results returned.
+   */
+  fun batchCreate(entities: Iterator<EntityT>) {
+    // A default implementation is provided here on the interface, so that implementers don't have
+    // to implement this themselves (for e.g. mock repositories).
+    entities.forEach { create(it) }
+  }
+
+  /**
+   * Updates the given entities in the database. Takes the previous versions of the entities, to
+   * implement optimistic locking like [update].
    *
    * The implementation in [RepositoryJdbi.batchUpdate] uses
    * [Prepared Batches from JDBI](https://jdbi.org/releases/3.45.1/#_prepared_batches) to make the
@@ -157,12 +173,26 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   fun batchUpdate(entities: Iterable<Versioned<EntityT>>): List<Versioned<EntityT>> {
     // A default implementation is provided here on the interface, so that implementers don't have
     // to implement this themselves (for e.g. mock repositories).
-    return entities.map { update(it.item, it.version) }
+    return entities.map { update(it) }
   }
 
   /**
-   * Takes a list of entities along with their previous [Version], to implement optimistic locking
-   * like [delete].
+   * Overload of [batchUpdate][Repository.batchUpdate] that takes an [Iterator] instead of an
+   * [Iterable], and does not return the created entities. Use this if you're updating a large
+   * batch, e.g. from a database stream, and you don't need results returned.
+   *
+   * @throws ConflictRepositoryException If the version on any of the given entities does not match
+   *   the current version of the entity in the database.
+   */
+  fun batchUpdate(entities: Iterator<Versioned<EntityT>>) {
+    // A default implementation is provided here on the interface, so that implementers don't have
+    // to implement this themselves (for e.g. mock repositories).
+    entities.forEach { update(it) }
+  }
+
+  /**
+   * Deletes the given entities from the database. Takes the previous versions of the entities, to
+   * implement optimistic locking like [delete].
    *
    * The implementation in [RepositoryJdbi.batchDelete] uses
    * [Prepared Batches from JDBI](https://jdbi.org/releases/3.45.1/#_prepared_batches) to make the
@@ -174,9 +204,20 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   fun batchDelete(entities: Iterable<Versioned<EntityT>>) {
     // A default implementation is provided here on the interface, so that implementers don't have
     // to implement this themselves (for e.g. mock repositories).
-    for (entity in entities) {
-      delete(entity.item.id, entity.version)
-    }
+    entities.forEach { delete(it) }
+  }
+
+  /**
+   * Overload of [batchDelete][Repository.batchDelete] that takes an [Iterator] instead of an
+   * [Iterable].
+   *
+   * @throws ConflictRepositoryException If the version on any of the given entities does not match
+   *   the current version of the entity in the database.
+   */
+  fun batchDelete(entities: Iterator<Versioned<EntityT>>) {
+    // A default implementation is provided here on the interface, so that implementers don't have
+    // to implement this themselves (for e.g. mock repositories).
+    entities.forEach { delete(it) }
   }
 
   /**

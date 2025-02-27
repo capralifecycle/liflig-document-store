@@ -5,10 +5,9 @@ import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.IntegerEntityId
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
+import no.liflig.documentstore.utils.BatchProvider
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import no.liflig.documentstore.utils.executeBatchOperation
-import no.liflig.documentstore.utils.isEmpty
-import no.liflig.documentstore.utils.sizeIfKnown
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.mapper.RowMapper
 
@@ -115,15 +114,15 @@ open class RepositoryWithGeneratedIds<EntityIdT : EntityId, EntityT : Entity<Ent
      * - [no.liflig.documentstore.utils.executeBatch] for how we handle returning the data from our
      *   created entities (which we need here in order to get the generated IDs)
      */
-    if (entities.isEmpty()) {
+    val batchProvider = BatchProvider.fromIterable(entities)
+    if (batchProvider.isEmpty()) {
       return emptyList()
     }
 
     val createdAt = currentTimeWithMicrosecondPrecision()
-    val version = Version.initial()
 
     // If we know the size of the given entities, we want to pre-allocate capacity for the result
-    val size = entities.sizeIfKnown()
+    val size = batchProvider.totalSize()
     val entitiesWithGeneratedId: ArrayList<Versioned<EntityT>> =
         if (size != null) ArrayList(size) else ArrayList()
 
@@ -131,7 +130,7 @@ open class RepositoryWithGeneratedIds<EntityIdT : EntityId, EntityT : Entity<Ent
       useHandle { handle ->
         executeBatchOperation(
             handle,
-            entities,
+            batchProvider,
             statement =
                 """
                   WITH generated_id AS (
@@ -150,7 +149,7 @@ open class RepositoryWithGeneratedIds<EntityIdT : EntityId, EntityT : Entity<Ent
             bindParameters = { batch, entity ->
               batch
                   .bind("data", serializationAdapter.toJson(entity))
-                  .bind("version", version)
+                  .bind("version", Version.initial())
                   .bind("createdAt", createdAt)
                   .bind("modifiedAt", createdAt)
             },
@@ -160,7 +159,7 @@ open class RepositoryWithGeneratedIds<EntityIdT : EntityId, EntityT : Entity<Ent
                 entitiesWithGeneratedId.add(
                     Versioned(
                         entityWithGeneratedId,
-                        version,
+                        version = Version.initial(),
                         createdAt = createdAt,
                         modifiedAt = createdAt,
                     ),

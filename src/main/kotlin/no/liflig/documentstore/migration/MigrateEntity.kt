@@ -7,6 +7,7 @@ import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.EntityRowMapper
 import no.liflig.documentstore.repository.RepositoryJdbi
 import no.liflig.documentstore.repository.SerializationAdapter
+import no.liflig.documentstore.utils.BatchProvider
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import no.liflig.documentstore.utils.executeBatchOperation
 import org.jdbi.v3.core.Jdbi
@@ -126,7 +127,7 @@ fun <EntityT : Entity<*>> migrateEntity(
 
     executeBatchOperation(
         handle,
-        entities,
+        BatchProvider.fromIterable(entities),
         // We don't have to check version here, since we use FOR UPDATE above, so we know we
         // have the latest version
         statement =

@@ -15,9 +15,10 @@ import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.entity.getEntityIdType
 import no.liflig.documentstore.utils.BatchOperationException
+import no.liflig.documentstore.utils.BatchProvider
+import no.liflig.documentstore.utils.arrayListWithCapacity
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import no.liflig.documentstore.utils.executeBatchOperation
-import no.liflig.documentstore.utils.isEmpty
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.mapper.RowMapper
@@ -209,19 +210,35 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   }
 
   override fun batchCreate(entities: Iterable<EntityT>): List<Versioned<EntityT>> {
-    if (entities.isEmpty()) {
-      return emptyList()
+    val batchProvider = BatchProvider.fromIterable(entities)
+    val results = arrayListWithCapacity<Versioned<EntityT>>(batchProvider.totalSize())
+
+    batchCreateInternal(batchProvider, results)
+
+    return results
+  }
+
+  override fun batchCreate(entities: Iterator<EntityT>) {
+    batchCreateInternal(BatchProvider.fromIterator(entities))
+  }
+
+  private fun batchCreateInternal(
+      batchProvider: BatchProvider<EntityT>,
+      results: MutableCollection<Versioned<EntityT>>? = null,
+  ) {
+    if (batchProvider.isEmpty()) {
+      return
     }
 
-    val createdAt = currentTimeWithMicrosecondPrecision()
     val version = Version.initial()
+    val createdAt = currentTimeWithMicrosecondPrecision()
 
     try {
       transactional {
         useHandle { handle ->
           executeBatchOperation(
               handle,
-              entities,
+              batchProvider,
               statement =
                   """
                     INSERT INTO "${tableName}" (id, data, version, created_at, modified_at)
@@ -229,6 +246,17 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                   """
                       .trimIndent(),
               bindParameters = { batch, entity ->
+                if (results != null) {
+                  results.add(
+                      Versioned(
+                          entity,
+                          version,
+                          createdAt = createdAt,
+                          modifiedAt = createdAt,
+                      ),
+                  )
+                }
+
                 batch
                     .bind("id", entity.id)
                     .bind("data", serializationAdapter.toJson(entity))
@@ -243,18 +271,27 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       @Suppress("UNCHECKED_CAST") // We know the entity is EntityT on this repository
       throw mapCreateOrUpdateException(e.cause, e.entity as EntityT)
     }
-
-    // We wait until here to create the result list, which may be large, to avoid allocating it
-    // before calling the database. That would keep the list in memory while we are waiting for the
-    // database, needlessly reducing throughput.
-    return entities.map { entity ->
-      Versioned(entity, version, createdAt = createdAt, modifiedAt = createdAt)
-    }
   }
 
   override fun batchUpdate(entities: Iterable<Versioned<EntityT>>): List<Versioned<EntityT>> {
-    if (entities.isEmpty()) {
-      return emptyList()
+    val batchProvider = BatchProvider.fromIterable(entities)
+    val results = arrayListWithCapacity<Versioned<EntityT>>(batchProvider.totalSize())
+
+    batchUpdateInternal(batchProvider, results)
+
+    return results
+  }
+
+  override fun batchUpdate(entities: Iterator<Versioned<EntityT>>) {
+    batchUpdateInternal(BatchProvider.fromIterator(entities))
+  }
+
+  private fun batchUpdateInternal(
+      batchProvider: BatchProvider<Versioned<EntityT>>,
+      results: MutableCollection<Versioned<EntityT>>? = null,
+  ) {
+    if (batchProvider.isEmpty()) {
+      return
     }
 
     val modifiedAt = currentTimeWithMicrosecondPrecision()
@@ -264,7 +301,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
         useHandle { handle ->
           executeBatchOperation(
               handle,
-              entities,
+              batchProvider,
               statement =
                   """
                     UPDATE "${tableName}"
@@ -278,11 +315,22 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                   """
                       .trimIndent(),
               bindParameters = { batch, entity ->
-                val nextVersion = entity.version.next()
+                val newVersion = entity.version.next()
+
+                if (results != null) {
+                  results.add(
+                      Versioned(
+                          entity.item,
+                          version = newVersion,
+                          createdAt = entity.createdAt,
+                          modifiedAt = modifiedAt,
+                      ),
+                  )
+                }
 
                 batch
                     .bind("data", serializationAdapter.toJson(entity.item))
-                    .bind("nextVersion", nextVersion)
+                    .bind("nextVersion", newVersion)
                     .bind("modifiedAt", modifiedAt)
                     .bind("id", entity.item.id)
                     .bind("previousVersion", entity.version)
@@ -297,17 +345,18 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       @Suppress("UNCHECKED_CAST") // We know the entity is EntityT on this repository
       throw mapCreateOrUpdateException(e.cause, e.entity as EntityT)
     }
-
-    // We wait until here to create the result list, which may be large, to avoid allocating it
-    // before calling the database. That would keep the list in memory while we are waiting for the
-    // database, needlessly reducing throughput.
-    return entities.map { entity ->
-      entity.copy(modifiedAt = modifiedAt, version = entity.version.next())
-    }
   }
 
   override fun batchDelete(entities: Iterable<Versioned<EntityT>>) {
-    if (entities.isEmpty()) {
+    batchDeleteInternal(BatchProvider.fromIterable(entities))
+  }
+
+  override fun batchDelete(entities: Iterator<Versioned<EntityT>>) {
+    batchDeleteInternal(BatchProvider.fromIterator(entities))
+  }
+
+  private fun batchDeleteInternal(batchProvider: BatchProvider<Versioned<EntityT>>) {
+    if (batchProvider.isEmpty()) {
       return
     }
 
@@ -315,7 +364,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       useHandle { handle ->
         executeBatchOperation(
             handle,
-            entities,
+            batchProvider,
             statement =
                 """
                   DELETE FROM "${tableName}"
