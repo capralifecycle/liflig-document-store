@@ -29,7 +29,7 @@
     <flyway.version>11.3.3</flyway.version>
     <kotlinx-serialization.version>1.8.0</kotlinx-serialization.version>
     <jackson.version>2.18.2</jackson.version>
-    <slf4j.version>2.0.16</slf4j.version>
+    <slf4j.version>2.0.17</slf4j.version>
     <logback-classic.version>1.5.17</logback-classic.version>
   </properties>
 
