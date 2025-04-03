@@ -2,6 +2,9 @@
 
 package no.liflig.documentstore.migration
 
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.collections.shouldNotBeEmpty
 import java.text.DecimalFormat
 import java.time.Instant
 import kotlin.test.assertEquals
@@ -26,8 +29,12 @@ import org.flywaydb.core.api.migration.Context
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
+import org.junit.jupiter.api.MethodOrderer
+import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestMethodOrder
 
+@TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class MigrationTest {
   @BeforeEach
   fun reset() {
@@ -38,6 +45,7 @@ class MigrationTest {
   private val numberFormat = DecimalFormat("00000")
 
   @Test
+  @Order(1)
   fun `test migration`() {
     val existingEntities =
         (0 until 10_000)
@@ -77,6 +85,7 @@ class MigrationTest {
   }
 
   @Test
+  @Order(2)
   fun `migration rolls back on failed transaction`() {
     val entitiesToCreate =
         (0 until 10).map { number ->
@@ -113,6 +122,7 @@ class MigrationTest {
   }
 
   @Test
+  @Order(3)
   fun `migration with WHERE clause only migrates matching entities`() {
     val entitiesToMigrate = (0 until 50).map { ExampleEntity(text = "SHOULD_MIGRATE") }
     val entitiesNotToMigrate = (0 until 50).map { ExampleEntity(text = "SHOULD_NOT_MIGRATE") }
@@ -145,9 +155,69 @@ class MigrationTest {
     notMigratedEntities.forEach { entity -> assertEquals("SHOULD_NOT_MIGRATE", entity.item.text) }
   }
 
+  @Test
+  @Order(4)
+  fun `migrateEntitySerialization can change serialized form of entities`() {
+    @Serializable
+    data class OldEntity(override val id: ExampleId, val oldField: Int) : Entity<ExampleId>
+
+    @Serializable
+    data class NewEntity(override val id: ExampleId, val newField: Int) : Entity<ExampleId>
+
+    val oldSerializationAdapter = KotlinSerialization(OldEntity.serializer())
+    val newSerializationAdapter = KotlinSerialization(NewEntity.serializer())
+
+    val oldRepo =
+        RepositoryJdbi<ExampleId, OldEntity>(
+            jdbi,
+            tableName = "example",
+            serializationAdapter = oldSerializationAdapter,
+        )
+    val newRepo =
+        RepositoryJdbi<ExampleId, NewEntity>(
+            jdbi,
+            tableName = "example",
+            serializationAdapter = newSerializationAdapter,
+        )
+
+    val oldEntities =
+        oldRepo.batchCreate(
+            (1..500).map { number -> OldEntity(id = ExampleId(), oldField = number) },
+        )
+
+    @Suppress("ClassName") // Flyway expects this naming convention
+    class V001_4__Migrate_serialization : BaseJavaMigration() {
+      override fun migrate(context: Context) {
+        migrateEntitySerialization(
+            context.connection,
+            tableName = "example",
+            currentSerializationAdapter = oldSerializationAdapter,
+            targetSerializationAdapter = newSerializationAdapter,
+            transform = { (oldEntity, _) ->
+              NewEntity(oldEntity.id, newField = oldEntity.oldField)
+            },
+        )
+      }
+    }
+
+    runMigration(V001_4__Migrate_serialization())
+
+    val newEntities = newRepo.listAll()
+    newEntities.shouldNotBeEmpty()
+    newEntities.shouldHaveSize(oldEntities.size)
+    newEntities
+        .map { it.item }
+        .shouldContainExactlyInAnyOrder(
+            oldEntities.map { (oldEntity, _) ->
+              NewEntity(oldEntity.id, newField = oldEntity.oldField)
+            },
+        )
+  }
+
   // Disabled for automatic tests, since this is a heavy test that we don't want to run in CI
   @Disabled
   @Test
+  @Order(5)
   fun `load-test migration`() {
     val existingEntities =
         (0L until 500_000L)
@@ -173,7 +243,7 @@ class MigrationTest {
     Thread.sleep(1000)
 
     @Suppress("ClassName") // Flyway expects this naming convention
-    class V001_4__Load_test_migration : BaseJavaMigration() {
+    class V001_5__Load_test_migration : BaseJavaMigration() {
       override fun migrate(context: Context) {
         migrateEntity(
             context.connection,
@@ -183,7 +253,7 @@ class MigrationTest {
       }
     }
 
-    runMigration(V001_4__Load_test_migration())
+    runMigration(V001_5__Load_test_migration())
   }
 
   private fun runMigration(migration: BaseJavaMigration) {

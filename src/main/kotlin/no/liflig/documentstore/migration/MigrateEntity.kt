@@ -85,6 +85,50 @@ fun <EntityT : Entity<*>> migrateEntity(
     where: String? = null,
     bindParameters: Query.() -> Query = { this },
 ) {
+  // We can use migrateEntitySerialization's implementation here, but with
+  // CurrentEntityT == TargetEntityT
+  migrateEntitySerialization<EntityT, EntityT>(
+      dbConnection,
+      tableName = tableName,
+      currentSerializationAdapter = serializationAdapter,
+      targetSerializationAdapter = serializationAdapter,
+      transform = transform ?: { entity -> entity.item }, // Default no-op
+      where = where,
+      bindParameters = bindParameters,
+  )
+}
+
+/**
+ * Variant of [migrateEntity] for when you want to change the serialized form of entities in a
+ * database table. It reads out all entities from the table as [CurrentEntityT] (using
+ * [currentSerializationAdapter]), applies the given [transform] to turn them into [TargetEntityT],
+ * and writes them back with [targetSerializationAdapter].
+ *
+ * Note that if there is an older server instance still running after this migration has completed,
+ * and it reads entities as [CurrentEntityT], it may fail if that type is not compatible with
+ * [TargetEntityT]. For these cases, you may instead want to go for an "expand-contract" strategy:
+ * 1. Add new fields to the entity, with default values (e.g. defaulting to values of old fields
+ *    that you want to replace)
+ * 2. Run a [migrateEntity] migration to serialize those new fields on entities in the database
+ * 3. Remove old fields, if they've been replaced by the new fields
+ * 4. Run another [migrateEntity] migration, to remove the old fields from the serialized entities
+ *    in the database
+ *
+ * [migrateEntitySerialization] is more appropriate for the cases where you don't need to be
+ * compatible with parallel server instances, and you don't want to bother with running 2
+ * migrations.
+ *
+ * See [migrateEntity] for more on how to use the other arguments to this function.
+ */
+fun <CurrentEntityT : Entity<*>, TargetEntityT : Entity<*>> migrateEntitySerialization(
+    dbConnection: Connection,
+    tableName: String,
+    currentSerializationAdapter: SerializationAdapter<CurrentEntityT>,
+    targetSerializationAdapter: SerializationAdapter<TargetEntityT>,
+    transform: (Versioned<CurrentEntityT>) -> TargetEntityT,
+    where: String? = null,
+    bindParameters: Query.() -> Query = { this },
+) {
   /**
    * When using Java-based migrations with Flyway, we receive a Context with a plain
    * [java.sql.Connection]. However, we use the JDBI library for database access in Liflig Document
@@ -121,7 +165,7 @@ fun <EntityT : Entity<*>> migrateEntity(
             // rows to fetch at a time. Solution found here:
             // https://www.postgresql.org/message-id/BANLkTi=Df1CR72Bx0L8CBZWBcSfwpmnc-g@mail.gmail.com
             .setFetchSize(MIGRATION_BATCH_SIZE)
-            .map(EntityRowMapper(serializationAdapter))
+            .map(EntityRowMapper(currentSerializationAdapter))
 
     val modifiedAt = currentTimeWithMicrosecondPrecision()
 
@@ -143,10 +187,10 @@ fun <EntityT : Entity<*>> migrateEntity(
                 .trimIndent(),
         bindParameters = { batch, entity ->
           val nextVersion = entity.version.next()
-          val updatedEntity = if (transform == null) entity.item else transform(entity)
+          val updatedEntity = transform(entity)
 
           batch
-              .bind("data", serializationAdapter.toJson(updatedEntity))
+              .bind("data", targetSerializationAdapter.toJson(updatedEntity))
               .bind("nextVersion", nextVersion)
               .bind("modifiedAt", modifiedAt)
               .bind("id", entity.item.id)
