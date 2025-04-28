@@ -28,7 +28,7 @@
     <hikari.version>6.3.0</hikari.version>
     <flyway.version>11.8.0</flyway.version>
     <kotlinx-serialization.version>1.8.1</kotlinx-serialization.version>
-    <jackson.version>2.18.3</jackson.version>
+    <jackson.version>2.19.0</jackson.version>
     <slf4j.version>2.0.17</slf4j.version>
     <logback-classic.version>1.5.18</logback-classic.version>
   </properties>
