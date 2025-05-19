@@ -1,5 +1,6 @@
 package no.liflig.documentstore.repository
 
+import java.sql.SQLException
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 
@@ -53,38 +54,77 @@ inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
     try {
       transactionHandle.set(handle)
 
-      /**
-       * 1. Begin transaction
-       * 2. Call [block]
-       * 3. If it returns successfully: Commit transaction
-       * 4. If it throws: Roll back transaction
-       *
-       * We manually call begin, commit and rollback here instead of using [Handle.inTransaction].
-       * This is because we want this function to be inline, so that callers can use non-local
-       * returns in `block`, which is quite handy for these types of functions. `inTransaction`
-       * takes a Java lambda, which Kotlin cannot inline, hence we need to do it ourselves.
-       *
-       * The implementation here is the same as JDBI's
-       * [org.jdbi.v3.core.transaction.LocalTransactionHandler.BoundLocalTransactionHandler.inTransaction].
-       */
-      handle.begin()
-      val returnValue = block()
-      handle.commit()
+      var attempts = 0
+      val failures = ArrayList<Throwable>()
 
-      return returnValue
-    } catch (e: Throwable) {
-      try {
-        handle.rollback()
-      } catch (rollback: Exception) {
-        // If rollback failed, we still want to throw the original exception, so we add this
-        // exception as a suppressed exception here. This is the same as JDBI does in their
-        // implementation of `inTransaction`.
-        e.addSuppressed(rollback)
+      retryLoop@ while (true) {
+        try {
+          /**
+           * 1. Begin transaction
+           * 2. Call [block]
+           * 3. If it returns successfully: Commit transaction
+           * 4. If it throws: Roll back transaction
+           *
+           * We manually call begin, commit and rollback here instead of using
+           * [Handle.inTransaction]. This is because we want this function to be inline, so that
+           * callers can use non-local returns in `block`, which is quite handy for these types of
+           * functions. `inTransaction` takes a Java lambda, which Kotlin cannot inline, hence we
+           * need to do it ourselves.
+           *
+           * The implementation here is the same as JDBI's
+           * [org.jdbi.v3.core.transaction.LocalTransactionHandler.BoundLocalTransactionHandler.inTransaction].
+           */
+          handle.begin()
+          val returnValue = block()
+          handle.commit()
+
+          return returnValue
+        } catch (e: Throwable) {
+          try {
+            handle.rollback()
+          } catch (rollback: Exception) {
+            // If rollback failed, we still want to throw the original exception, so we add this
+            // exception as a suppressed exception here. This is the same as JDBI does in their
+            // implementation of `inTransaction`.
+            e.addSuppressed(rollback)
+          }
+
+          attempts++
+          if (attempts < MAX_TRANSACTION_RETRIES && isTransactionSerializationFailure(e)) {
+            failures.add(e)
+            continue@retryLoop
+          }
+
+          for (failure in failures.asReversed()) {
+            e.addSuppressed(failure)
+          }
+          throw mapDatabaseException(e)
+        }
       }
-
-      throw mapDatabaseException(e)
     } finally {
       transactionHandle.remove()
     }
   }
+}
+
+@kotlin.concurrent.Volatile @PublishedApi internal var MAX_TRANSACTION_RETRIES = 3
+
+fun setMaxTransactionRetries(retries: Int) {
+  MAX_TRANSACTION_RETRIES = retries
+}
+
+private const val POSTGRES_TRANSACTION_SERIALIZATION_ERROR_CODE = "40001"
+
+@PublishedApi
+internal fun isTransactionSerializationFailure(e: Throwable): Boolean {
+  var e: Throwable? = e
+
+  while (e != null) {
+    if (e is SQLException && e.sqlState.startsWith(POSTGRES_TRANSACTION_SERIALIZATION_ERROR_CODE)) {
+      return true
+    }
+    e = e.cause
+  }
+
+  return false
 }
