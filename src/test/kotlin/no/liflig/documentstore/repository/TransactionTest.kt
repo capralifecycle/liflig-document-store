@@ -1,6 +1,5 @@
 package no.liflig.documentstore.repository
 
-import io.kotest.matchers.nulls.shouldBeNull
 import kotlin.concurrent.thread
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -49,20 +48,6 @@ class TransactionTest {
 
     assertEquals("One", exampleRepo.get(entity1.id)!!.item.text)
     assertEquals("One", exampleRepo.get(entity2.id)!!.item.text)
-  }
-
-  @Test
-  fun `failed transaction rolls back on Throwable too, not just Exception`() {
-    val entity = ExampleEntity(text = "Test")
-
-    assertFailsWith<Throwable> {
-      transactional(jdbi) {
-        exampleRepo.create(entity)
-        throw Throwable()
-      }
-    }
-
-    exampleRepo.get(entity.id).shouldBeNull()
   }
 
   @Test

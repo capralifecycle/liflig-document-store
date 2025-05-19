@@ -27,23 +27,11 @@ class EntityNotFoundException(override val message: String) : RepositoryExceptio
 @PublishedApi
 internal fun mapDatabaseException(e: Exception): Exception {
   return when (e) {
+    is ConflictRepositoryException -> e
     is SQLTransientException,
     is InterruptedIOException,
     is ConnectionException,
     is CloseException -> UnavailableRepositoryException(cause = e)
-    else -> e
-  }
-}
-
-/**
- * Overload of [mapDatabaseException] for `Throwable`. We use this in some places where we catch
- * `Throwable`, but in other places we still want the `Exception`-only variant, so we keep this
- * separate.
- */
-@PublishedApi
-internal fun mapDatabaseException(e: Throwable): Throwable {
-  return when (e) {
-    is Exception -> mapDatabaseException(e)
     else -> e
   }
 }

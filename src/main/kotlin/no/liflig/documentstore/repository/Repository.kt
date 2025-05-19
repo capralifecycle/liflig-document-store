@@ -219,4 +219,18 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
     // to implement this themselves (for e.g. mock repositories).
     entities.forEach { delete(it) }
   }
+
+  /**
+   * Initiates a database transaction, and executes the given [block] inside of it. Any calls to
+   * other repository methods inside this block will use the same transaction, and roll back if an
+   * exception is thrown.
+   *
+   * The implementation in [RepositoryJdbi.transactional] uses its JDBI instance to start the
+   * transaction.
+   */
+  fun <ReturnT> transactional(block: () -> ReturnT): ReturnT {
+    // A default implementation is provided here on the interface, so that implementers don't have
+    // to implement this themselves (for e.g. mock repositories).
+    return block()
+  }
 }
