@@ -722,8 +722,17 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     }
   }
 
-  override fun <ReturnT> transactional(block: () -> ReturnT): ReturnT {
-    return transactional(jdbi, block)
+  /**
+   * Starts a database transaction, and runs the given [block] inside of it. Any calls to other
+   * repository methods inside the block will use the same transaction, and roll back if an
+   * exception is thrown.
+   *
+   * The repository's [Jdbi] instance is used for the transaction. If a transaction is already in
+   * progress on the current thread, a new one will not be started (since we're already in a
+   * transaction).
+   */
+  inline fun <ReturnT> transactional(block: () -> ReturnT): ReturnT {
+    return transactional(getJdbiInstance(), block)
   }
 
   /**
@@ -793,4 +802,12 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       }
     }
   }
+
+  /**
+   * The inline [transactional] method needs to use the repository's Jdbi instance, but [jdbi] is
+   * protected, which doesn't work in public inline functions. So we add this internal helper method
+   * to get the Jdbi instance for [transactional]. It needs to be annotated with `@PublishedApi` so
+   * we can use it in public inline methods.
+   */
+  @PublishedApi internal fun getJdbiInstance(): Jdbi = jdbi
 }
