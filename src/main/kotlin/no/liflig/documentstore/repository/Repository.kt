@@ -35,7 +35,7 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    */
   fun getOrThrow(id: EntityIdT, forUpdate: Boolean = false): Versioned<EntityT> {
     // We implement this here on the interface instead of on `RepositoryJdbi`, since this default
-    // implementation will be
+    // implementation will be the same for all repositories
     return get(id, forUpdate = forUpdate)
         ?: throw EntityNotFoundException(
             "Failed to find entity with ID '${entityIdValueToString(id)}' in database (${this::class.simpleName})",

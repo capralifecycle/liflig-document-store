@@ -182,6 +182,13 @@
       <version>${logback-classic.version}</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <!-- For mocking and spyk -->
+      <groupId>io.mockk</groupId>
+      <artifactId>mockk-jvm</artifactId>
+      <version>1.14.2</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>

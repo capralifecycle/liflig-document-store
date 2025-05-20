@@ -3,15 +3,21 @@ package no.liflig.documentstore.repository
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
 import kotlin.concurrent.thread
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import no.liflig.documentstore.entity.Version
+import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.entity.mapEntities
 import no.liflig.documentstore.testutils.ExampleEntity
+import no.liflig.documentstore.testutils.ExampleRepository
 import no.liflig.documentstore.testutils.clearDatabase
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.jdbi
+import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -210,5 +216,31 @@ class TransactionTest {
     createEntity()
 
     exampleRepo.get(entity.id).shouldNotBeNull().item.shouldBe(entity)
+  }
+
+  @Test
+  fun `shouldMockTransactions allows mocking transactional on RepositoryJdbi`() {
+    val mockedEntity =
+        Versioned(
+            ExampleEntity(text = "Test"),
+            Version.initial(),
+            createdAt = currentTimeWithMicrosecondPrecision(),
+            modifiedAt = currentTimeWithMicrosecondPrecision(),
+        )
+
+    val mockedRepo =
+        mockk<ExampleRepository> {
+          every { getOrThrow(id = any(), forUpdate = any()) } returns mockedEntity
+          every { update(entity = any(), previousVersion = any()) } returns mockedEntity
+          every { shouldMockTransactions() } returns true
+        }
+
+    val updatedEntity =
+        mockedRepo.transactional {
+          val entity = mockedRepo.getOrThrow(mockedEntity.item.id, forUpdate = true)
+          mockedRepo.update(entity.item, entity.version)
+        }
+
+    updatedEntity.shouldBe(mockedEntity)
   }
 }

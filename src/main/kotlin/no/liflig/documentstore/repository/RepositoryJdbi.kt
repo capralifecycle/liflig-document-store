@@ -737,8 +737,16 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * can get the handle. But new threads spawned in the scope of `block` will not see this
    * thread-local, and so they will not work correctly with the transaction. So you should not
    * attempt concurrent database operations with this function.
+   *
+   * ### Mocking
+   *
+   * See [shouldMockTransactions].
    */
   inline fun <ReturnT> transactional(block: () -> ReturnT): ReturnT {
+    if (shouldMockTransactions()) {
+      return block()
+    }
+
     return transactional(getJdbiInstance(), block)
   }
 
@@ -785,6 +793,36 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
   protected open fun mapCreateOrUpdateException(e: Exception, entity: EntityT): Exception {
     return e
   }
+
+  /**
+   * Since [transactional] is an inline method, it cannot be mocked by libraries such as
+   * [mockk](https://mockk.io/) that operate on bytecode (since inline functions don't generate
+   * bytecode). We still want `transactional` to be inline, to allow non-local returns in the lambda
+   * passed to it, which is handy for such scope-based functions.
+   *
+   * So to support users who want to mock calls to `transactional`, we provide this method, which
+   * users can override/mock to return true. When this returns true, `transactional` will just
+   * immediately call the lambda passed to it, without starting a database transaction.
+   *
+   * ### Example
+   *
+   * ```
+   * val mockedRepo =
+   *     mockk<ExampleRepository> {
+   *       every { getOrThrow(exampleId, forUpdate = true) } returns mockedEntity
+   *       every { update(entity = any(), previousVersion = any()) } returns mockedEntity
+   *       every { shouldMockTransactions() } returns true
+   *     }
+   *
+   * // Since we set `shouldMockTransactions` to return true above, `transactional` will just
+   * // immediately invoke the lambda, without starting a database transaction
+   * mockedRepo.transactional {
+   *   val entity = mockedRepo.getOrThrow(exampleId, forUpdate = true)
+   *   mockedRepo.update(entity.item, entity.version)
+   * }
+   * ```
+   */
+  open fun shouldMockTransactions(): Boolean = false
 
   /**
    * [batchUpdate] and [batchDelete] use optimistic locking: we only update/delete an entity if it
