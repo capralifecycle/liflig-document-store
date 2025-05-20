@@ -1,6 +1,5 @@
 package no.liflig.documentstore.repository
 
-import java.util.stream.Stream
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.EntityId
 import no.liflig.documentstore.entity.Version
@@ -112,23 +111,15 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
     return ids.mapNotNull { id -> get(id) }
   }
 
+  /**
+   * Returns a list of all entities in the database table.
+   *
+   * If the table has a large number of entities and you don't want to keep them all in memory at
+   * the same time, you should consider using [RepositoryJdbi.streamAll] instead.
+   */
   fun listAll(): List<Versioned<EntityT>>
 
-  /**
-   * Gives you a stream of all entities in the table, through the given [useStream] argument. The
-   * stream must only be used inside the scope of [useStream] - after it returns, the result stream
-   * is closed and associated database resources are released (this is done in an exception-safe
-   * way, so database resources are never wasted).
-   *
-   * @return The same as [useStream] (a generic return type based on the passed lambda).
-   */
-  fun <ReturnT> streamAll(useStream: (Stream<Versioned<EntityT>>) -> ReturnT): ReturnT {
-    // A default implementation is provided here on the interface, so that implementers don't have
-    // to implement this themselves (for e.g. mock repositories).
-    return useStream(listAll().stream())
-  }
-
-  /** Returns the total count of entities in this repository. */
+  /** Returns the total count of entities in the database table. */
   fun countAll(): Long {
     // A default implementation is provided here on the interface, so that implementers don't have
     // to implement this themselves (for e.g. mock repositories).

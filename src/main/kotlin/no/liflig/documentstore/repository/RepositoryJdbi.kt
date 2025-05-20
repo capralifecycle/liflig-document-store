@@ -205,7 +205,15 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     return getByPredicate() // Defaults to all
   }
 
-  override fun <ReturnT> streamAll(useStream: (Stream<Versioned<EntityT>>) -> ReturnT): ReturnT {
+  /**
+   * Gives you a stream of all entities in the database table, through the given [useStream]
+   * argument. The stream must only be used inside the scope of [useStream] - after it returns, the
+   * result stream is closed and associated database resources are released (this is done in an
+   * exception-safe way, so database resources are never wasted).
+   *
+   * @return The same as [useStream] (a generic return type based on the passed lambda).
+   */
+  fun <ReturnT> streamAll(useStream: (Stream<Versioned<EntityT>>) -> ReturnT): ReturnT {
     return streamByPredicate(useStream) // Defaults to all
   }
 
