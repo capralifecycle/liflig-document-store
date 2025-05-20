@@ -63,6 +63,8 @@ inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
            * 1. Begin transaction
            * 2. Call [block]
            * 3. If it returns successfully: Commit transaction
+           *     - Since we're in an inline method and `block` may contain non-local returns, we
+           *       must call commit in the `finally` clause below, to ensure that it's called.
            * 4. If it throws: Roll back transaction
            *
            * We manually call begin, commit and rollback here instead of using
@@ -75,10 +77,7 @@ inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
            * [org.jdbi.v3.core.transaction.LocalTransactionHandler.BoundLocalTransactionHandler.inTransaction].
            */
           handle.begin()
-          val returnValue = block()
-          handle.commit()
-
-          return returnValue
+          return block()
         } catch (e: Throwable) {
           try {
             handle.rollback()
@@ -95,14 +94,23 @@ inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
             continue@retryLoop
           }
 
-          for (failure in failures.asReversed()) {
-            e.addSuppressed(failure)
+          if (failures.isNotEmpty()) {
+            for (failure in failures.asReversed()) {
+              e.addSuppressed(failure)
+            }
           }
           throw mapDatabaseException(e)
         }
       }
     } finally {
       transactionHandle.remove()
+
+      // If we're still in a transaction, that means we haven't rolled back, which means `block`
+      // returned successfully, so we should commit.
+      // See comment on `handle.begin()` above for why we call this here.
+      if (handle.isInTransaction) {
+        handle.commit()
+      }
     }
   }
 }
@@ -115,6 +123,11 @@ fun setMaxTransactionRetries(retries: Int) {
 
 private const val POSTGRES_TRANSACTION_SERIALIZATION_ERROR_CODE = "40001"
 
+/**
+ * Checks if the given exception, or any of its cause exceptions, is a Postgres transaction
+ * serialization failure. Such failures may occur when there's a conflict on a resource accessed in
+ * a transaction, and can typically be remedied by retrying.
+ */
 @PublishedApi
 internal fun isTransactionSerializationFailure(e: Throwable): Boolean {
   var e: Throwable? = e

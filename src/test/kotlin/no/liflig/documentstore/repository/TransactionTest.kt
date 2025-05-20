@@ -1,6 +1,8 @@
 package no.liflig.documentstore.repository
 
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
 import kotlin.concurrent.thread
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -192,5 +194,21 @@ class TransactionTest {
 
     val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.item.id })
     assertEquals(createdEntities.size, fetchedEntities.size)
+  }
+
+  @Test
+  fun `non-local return works in transactional`() {
+    val entity = ExampleEntity(text = "Test")
+
+    fun createEntity() {
+      exampleRepo.transactional {
+        exampleRepo.create(entity)
+        return // Non-local return - returns from createEntity, outside transactional
+      }
+    }
+
+    createEntity()
+
+    exampleRepo.get(entity.id).shouldNotBeNull().item.shouldBe(entity)
   }
 }
