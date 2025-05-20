@@ -31,6 +31,7 @@
     <jackson.version>2.19.0</jackson.version>
     <slf4j.version>2.0.17</slf4j.version>
     <logback-classic.version>1.5.18</logback-classic.version>
+    <mockk.version>1.14.2</mockk.version>
   </properties>
 
   <scm>
@@ -182,11 +183,11 @@
       <version>${logback-classic.version}</version>
       <scope>test</scope>
     </dependency>
+    <!-- To test that transactions can be mocked -->
     <dependency>
-      <!-- For mocking and spyk -->
       <groupId>io.mockk</groupId>
       <artifactId>mockk-jvm</artifactId>
-      <version>1.14.2</version>
+      <version>${mockk.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
