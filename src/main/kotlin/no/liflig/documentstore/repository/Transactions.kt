@@ -29,12 +29,19 @@ inline fun <ReturnT> useHandle(jdbi: Jdbi, block: (Handle) -> ReturnT): ReturnT 
 }
 
 /**
- * Starts a transaction, and stores the database handle in a thread-local. Calls to [useHandle]
- * inside the given [block] will then use this transaction handle (this includes the various methods
- * on [RepositoryJdbi]).
+ * Starts a database transaction, and runs the given [block] inside of it. Calls to [useHandle]
+ * inside the block will use the same transaction (this includes the various methods on
+ * [RepositoryJdbi]). If an exception is thrown, the transaction is rolled back.
  *
  * If a transaction is already in progress on the current thread, a new one will not be started
  * (since we're already in a transaction).
+ *
+ * ### Thread safety
+ *
+ * This function stores a transaction handle in a thread-local, so that operations within [block]
+ * can get the handle. But new threads spawned in the scope of `block` will not see this
+ * thread-local, and so they will not work correctly with the transaction. So you should not attempt
+ * concurrent database operations with this function.
  */
 inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
   val existingHandle = transactionHandle.get()
