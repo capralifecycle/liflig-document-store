@@ -6,6 +6,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -21,19 +22,55 @@ import no.liflig.documentstore.testutils.jdbi
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.assertNotNull
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TransactionTest {
   @BeforeEach
   fun reset() {
     clearDatabase()
   }
 
-  @Test
-  fun `complete transaction succeeds`() {
+  /**
+   * We have 3 functions for running database transactions:
+   * - The top-level [transactional] function
+   * - The [RepositoryJdbi.transactional] method
+   * - The [TransactionManager.transactional] method
+   *
+   * We want to test that all of these work as expected. So we make a test case for each here, and
+   * run every test in this class as a "parameterized test", repeating every test for each
+   * transactional function.
+   */
+  class TransactionTestCase(
+      private val name: String,
+      val transactional: (block: () -> Unit) -> Unit,
+  ) {
+    override fun toString() = name
+  }
+
+  fun transactionTestCases() =
+      listOf(
+          TransactionTestCase("Top-level transactional function") { block ->
+            transactional(jdbi, block)
+          },
+          TransactionTestCase("RepositoryJdbi transactional method") { block ->
+            transactional(jdbi, block)
+          },
+          TransactionTestCase("TransactionManager transactional method") { block ->
+            TransactionManager(jdbi).transactional(block)
+          },
+      )
+
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `complete transaction succeeds`(testCase: TransactionTestCase) {
     val (entity1, version1) = exampleRepo.create(ExampleEntity(text = "One"))
     val (entity2, version2) = exampleRepo.create(ExampleEntity(text = "One"))
 
-    transactional(jdbi) {
+    testCase.transactional {
       exampleRepo.update(entity1.copy(text = "Two"), version1)
       exampleRepo.update(entity2.copy(text = "Two"), version2)
       exampleRepo.get(entity2.id)
@@ -44,13 +81,14 @@ class TransactionTest {
     assertEquals("Two", exampleRepo.get(entity1.id)!!.item.text)
   }
 
-  @Test
-  fun `failed transaction rolls back`() {
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `failed transaction rolls back`(testCase: TransactionTestCase) {
     val (entity1, version1) = exampleRepo.create(ExampleEntity(text = "One"))
     val (entity2, version2) = exampleRepo.create(ExampleEntity(text = "One"))
 
     assertFailsWith<ConflictRepositoryException> {
-      transactional(jdbi) {
+      testCase.transactional {
         exampleRepo.update(entity1.copy(text = "Two"), version1)
         exampleRepo.update(entity2.copy(text = "Two"), version2.next())
       }
@@ -60,12 +98,15 @@ class TransactionTest {
     assertEquals("One", exampleRepo.get(entity2.id)!!.item.text)
   }
 
-  @Test
-  fun `failed transaction rolls back on Throwable too, not just Exception`() {
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `failed transaction rolls back on Throwable too, not just Exception`(
+      testCase: TransactionTestCase
+  ) {
     val entity = ExampleEntity(text = "Test")
 
     assertFailsWith<Throwable> {
-      transactional(jdbi) {
+      testCase.transactional {
         exampleRepo.create(entity)
         throw Throwable()
       }
@@ -74,15 +115,16 @@ class TransactionTest {
     exampleRepo.get(entity.id).shouldBeNull()
   }
 
-  @Test
-  fun `transaction within transaction rolls back as expected`() {
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `transaction within transaction rolls back as expected`(testCase: TransactionTestCase) {
     val (entity1, version1) = exampleRepo.create(ExampleEntity(text = "One"))
     val (entity2, version2) = exampleRepo.create(ExampleEntity(text = "One"))
 
     try {
-      transactional(jdbi) {
+      testCase.transactional {
         exampleRepo.update(entity1.copy(text = "Two"), version1)
-        transactional(jdbi) { exampleRepo.update(entity2.copy(text = "Two"), version2) }
+        testCase.transactional { exampleRepo.update(entity2.copy(text = "Two"), version2) }
         throw ConflictRepositoryException("test")
       }
     } catch (_: ConflictRepositoryException) {}
@@ -91,19 +133,28 @@ class TransactionTest {
     assertEquals("One", exampleRepo.get(entity2.id)!!.item.text)
   }
 
-  @Test
-  fun `transaction prevents race conditions`() {
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `transaction prevents race conditions`(testCase: TransactionTestCase) {
     val (entity1, _) = exampleRepo.create(ExampleEntity(text = "Text"))
 
+    val threadCount = 100
+    val latch = CountDownLatch(threadCount)
+
     // Without locking, we should be getting ConflictRepositoryException when concurrent processes
-    // attempt to update the same row. With locking, each transaction will wait until lock is
-    // released before reading.
+    // attempt to update the same row. With locking (using forUpdate = true), each transaction will
+    // wait until lock is released before reading.
     val threads =
-        (1 until 100)
+        (1..threadCount)
             .map { index ->
               thread {
-                transactional(jdbi) {
-                  val first = exampleRepo.get(entity1.id, true)!!
+                // Wait for all threads to reach this point simultaneously, so they will all start
+                // a transaction at the same time
+                latch.countDown()
+                latch.await()
+
+                testCase.transactional {
+                  val first = exampleRepo.get(entity1.id, forUpdate = true)!!
                   val updated = first.item.copy(text = index.toString())
                   exampleRepo.update(updated, first.version)
                 }
@@ -116,44 +167,32 @@ class TransactionTest {
       thread.join()
     }
 
-    assertEquals(100, exampleRepo.get(entity1.id)!!.version.value)
+    val expectedVersion: Long = 101 // Initial version 1 + 100 modifications
+    assertEquals(expectedVersion, exampleRepo.get(entity1.id)!!.version.value)
   }
 
-  @Test
-  fun `get returns updated data within transaction`() {
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `get returns updated data within transaction`(testCase: TransactionTestCase) {
     val (entity1, version1) = exampleRepo.create(ExampleEntity(text = "One"))
 
-    val result =
-        transactional(jdbi) {
-          exampleRepo.update(entity1.copy(text = "Two"), version1)
-          exampleRepo.get(entity1.id)?.item?.text
-        }
-
-    assertEquals("Two", result)
-  }
-
-  @Test
-  fun `RepositoryJdbi transactional rolls back failed transaction`() {
-    val (entity1, version1) = exampleRepo.create(ExampleEntity(text = "One"))
-    val (entity2, version2) = exampleRepo.create(ExampleEntity(text = "One"))
-
-    assertFailsWith<ConflictRepositoryException> {
-      exampleRepo.transactional {
-        exampleRepo.update(entity1.copy(text = "Two"), version1)
-        exampleRepo.update(entity2.copy(text = "Two"), version2.next())
-      }
+    var updatedEntity: Versioned<ExampleEntity>? = null
+    testCase.transactional {
+      exampleRepo.update(entity1.copy(text = "Two"), version1)
+      updatedEntity = exampleRepo.get(entity1.id)
     }
 
-    assertEquals("One", exampleRepo.get(entity1.id)!!.item.text)
-    assertEquals("One", exampleRepo.get(entity2.id)!!.item.text)
+    assertNotNull(updatedEntity)
+    assertEquals("Two", updatedEntity!!.item.text)
   }
 
-  @Test
-  fun `batchCreate rolls back on failed transaction`() {
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `batchCreate rolls back on failed transaction`(testCase: TransactionTestCase) {
     val entitiesToCreate = (1..10).map { ExampleEntity(text = "batchCreate transaction test") }
 
     assertFailsWith<Exception> {
-      transactional(jdbi) {
+      testCase.transactional {
         exampleRepo.batchCreate(entitiesToCreate)
         throw Exception("Rolling back transaction")
       }
@@ -163,8 +202,9 @@ class TransactionTest {
     assertEquals(0, createdEntities.size)
   }
 
-  @Test
-  fun `batchUpdate rolls back on failed transaction`() {
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `batchUpdate rolls back on failed transaction`(testCase: TransactionTestCase) {
     val entitiesToCreate = (1..10).map { ExampleEntity(text = "Original") }
     exampleRepo.batchCreate(entitiesToCreate)
 
@@ -172,7 +212,7 @@ class TransactionTest {
     val updatedEntities = createdEntities.mapEntities { it.copy(text = "Updated") }
 
     assertFailsWith<Exception> {
-      transactional(jdbi) {
+      testCase.transactional {
         exampleRepo.batchUpdate(updatedEntities)
         throw Exception("Rolling back transaction")
       }
@@ -185,15 +225,16 @@ class TransactionTest {
     }
   }
 
-  @Test
-  fun `batchDelete rolls back on failed transaction`() {
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `batchDelete rolls back on failed transaction`(testCase: TransactionTestCase) {
     val entitiesToCreate = (1..10).map { ExampleEntity(text = "Original") }
     exampleRepo.batchCreate(entitiesToCreate)
 
     val createdEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
 
     assertFailsWith<Exception> {
-      transactional(jdbi) {
+      testCase.transactional {
         exampleRepo.batchDelete(createdEntities)
         throw Exception("Rolling back transaction")
       }
@@ -203,10 +244,14 @@ class TransactionTest {
     assertEquals(createdEntities.size, fetchedEntities.size)
   }
 
-  @Test
-  fun `useHandle uses transaction handle`() {
-    val handleWasInTransaction: Boolean =
-        transactional(jdbi) { useHandle(jdbi) { handle -> handle.isInTransaction } }
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `useHandle uses transaction handle`(testCase: TransactionTestCase) {
+    var handleWasInTransaction = false
+
+    testCase.transactional {
+      useHandle(jdbi) { handle -> handleWasInTransaction = handle.isInTransaction }
+    }
 
     handleWasInTransaction.shouldBeTrue()
   }
@@ -216,9 +261,14 @@ class TransactionTest {
     val entity = ExampleEntity(text = "Test")
 
     fun createEntity() {
-      exampleRepo.transactional {
-        exampleRepo.create(entity)
-        return // Non-local return - returns from createEntity, outside transactional
+      // Use all `transactional` variants here, to verify that they are all `inline`
+      transactional(jdbi) {
+        exampleRepo.transactional {
+          TransactionManager(jdbi).transactional {
+            exampleRepo.create(entity)
+            return // Non-local return - returns from createEntity, outside transactional
+          }
+        }
       }
     }
 
@@ -229,7 +279,7 @@ class TransactionTest {
 
   @Test
   fun `shouldMockTransactions allows mocking transactional on RepositoryJdbi`() {
-    val mockedEntity =
+    val mockEntity =
         Versioned(
             ExampleEntity(text = "Test"),
             Version.initial(),
@@ -237,19 +287,47 @@ class TransactionTest {
             modifiedAt = currentTimeWithMicrosecondPrecision(),
         )
 
-    val mockedRepo =
+    val mockRepo =
         mockk<ExampleRepository> {
-          every { getOrThrow(id = any(), forUpdate = any()) } returns mockedEntity
-          every { update(entity = any(), previousVersion = any()) } returns mockedEntity
+          every { getOrThrow(id = any(), forUpdate = any()) } returns mockEntity
+          every { update(entity = any(), previousVersion = any()) } returns mockEntity
           every { shouldMockTransactions() } returns true
         }
 
     val updatedEntity =
-        mockedRepo.transactional {
-          val entity = mockedRepo.getOrThrow(mockedEntity.item.id, forUpdate = true)
-          mockedRepo.update(entity.item, entity.version)
+        mockRepo.transactional {
+          val entity = mockRepo.getOrThrow(mockEntity.item.id, forUpdate = true)
+          mockRepo.update(entity.item, entity.version)
         }
 
-    updatedEntity.shouldBe(mockedEntity)
+    updatedEntity.shouldBe(mockEntity)
+  }
+
+  @Test
+  fun `shouldMockTransactions allows mocking transactional on TransactionManager`() {
+    val mockEntity =
+        Versioned(
+            ExampleEntity(text = "Test"),
+            Version.initial(),
+            createdAt = currentTimeWithMicrosecondPrecision(),
+            modifiedAt = currentTimeWithMicrosecondPrecision(),
+        )
+
+    val mockTransactionManager =
+        mockk<TransactionManager> { every { shouldMockTransactions() } returns true }
+
+    val mockRepo =
+        mockk<ExampleRepository> {
+          every { getOrThrow(id = any(), forUpdate = any()) } returns mockEntity
+          every { update(entity = any(), previousVersion = any()) } returns mockEntity
+        }
+
+    val updatedEntity =
+        mockTransactionManager.transactional {
+          val entity = mockRepo.getOrThrow(mockEntity.item.id, forUpdate = true)
+          mockRepo.update(entity.item, entity.version)
+        }
+
+    updatedEntity.shouldBe(mockEntity)
   }
 }

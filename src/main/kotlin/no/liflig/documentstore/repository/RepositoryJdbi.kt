@@ -815,18 +815,18 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * ### Example
    *
    * ```
-   * val mockedRepo =
+   * val mockRepo =
    *     mockk<ExampleRepository> {
-   *       every { getOrThrow(exampleId, forUpdate = true) } returns mockedEntity
-   *       every { update(entity = any(), previousVersion = any()) } returns mockedEntity
+   *       every { getOrThrow(exampleId, forUpdate = true) } returns mockEntity
+   *       every { update(entity = any(), previousVersion = any()) } returns mockEntity
    *       every { shouldMockTransactions() } returns true
    *     }
    *
    * // Since we set `shouldMockTransactions` to return true above, `transactional` will just
    * // immediately invoke the lambda, without starting a database transaction
-   * mockedRepo.transactional {
-   *   val entity = mockedRepo.getOrThrow(exampleId, forUpdate = true)
-   *   mockedRepo.update(entity.item, entity.version)
+   * mockRepo.transactional {
+   *   val entity = mockRepo.getOrThrow(exampleId, forUpdate = true)
+   *   mockRepo.update(entity.item, entity.version)
    * }
    * ```
    */
