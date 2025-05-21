@@ -476,7 +476,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * argument (do not concatenate user input directly in [sqlWhere], as that exposes you to SQL
    * injections). When using a list parameter, use the [Query.bindArray] method and pass the class
    * of the list's elements as the second argument (required for JDBI's reflection to work - see
-   * example below).
+   * example on [getByPredicate]).
    *
    * [sqlWhere] will typically use Postgres JSON operators to filter on entity fields, since the
    * document store uses `jsonb` to store entities (see
@@ -535,7 +535,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       bind: Query.() -> Query = { this },
   ): ReturnT {
     // Must wrap the query in a transaction for fetchSize to work
-    return transactional {
+    transactional {
       useHandle { handle ->
         val results =
             getByPredicateInternal(
@@ -551,7 +551,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                 bind = bind,
                 fetchSize = 50,
             )
-        results.stream().use(useStream)
+        return results.stream().use(useStream)
       }
     }
   }
