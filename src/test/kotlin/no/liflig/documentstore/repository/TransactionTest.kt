@@ -1,5 +1,6 @@
 package no.liflig.documentstore.repository
 
+import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -200,6 +201,14 @@ class TransactionTest {
 
     val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.item.id })
     assertEquals(createdEntities.size, fetchedEntities.size)
+  }
+
+  @Test
+  fun `useHandle uses transaction handle`() {
+    val handleWasInTransaction: Boolean =
+        transactional(jdbi) { useHandle(jdbi) { handle -> handle.isInTransaction } }
+
+    handleWasInTransaction.shouldBeTrue()
   }
 
   @Test
