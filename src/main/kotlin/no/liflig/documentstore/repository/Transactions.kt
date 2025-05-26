@@ -57,6 +57,7 @@ inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
       }
 
   handle.use {
+    var shouldCommit = true
     try {
       transactionHandle.set(handle)
 
@@ -79,6 +80,7 @@ inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
       handle.begin()
       return block()
     } catch (e: Throwable) {
+      shouldCommit = false
       try {
         handle.rollback()
       } catch (rollback: Exception) {
@@ -92,10 +94,10 @@ inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
     } finally {
       transactionHandle.remove()
 
-      // If we're still in a transaction, that means we haven't rolled back, which means `block`
+      // If `shouldCommit` is still true, that means we haven't rolled back, which means `block`
       // returned successfully, so we should commit.
       // See comment on `handle.begin()` above for why we call this here.
-      if (handle.isInTransaction) {
+      if (shouldCommit) {
         handle.commit()
       }
     }
