@@ -23,7 +23,7 @@
     <!-- For tests -->
     <junit.version>5.12.2</junit.version>
     <kotest.version>5.9.1</kotest.version>
-    <testcontainers.version>1.21.0</testcontainers.version>
+    <testcontainers.version>1.21.1</testcontainers.version>
     <postgresql.version>42.7.6</postgresql.version>
     <hikari.version>6.3.0</hikari.version>
     <flyway.version>11.8.2</flyway.version>
