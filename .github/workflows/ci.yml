@@ -20,7 +20,7 @@ jobs:
     needs: get-runner-user
     runs-on: ubuntu-24.04
     container:
-      image: "public.ecr.aws/docker/library/maven:3-eclipse-temurin-17"
+      image: "public.ecr.aws/docker/library/maven:3-eclipse-temurin-17@sha256:f58d59b6273e785ac0a4477f6e9b5ba1d7731c75b906c0f7b34076f1851318cc"
       options: --user ${{ needs.get-runner-user.outputs.uid_gid }}
     permissions:
       contents: write
