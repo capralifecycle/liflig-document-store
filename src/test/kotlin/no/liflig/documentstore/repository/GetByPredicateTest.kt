@@ -34,8 +34,8 @@ class GetByPredicateTest {
             orderBy = OrderBy.TEXT,
         )
     assertEquals(result.size, 2)
-    assertEquals(result[0].item.text, entity1.text)
-    assertEquals(result[1].item.text, entity2.text)
+    assertEquals(result[0].data.text, entity1.text)
+    assertEquals(result[1].data.text, entity2.text)
   }
 
   /**
@@ -68,7 +68,7 @@ class GetByPredicateTest {
                 nullsFirst = test.nullsFirst,
                 handleJsonNullsInOrderBy = true,
             )
-            .map { it.item }
+            .map { it.data }
 
     val indexOfA = result.indexOf(entityA)
     val indexOfB = result.indexOf(entityB)
@@ -94,7 +94,7 @@ class GetByPredicateTest {
     val (entity1, _) = exampleRepo.create(ExampleEntity(text = "A"))
     val (entity2, _) = exampleRepo.create(ExampleEntity(text = "B"))
 
-    val result = exampleRepo.search(orderDesc = false).map { it.item }
+    val result = exampleRepo.search(orderDesc = false).map { it.data }
 
     val indexOf1 = result.indexOf(entity1)
     assertNotEquals(-1, indexOf1)
@@ -130,6 +130,6 @@ class GetByPredicateTest {
         )
     assertEquals(result3.list.size, 1)
     assertEquals(result3.totalCount, 2)
-    assertEquals(result3.list[0].item.text, entity1.text)
+    assertEquals(result3.list[0].data.text, entity1.text)
   }
 }

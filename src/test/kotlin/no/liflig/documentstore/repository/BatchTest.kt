@@ -93,7 +93,7 @@ class BatchTest {
     ): List<Versioned<ExampleEntity>> {
       exampleRepo.batchUpdate(entities.iterator()) shouldBe Unit
 
-      return exampleRepo.listByIds(entities.map { it.item.id })
+      return exampleRepo.listByIds(entities.map { it.data.id })
     }
 
     override fun batchDelete(entities: List<Versioned<ExampleEntity>>) {
@@ -139,7 +139,7 @@ class BatchTest {
     assertNotEquals(0, createdEntities.size)
     assertEquals(entitiesToCreate.size, createdEntities.size)
     for (i in entitiesToCreate.indices) {
-      assertEquals(entitiesToCreate[i], createdEntities[i].item)
+      assertEquals(entitiesToCreate[i], createdEntities[i].data)
     }
 
     // Verify that fetching out the created entities gives the same results as the ones we got back
@@ -157,17 +157,17 @@ class BatchTest {
     val entitiesToUpdate =
         createdEntities.withIndex().map { (index, entity) ->
           val updatedEntity =
-              entity.item.copy(
+              entity.data.copy(
                   optionalText = "batch-update-test-${testNumberFormat.format(index + 1)}",
               )
-          entity.copy(item = updatedEntity)
+          entity.copy(data = updatedEntity)
         }
     val updatedEntities = test.batchUpdate(entitiesToUpdate)
     test.entities = updatedEntities
 
     assertEquals(entitiesToUpdate.size, updatedEntities.size)
     for (i in entitiesToUpdate.indices) {
-      assertEquals(entitiesToUpdate[i].item, updatedEntities[i].item)
+      assertEquals(entitiesToUpdate[i].data, updatedEntities[i].data)
       assertEquals(entitiesToUpdate[i].createdAt, updatedEntities[i].createdAt)
       assertEquals(entitiesToUpdate[i].version.next(), updatedEntities[i].version)
       assertNotEquals(entitiesToUpdate[i].modifiedAt, updatedEntities[i].modifiedAt)
@@ -175,7 +175,7 @@ class BatchTest {
 
     // Verify that fetching out the updated entities gives the same results as the ones we got back
     // from batchUpdate
-    val fetchedEntities = exampleRepo.listByIds(entitiesToUpdate.map { it.item.id })
+    val fetchedEntities = exampleRepo.listByIds(entitiesToUpdate.map { it.data.id })
     assertEquals(fetchedEntities, updatedEntities)
   }
 
@@ -211,7 +211,7 @@ class BatchTest {
 
     test.batchDelete(entitiesToDelete)
 
-    val deletedEntities = exampleRepo.listByIds(entitiesToDelete.map { it.item.id })
+    val deletedEntities = exampleRepo.listByIds(entitiesToDelete.map { it.data.id })
     deletedEntities.shouldBeEmpty()
   }
 }

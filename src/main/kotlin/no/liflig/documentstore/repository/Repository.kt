@@ -74,7 +74,7 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
   fun <EntityOrSubClassT : EntityT> update(
       entity: Versioned<EntityOrSubClassT>
   ): Versioned<EntityOrSubClassT> {
-    return update(entity.item, entity.version)
+    return update(entity.data, entity.version)
   }
 
   /**
@@ -95,7 +95,7 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *   entity in the database.
    */
   fun delete(entity: Versioned<EntityT>) {
-    return delete(entity.item.id, entity.version)
+    return delete(entity.data.id, entity.version)
   }
 
   /**

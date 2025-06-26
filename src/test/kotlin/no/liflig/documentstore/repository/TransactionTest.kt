@@ -77,8 +77,8 @@ class TransactionTest {
     }
 
     assertNotEquals(entity1.id, entity2.id)
-    assertEquals("Two", exampleRepo.get(entity1.id)!!.item.text)
-    assertEquals("Two", exampleRepo.get(entity1.id)!!.item.text)
+    assertEquals("Two", exampleRepo.get(entity1.id)!!.data.text)
+    assertEquals("Two", exampleRepo.get(entity1.id)!!.data.text)
   }
 
   @ParameterizedTest
@@ -94,8 +94,8 @@ class TransactionTest {
       }
     }
 
-    assertEquals("One", exampleRepo.get(entity1.id)!!.item.text)
-    assertEquals("One", exampleRepo.get(entity2.id)!!.item.text)
+    assertEquals("One", exampleRepo.get(entity1.id)!!.data.text)
+    assertEquals("One", exampleRepo.get(entity2.id)!!.data.text)
   }
 
   @ParameterizedTest
@@ -129,8 +129,8 @@ class TransactionTest {
       }
     } catch (_: ConflictRepositoryException) {}
 
-    assertEquals("One", exampleRepo.get(entity1.id)!!.item.text)
-    assertEquals("One", exampleRepo.get(entity2.id)!!.item.text)
+    assertEquals("One", exampleRepo.get(entity1.id)!!.data.text)
+    assertEquals("One", exampleRepo.get(entity2.id)!!.data.text)
   }
 
   @ParameterizedTest
@@ -155,7 +155,7 @@ class TransactionTest {
 
                 testCase.transactional {
                   val first = exampleRepo.get(entity1.id, forUpdate = true)!!
-                  val updated = first.item.copy(text = index.toString())
+                  val updated = first.data.copy(text = index.toString())
                   exampleRepo.update(updated, first.version)
                 }
               }
@@ -183,7 +183,7 @@ class TransactionTest {
     }
 
     assertNotNull(updatedEntity)
-    assertEquals("Two", updatedEntity!!.item.text)
+    assertEquals("Two", updatedEntity!!.data.text)
   }
 
   @ParameterizedTest
@@ -218,10 +218,10 @@ class TransactionTest {
       }
     }
 
-    val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.item.id })
+    val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.data.id })
     assertEquals(createdEntities.size, fetchedEntities.size)
     for (entity in fetchedEntities) {
-      assertEquals("Original", entity.item.text)
+      assertEquals("Original", entity.data.text)
     }
   }
 
@@ -240,7 +240,7 @@ class TransactionTest {
       }
     }
 
-    val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.item.id })
+    val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.data.id })
     assertEquals(createdEntities.size, fetchedEntities.size)
   }
 
@@ -274,7 +274,7 @@ class TransactionTest {
 
     createEntity()
 
-    exampleRepo.get(entity.id).shouldNotBeNull().item.shouldBe(entity)
+    exampleRepo.get(entity.id).shouldNotBeNull().data.shouldBe(entity)
   }
 
   @Test
@@ -296,8 +296,8 @@ class TransactionTest {
 
     val updatedEntity =
         mockRepo.transactional {
-          val entity = mockRepo.getOrThrow(mockEntity.item.id, forUpdate = true)
-          mockRepo.update(entity.item, entity.version)
+          val entity = mockRepo.getOrThrow(mockEntity.data.id, forUpdate = true)
+          mockRepo.update(entity.data, entity.version)
         }
 
     updatedEntity.shouldBe(mockEntity)
@@ -324,8 +324,8 @@ class TransactionTest {
 
     val updatedEntity =
         mockTransactionManager.transactional {
-          val entity = mockRepo.getOrThrow(mockEntity.item.id, forUpdate = true)
-          mockRepo.update(entity.item, entity.version)
+          val entity = mockRepo.getOrThrow(mockEntity.data.id, forUpdate = true)
+          mockRepo.update(entity.data, entity.version)
         }
 
     updatedEntity.shouldBe(mockEntity)

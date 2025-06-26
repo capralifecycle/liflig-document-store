@@ -29,7 +29,8 @@ data class Version(val value: Long) {
  * it was last modified.
  */
 data class Versioned<EntityT : Entity<*>>(
-    val item: EntityT,
+    /** The deserialized entity JSON data, stored in the `data` column in the database table. */
+    val data: EntityT,
     val version: Version,
     val createdAt: Instant,
     val modifiedAt: Instant,
@@ -46,6 +47,11 @@ data class Versioned<EntityT : Entity<*>>(
    * ```
    */
   inline fun map(transform: (EntityT) -> EntityT): Versioned<EntityT> {
-    return this.copy(item = transform(item))
+    return this.copy(data = transform(data))
   }
+
+  /** Use [data] instead. Kept around for backwards compatibility. */
+  @Deprecated("Renamed to 'data'", ReplaceWith("data"))
+  val item: EntityT
+    get() = data
 }

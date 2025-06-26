@@ -31,7 +31,7 @@ class StreamingTest {
     var count = 0
     exampleRepo.streamAll { stream ->
       for (entity in stream) {
-        entity.item.text shouldBe numberFormat.format(count)
+        entity.data.text shouldBe numberFormat.format(count)
         count++
       }
     }
@@ -54,7 +54,7 @@ class StreamingTest {
     var count = 0
     exampleRepo.streamingSearch(text = "Even") { stream ->
       for (entity in stream) {
-        entity.item.text shouldBe "Even"
+        entity.data.text shouldBe "Even"
         count++
       }
     }

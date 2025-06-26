@@ -38,19 +38,19 @@ class GeneratedIdsTest {
             .map { entity -> exampleRepoWithGeneratedIntegerId.create(entity) }
 
     // After calling RepositoryJdbi.create, the IDs should now have been set by the database
-    entities.forEach { entity -> assertNotEquals(IntegerEntityId.GENERATED, entity.item.id.value) }
+    entities.forEach { entity -> assertNotEquals(IntegerEntityId.GENERATED, entity.data.id.value) }
 
-    val getResult = exampleRepoWithGeneratedIntegerId.get(entities[0].item.id)
+    val getResult = exampleRepoWithGeneratedIntegerId.get(entities[0].data.id)
     assertNotNull(getResult)
-    assertEquals(entities[0].item, getResult.item)
+    assertEquals(entities[0].data, getResult.data)
 
     val listResult =
-        exampleRepoWithGeneratedIntegerId.listByIds(entities.take(2).map { it.item.id })
+        exampleRepoWithGeneratedIntegerId.listByIds(entities.take(2).map { it.data.id })
     assertEquals(2, listResult.size)
 
-    val listEntities = listResult.map { it.item }
-    assertContains(listEntities, entities[0].item)
-    assertContains(listEntities, entities[1].item)
+    val listEntities = listResult.map { it.data }
+    assertContains(listEntities, entities[0].data)
+    assertContains(listEntities, entities[1].data)
   }
 
   @Test
@@ -67,16 +67,16 @@ class GeneratedIdsTest {
     assertEquals(entitiesToCreate.size, createdEntities.size)
     // Verify that returned entities are in the same order that we gave them
     for (i in entitiesToCreate.indices) {
-      assertEquals(entitiesToCreate[i].text, createdEntities[i].item.text)
+      assertEquals(entitiesToCreate[i].text, createdEntities[i].data.text)
 
       // After calling batchCreate, the IDs should now have been set by the database
-      assertNotEquals(IntegerEntityId.GENERATED, createdEntities[i].item.id.value)
+      assertNotEquals(IntegerEntityId.GENERATED, createdEntities[i].data.id.value)
     }
 
     // Verify that fetching out the created entities gives the same results as the ones we got back
     // from batchCreate
     val fetchedEntities =
-        exampleRepoWithGeneratedIntegerId.listByIds(createdEntities.map { it.item.id })
+        exampleRepoWithGeneratedIntegerId.listByIds(createdEntities.map { it.data.id })
     assertEquals(fetchedEntities, createdEntities)
   }
 }

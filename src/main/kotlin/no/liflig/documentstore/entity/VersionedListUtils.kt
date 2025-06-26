@@ -10,7 +10,7 @@ import no.liflig.documentstore.repository.ListWithTotalCount
 inline fun <EntityT : Entity<*>> List<Versioned<EntityT>>.mapEntities(
     transform: (EntityT) -> EntityT
 ): List<Versioned<EntityT>> {
-  return map { entity -> entity.copy(item = transform(entity.item)) }
+  return map { entity -> entity.copy(data = transform(entity.data)) }
 }
 
 /**
@@ -21,8 +21,8 @@ inline fun <EntityT : Entity<*>> List<Versioned<EntityT>>.mapEntitiesNotNull(
     transform: (EntityT) -> EntityT?
 ): List<Versioned<EntityT>> {
   return mapNotNull { entity ->
-    val mappedEntity = transform(entity.item) ?: return@mapNotNull null
-    entity.copy(item = mappedEntity)
+    val mappedEntity = transform(entity.data) ?: return@mapNotNull null
+    entity.copy(data = mappedEntity)
   }
 }
 
@@ -32,14 +32,14 @@ inline fun <EntityT : Entity<*>> List<Versioned<EntityT>>.mapEntitiesNotNull(
 inline fun <EntityT : Entity<*>> List<Versioned<EntityT>>.filterEntities(
     predicate: (EntityT) -> Boolean
 ): List<Versioned<EntityT>> {
-  return filter { entity -> predicate(entity.item) }
+  return filter { entity -> predicate(entity.data) }
 }
 
 /**
  * Utility function for iterating over a list of entities, when you don't care about their versions.
  */
 inline fun <EntityT : Entity<*>> List<Versioned<EntityT>>.forEachEntity(action: (EntityT) -> Unit) {
-  forEach { entity -> action(entity.item) }
+  forEach { entity -> action(entity.data) }
 }
 
 /**

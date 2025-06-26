@@ -31,7 +31,7 @@ internal class EntityRowMapper<EntityT : Entity<*>>(
     val modifiedAt = getInstantFromRowOrThrow(resultSet, Columns.MODIFIED_AT)
 
     return Versioned(
-        item = serializationAdapter.fromJson(data),
+        data = serializationAdapter.fromJson(data),
         version = Version(version),
         createdAt = createdAt,
         modifiedAt = modifiedAt,
@@ -107,7 +107,7 @@ internal class EntityRowMapperWithTotalCount<EntityT : Entity<*>>(
     val entity =
         if (data != null && version != null && createdAt != null && modifiedAt != null) {
           Versioned(
-              item = serializationAdapter.fromJson(data),
+              data = serializationAdapter.fromJson(data),
               version = Version(version),
               createdAt = createdAt,
               modifiedAt = modifiedAt,

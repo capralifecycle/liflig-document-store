@@ -28,7 +28,7 @@ class ListTest {
 
     val all = exampleRepo.listAll()
     assertEquals(createdEntities.size, all.size)
-    assertEquals(createdEntities, all.map { it.item })
+    assertEquals(createdEntities, all.map { it.data })
   }
 
   @Test
@@ -41,7 +41,7 @@ class ListTest {
     val results = exampleRepo.listByIds(listOf(entity1.id, entity2.id))
     assertEquals(results.size, 2)
 
-    val texts = results.map { it.item.text }
+    val texts = results.map { it.data.text }
     assertContains(texts, entity1.text)
     assertContains(texts, entity2.text)
   }
@@ -80,7 +80,7 @@ class ListTest {
     val results = exampleRepoWithStringId.listByIds(listOf(entity1.id, entity2.id))
     assertEquals(results.size, 2)
 
-    val texts = results.map { it.item.text }
+    val texts = results.map { it.data.text }
     assertContains(texts, entity1.text)
     assertContains(texts, entity2.text)
   }

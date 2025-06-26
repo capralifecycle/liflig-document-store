@@ -1,6 +1,6 @@
 package no.liflig.documentstore.repository
 
-import java.util.UUID
+import java.util.*
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -42,7 +42,7 @@ class CrudTest {
 
     assertNotNull(retrievedEntity)
     assertEquals(Version.initial(), retrievedEntity.version)
-    assertEquals(entity, retrievedEntity.item)
+    assertEquals(entity, retrievedEntity.data)
 
     for (timestamp in sequenceOf(retrievedEntity.createdAt, retrievedEntity.modifiedAt)) {
       assert(timestamp.isAfter(timeBeforeCreate))
@@ -55,13 +55,13 @@ class CrudTest {
     val createdEntity = exampleRepo.create(ExampleEntity(text = "hello world"))
 
     val timeBeforeUpdate = currentTimeWithMicrosecondPrecision()
-    exampleRepo.update(createdEntity.item.copy(text = "new value"), createdEntity.version)
+    exampleRepo.update(createdEntity.data.copy(text = "new value"), createdEntity.version)
     val timeAfterUpdate = currentTimeWithMicrosecondPrecision()
 
-    val retrievedEntity = exampleRepo.get(createdEntity.item.id)
+    val retrievedEntity = exampleRepo.get(createdEntity.data.id)
     assertNotNull(retrievedEntity)
 
-    assertEquals("new value", retrievedEntity.item.text)
+    assertEquals("new value", retrievedEntity.data.text)
     assertEquals(createdEntity.version.next(), retrievedEntity.version)
 
     assert(retrievedEntity.modifiedAt.isAfter(timeBeforeUpdate))
@@ -126,7 +126,7 @@ class CrudTest {
 
     val getResult = exampleRepoWithStringId.get(ExampleStringId("test1"))
     assertNotNull(getResult)
-    assertEquals(entities[0], getResult.item)
+    assertEquals(entities[0], getResult.data)
 
     val listResult =
         exampleRepoWithStringId.listByIds(
@@ -137,7 +137,7 @@ class CrudTest {
         )
     assertEquals(2, listResult.size)
 
-    val listEntities = listResult.map { it.item }
+    val listEntities = listResult.map { it.data }
     assertContains(listEntities, entities[1])
     assertContains(listEntities, entities[2])
 
@@ -162,7 +162,7 @@ class CrudTest {
 
     val getResult = exampleRepoWithIntegerId.get(ExampleIntegerId(1))
     assertNotNull(getResult)
-    assertEquals(entities[0], getResult.item)
+    assertEquals(entities[0], getResult.data)
 
     val listResult =
         exampleRepoWithIntegerId.listByIds(
@@ -173,7 +173,7 @@ class CrudTest {
         )
     assertEquals(2, listResult.size)
 
-    val listEntities = listResult.map { it.item }
+    val listEntities = listResult.map { it.data }
     assertContains(listEntities, entities[1])
     assertContains(listEntities, entities[2])
 

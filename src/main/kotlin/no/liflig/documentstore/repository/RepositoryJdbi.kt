@@ -328,7 +328,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                 if (results != null) {
                   results.add(
                       Versioned(
-                          entity.item,
+                          entity.data,
                           version = newVersion,
                           createdAt = entity.createdAt,
                           modifiedAt = modifiedAt,
@@ -337,10 +337,10 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                 }
 
                 batch
-                    .bind("data", serializationAdapter.toJson(entity.item))
+                    .bind("data", serializationAdapter.toJson(entity.data))
                     .bind("nextVersion", newVersion)
                     .bind("modifiedAt", modifiedAt)
-                    .bind("id", entity.item.id)
+                    .bind("id", entity.data.id)
                     .bind("previousVersion", entity.version)
               },
               handleModifiedRowCounts = { counts, batch ->
@@ -382,7 +382,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                 """
                     .trimIndent(),
             bindParameters = { batch, entity ->
-              batch.bind("id", entity.item.id).bind("previousVersion", entity.version)
+              batch.bind("id", entity.data.id).bind("previousVersion", entity.version)
             },
             handleModifiedRowCounts = { counts, batch ->
               handleModifiedRowCounts(counts, batch, operation = "delete")
@@ -848,7 +848,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       if (count.value == 0) {
         // Should never be null, but we don't want to suppress the ConflictRepositoryException here
         // if it is
-        val conflictedEntity: EntityT? = batch.getOrNull(count.index)?.item
+        val conflictedEntity: EntityT? = batch.getOrNull(count.index)?.data
         throw ConflictRepositoryException(
             "Entity was concurrently modified between being retrieved and trying to ${operation} it in batch ${operation} (rolling back batch ${operation}) [Entity: ${conflictedEntity}]",
         )

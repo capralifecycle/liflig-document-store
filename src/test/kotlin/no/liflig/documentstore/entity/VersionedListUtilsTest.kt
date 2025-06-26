@@ -19,8 +19,8 @@ class VersionedListUtilsTest {
       val mapped = mappedEntities[i]
 
       assertEquals(original.version, mapped.version)
-      assertEquals(original.item.text, mapped.item.text)
-      assertEquals("New text!", mapped.item.optionalText)
+      assertEquals(original.data.text, mapped.data.text)
+      assertEquals("New text!", mapped.data.optionalText)
     }
   }
 
@@ -38,7 +38,7 @@ class VersionedListUtilsTest {
         }
 
     assertEquals(1, mappedEntities.size)
-    assertEquals("test2", mappedEntities[0].item.text)
+    assertEquals("test2", mappedEntities[0].data.text)
   }
 
   @Test
@@ -48,7 +48,7 @@ class VersionedListUtilsTest {
     val filteredEntities = entities.filterEntities { entity -> entity.text == "test2" }
 
     assertEquals(1, filteredEntities.size)
-    assertEquals("test2", filteredEntities[0].item.text)
+    assertEquals("test2", filteredEntities[0].data.text)
   }
 
   @Test
@@ -74,8 +74,8 @@ class VersionedListUtilsTest {
       val mapped = mappedEntities.list[i]
 
       assertEquals(original.version, mapped.version)
-      assertEquals(original.item.text, mapped.item.text)
-      assertEquals("New text!", mapped.item.optionalText)
+      assertEquals(original.data.text, mapped.data.text)
+      assertEquals("New text!", mapped.data.optionalText)
     }
   }
 
@@ -94,7 +94,7 @@ class VersionedListUtilsTest {
 
     assertEquals(1, mappedEntities.list.size)
     assertEquals(entities.totalCount, mappedEntities.totalCount)
-    assertEquals("test2", mappedEntities.list[0].item.text)
+    assertEquals("test2", mappedEntities.list[0].data.text)
   }
 
   @Test
@@ -105,7 +105,7 @@ class VersionedListUtilsTest {
 
     assertEquals(1, filteredEntities.list.size)
     assertEquals(entities.totalCount, filteredEntities.totalCount)
-    assertEquals("test2", filteredEntities.list[0].item.text)
+    assertEquals("test2", filteredEntities.list[0].data.text)
   }
 
   @Test

@@ -18,7 +18,7 @@ class VersionedTest {
 
     val mapped = original.map { it.copy(text = "New text") }
 
-    assertEquals("New text", mapped.item.text)
+    assertEquals("New text", mapped.data.text)
     assertEquals(original.version, mapped.version)
     assertEquals(original.createdAt, mapped.createdAt)
     assertEquals(original.modifiedAt, mapped.modifiedAt)

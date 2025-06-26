@@ -254,7 +254,7 @@ private fun <EntityT> getFailingEntity(
     // Entity.
     return when (val entity = batch.getOrNull(index)) {
       is Entity<*> -> entity
-      is Versioned<*> -> entity.item
+      is Versioned<*> -> entity.data
       else -> null
     }
   } catch (_: Exception) {

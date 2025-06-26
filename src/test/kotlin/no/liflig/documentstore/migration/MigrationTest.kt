@@ -75,7 +75,7 @@ class MigrationTest {
       for (entity in entities) {
         assertEquals(
             "new-field-${numberFormat.format(count)}",
-            entity.item.newFieldAfterMigration,
+            entity.data.newFieldAfterMigration,
         )
         count++
       }
@@ -114,10 +114,10 @@ class MigrationTest {
 
     assertFailsWith<Exception> { runMigration(V001_2__Failed_migration()) }
 
-    val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.item.id })
+    val fetchedEntities = exampleRepo.listByIds(createdEntities.map { it.data.id })
     assertEquals(createdEntities.size, fetchedEntities.size)
     for (entity in fetchedEntities) {
-      assertEquals("Original", entity.item.text)
+      assertEquals("Original", entity.data.text)
     }
   }
 
@@ -148,11 +148,11 @@ class MigrationTest {
     // existing ones
     val migratedEntities = exampleRepo.listByIds(entitiesToMigrate.map { it.id })
     assertEquals(entitiesToMigrate.size, migratedEntities.size)
-    migratedEntities.forEach { entity -> assertEquals("MIGRATED", entity.item.text) }
+    migratedEntities.forEach { entity -> assertEquals("MIGRATED", entity.data.text) }
 
     val notMigratedEntities = exampleRepo.listByIds(entitiesNotToMigrate.map { it.id })
     assertEquals(entitiesNotToMigrate.size, notMigratedEntities.size)
-    notMigratedEntities.forEach { entity -> assertEquals("SHOULD_NOT_MIGRATE", entity.item.text) }
+    notMigratedEntities.forEach { entity -> assertEquals("SHOULD_NOT_MIGRATE", entity.data.text) }
   }
 
   @Test
@@ -206,7 +206,7 @@ class MigrationTest {
     newEntities.shouldNotBeEmpty()
     newEntities.shouldHaveSize(oldEntities.size)
     newEntities
-        .map { it.item }
+        .map { it.data }
         .shouldContainExactlyInAnyOrder(
             oldEntities.map { (oldEntity, _) ->
               NewEntity(oldEntity.id, newField = oldEntity.oldField)

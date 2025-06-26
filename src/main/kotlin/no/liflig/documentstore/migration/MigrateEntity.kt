@@ -92,7 +92,7 @@ fun <EntityT : Entity<*>> migrateEntity(
       tableName = tableName,
       currentSerializationAdapter = serializationAdapter,
       targetSerializationAdapter = serializationAdapter,
-      transform = transform ?: { entity -> entity.item }, // Default no-op
+      transform = transform ?: { entity -> entity.data }, // Default no-op
       where = where,
       bindParameters = bindParameters,
   )
@@ -193,7 +193,7 @@ fun <CurrentEntityT : Entity<*>, TargetEntityT : Entity<*>> migrateEntitySeriali
               .bind("data", targetSerializationAdapter.toJson(updatedEntity))
               .bind("nextVersion", nextVersion)
               .bind("modifiedAt", modifiedAt)
-              .bind("id", entity.item.id)
+              .bind("id", entity.data.id)
         },
         batchSize = MIGRATION_BATCH_SIZE,
     )
