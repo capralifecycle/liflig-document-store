@@ -18,7 +18,7 @@
     <major-version>3</major-version>
     <revision>${major-version}.local-SNAPSHOT</revision>
 
-    <jdbi3.version>3.49.4</jdbi3.version>
+    <jdbi3.version>3.49.5</jdbi3.version>
 
     <!-- For tests -->
     <junit.version>5.13.1</junit.version>
@@ -28,7 +28,7 @@
     <hikari.version>6.3.0</hikari.version>
     <flyway.version>11.9.1</flyway.version>
     <kotlinx-serialization.version>1.8.1</kotlinx-serialization.version>
-    <jackson.version>2.19.0</jackson.version>
+    <jackson.version>2.19.1</jackson.version>
     <logback-classic.version>1.5.18</logback-classic.version>
     <mockk.version>1.14.2</mockk.version>
   </properties>
