@@ -826,7 +826,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * // immediately invoke the lambda, without starting a database transaction
    * mockRepo.transactional {
    *   val entity = mockRepo.getOrThrow(exampleId, forUpdate = true)
-   *   mockRepo.update(entity.item, entity.version)
+   *   mockRepo.update(entity.data, entity.version)
    * }
    * ```
    */

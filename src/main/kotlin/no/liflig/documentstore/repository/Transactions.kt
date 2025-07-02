@@ -166,13 +166,13 @@ open class TransactionManager(
    *
    * val mockRepo =
    *     mockk<ExampleRepository> {
-   *       every { getOrThrow(id = any(), forUpdate = any()) } returns mockEntity
+   *       every { getOrThrow(exampleId, forUpdate = any()) } returns mockEntity
    *       every { update(entity = any(), previousVersion = any()) } returns mockEntity
    *     }
    *
    * mockTransactionManager.transactional {
-   *   val entity = mockRepo.getOrThrow(mockEntity.item.id, forUpdate = true)
-   *   mockRepo.update(entity.item, entity.version)
+   *   val entity = mockRepo.getOrThrow(exampleId, forUpdate = true)
+   *   mockRepo.update(entity.data, entity.version)
    * }
    * ```
    */

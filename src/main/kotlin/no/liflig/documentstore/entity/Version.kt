@@ -36,8 +36,8 @@ data class Versioned<EntityT : Entity<*>>(
     val modifiedAt: Instant,
 ) {
   /**
-   * Applies the given transform function to the entity ([Versioned.item]), leaving [version],
-   * [createdAt] and [modifiedAt] unchanged.
+   * Applies the given transform function to the entity [data], leaving [version], [createdAt] and
+   * [modifiedAt] unchanged.
    *
    * Example usage:
    * ```
@@ -52,6 +52,7 @@ data class Versioned<EntityT : Entity<*>>(
 
   /** Use [data] instead. Kept around for backwards compatibility. */
   @Deprecated("Renamed to 'data'", ReplaceWith("data"))
+  @Suppress("unused")
   val item: EntityT
     get() = data
 }
