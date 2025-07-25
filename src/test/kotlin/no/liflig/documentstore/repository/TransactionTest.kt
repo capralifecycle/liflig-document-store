@@ -1,31 +1,39 @@
 package no.liflig.documentstore.repository
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.booleans.shouldBeTrue
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
-import java.util.concurrent.CountDownLatch
-import kotlin.concurrent.thread
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertNotEquals
+import no.liflig.documentstore.ExperimentalDocumentStoreApi
 import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.entity.mapEntities
 import no.liflig.documentstore.testutils.ExampleEntity
+import no.liflig.documentstore.testutils.ExampleId
 import no.liflig.documentstore.testutils.ExampleRepository
 import no.liflig.documentstore.testutils.clearDatabase
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.jdbi
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.assertNotNull
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import org.postgresql.util.PSQLException
+import java.util.*
+import java.util.concurrent.CountDownLatch
+import kotlin.concurrent.thread
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TransactionTest {
@@ -329,5 +337,53 @@ class TransactionTest {
         }
 
     updatedEntity.shouldBe(mockEntity)
+  }
+
+  @OptIn(ExperimentalDocumentStoreApi::class)
+  @Test
+  fun `nonTransactional allows opting out of current transaction`() {
+    try {
+      exampleRepo.transactional {
+        exampleRepo.create(ExampleEntity(text = "1"))
+
+        nonTransactional {
+          exampleRepo.create(ExampleEntity(text = "2"))
+        }
+
+        exampleRepo.create(ExampleEntity(text = "3"))
+
+        throw IllegalStateException()
+      }
+    } catch (_: IllegalStateException) {}
+
+    val entities = exampleRepo.listAll()
+    entities.shouldHaveSize(1)
+    entities.first().data.text.shouldBe("2")
+  }
+
+  @OptIn(ExperimentalDocumentStoreApi::class)
+  @Test
+  fun `failing sql command inside nonTransactional does not abort outer transaction`() {
+    val exampleId = ExampleId(UUID.fromString("da4887b2-632b-40de-bc1c-88858d43c0d6"))
+    val firstEntity = exampleRepo.create(ExampleEntity(exampleId, text = "1"))
+
+    exampleRepo.transactional {
+      nonTransactional {
+        val e = shouldThrow<UnableToExecuteStatementException> {
+          exampleRepo.create(ExampleEntity(exampleId, text = "2"))
+        }
+
+        // Error code for duplicate primary key
+        // https://www.postgresql.org/docs/current/errcodes-appendix.html
+        e.cause.shouldBeInstanceOf<PSQLException>().sqlState.shouldBe("23505")
+      }
+
+      exampleRepo.create(ExampleEntity(text = "3"))
+    }
+
+    val entities = exampleRepo.listAll()
+    entities.shouldHaveSize(2)
+    entities[0].shouldBe(firstEntity)
+    entities[1].data.text.shouldBe("3")
   }
 }

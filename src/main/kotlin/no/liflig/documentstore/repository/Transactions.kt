@@ -1,10 +1,11 @@
 package no.liflig.documentstore.repository
 
+import no.liflig.documentstore.ExperimentalDocumentStoreApi
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 
-// `@PublishedApi` lets us use this in inline functions. Renaming or removing this may be a breaking
-// change.
+// `@PublishedApi` lets us use this in inline functions.
+// Renaming or removing this is a breaking change.
 @PublishedApi internal val transactionHandle = ThreadLocal<Handle?>()
 
 /**
@@ -100,6 +101,24 @@ inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
       if (shouldCommit) {
         handle.commit()
       }
+    }
+  }
+}
+
+/**
+ * [transactional] wraps all SQL commands made inside its scope in the same transaction, by using
+ * a thread-local.
+ */
+@ExperimentalDocumentStoreApi
+inline fun <ReturnT> nonTransactional(block: () -> ReturnT): ReturnT {
+  val previousHandle = transactionHandle.get()
+  transactionHandle.remove()
+
+  try {
+    return block()
+  } finally {
+    if (previousHandle != null) {
+      transactionHandle.set(previousHandle)
     }
   }
 }
