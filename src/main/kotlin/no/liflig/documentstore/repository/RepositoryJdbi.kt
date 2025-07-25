@@ -1,3 +1,6 @@
+// We use Kotlin Contracts in `transactional`, for ergonomic use with lambdas. Contracts are an
+// experimental feature, but they guarantee binary compatibility, so we can safely use them here
+@file:OptIn(ExperimentalContracts::class)
 @file:Suppress(
     // This is a library, we want to expose fields
     "MemberVisibilityCanBePrivate",
@@ -8,6 +11,9 @@
 package no.liflig.documentstore.repository
 
 import java.util.stream.Stream
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 import no.liflig.documentstore.DocumentStorePlugin
 import no.liflig.documentstore.entity.Entity
 import no.liflig.documentstore.entity.EntityId
@@ -751,6 +757,9 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * See [shouldMockTransactions].
    */
   inline fun <ReturnT> transactional(block: () -> ReturnT): ReturnT {
+    // Allows callers to use `block` as if it were in-place
+    contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }
+
     if (shouldMockTransactions()) {
       return block()
     }

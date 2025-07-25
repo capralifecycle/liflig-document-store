@@ -330,4 +330,42 @@ class TransactionTest {
 
     updatedEntity.shouldBe(mockEntity)
   }
+
+  @Test
+  fun `lambda uses EXACTLY_ONCE contract in transactional top-level function`() {
+    val uninitialized: String
+
+    transactional(jdbi) { uninitialized = "Initialized" }
+
+    // This won't compile unless `transactional` uses `callsInPlace` contract with
+    // `InvocationKind.EXACTLY_ONCE`
+    useString(uninitialized)
+  }
+
+  @Test
+  fun `lambda uses EXACTLY_ONCE contract in transactional method on RepositoryJdbi`() {
+    val uninitialized: String
+
+    exampleRepo.transactional { uninitialized = "Initialized" }
+
+    // This won't compile unless `transactional` uses `callsInPlace` contract with
+    // `InvocationKind.EXACTLY_ONCE`
+    useString(uninitialized)
+  }
+
+  @Test
+  fun `lambda uses EXACTLY_ONCE contract in transactional method on TransactionManager`() {
+    val uninitialized: String
+
+    TransactionManager(jdbi).transactional { uninitialized = "Initialized" }
+
+    // This won't compile unless `transactional` uses `callsInPlace` contract with
+    // `InvocationKind.EXACTLY_ONCE`
+    useString(uninitialized)
+  }
+
+  // Dummy method for contract tests
+  private fun useString(string: String): Int {
+    return string.length
+  }
 }

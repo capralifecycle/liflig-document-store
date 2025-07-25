@@ -1,5 +1,12 @@
+// We use Kotlin Contracts in `transactional`, for ergonomic use with lambdas. Contracts are an
+// experimental feature, but they guarantee binary compatibility, so we can safely use them here
+@file:OptIn(ExperimentalContracts::class)
+
 package no.liflig.documentstore.repository
 
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 
@@ -43,6 +50,9 @@ inline fun <ReturnT> useHandle(jdbi: Jdbi, block: (Handle) -> ReturnT): ReturnT 
  * concurrent database operations with this function.
  */
 inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
+  // Allows callers to use `block` as if it were in-place
+  contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }
+
   val existingHandle = transactionHandle.get()
   if (existingHandle != null) {
     // This means we're already in a transaction, so we do not start a new one
@@ -141,6 +151,9 @@ open class TransactionManager(
    * See [shouldMockTransactions].
    */
   inline fun <ReturnT> transactional(block: () -> ReturnT): ReturnT {
+    // Allows callers to use `block` as if it were in-place
+    contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }
+
     if (shouldMockTransactions()) {
       return block()
     }
