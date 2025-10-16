@@ -18,19 +18,22 @@
     <major-version>3</major-version>
     <revision>${major-version}.local-SNAPSHOT</revision>
 
-    <jdbi3.version>3.49.5</jdbi3.version>
+    <!-- Required by JUnit 6 -->
+    <java.version>17</java.version>
+
+    <jdbi3.version>3.49.6</jdbi3.version>
 
     <!-- For tests -->
     <junit.version>6.0.0</junit.version>
-    <kotest.version>6.0.3</kotest.version>
+    <kotest.version>6.0.4</kotest.version>
     <testcontainers.version>1.21.3</testcontainers.version>
-    <postgresql.version>42.7.7</postgresql.version>
+    <postgresql.version>42.7.8</postgresql.version>
     <hikari.version>7.0.2</hikari.version>
-    <flyway.version>11.13.1</flyway.version>
+    <flyway.version>11.14.1</flyway.version>
     <kotlinx-serialization.version>1.9.0</kotlinx-serialization.version>
     <jackson.version>2.20</jackson.version>
-    <logback-classic.version>1.5.18</logback-classic.version>
-    <mockk.version>1.14.5</mockk.version>
+    <logback-classic.version>1.5.19</logback-classic.version>
+    <mockk.version>1.14.6</mockk.version>
   </properties>
 
   <scm>
@@ -198,7 +201,7 @@
         <artifactId>kotlin-maven-plugin</artifactId>
         <groupId>org.jetbrains.kotlin</groupId>
         <configuration>
-          <jvmTarget>17</jvmTarget>
+          <jvmTarget>${java.version}</jvmTarget>
           <compilerPlugins>
             <plugin>kotlinx-serialization</plugin>
           </compilerPlugins>
