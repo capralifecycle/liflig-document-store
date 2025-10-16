@@ -48,7 +48,7 @@ val exampleRepoPostMigration: ExampleRepositoryAfterMigration by lazy {
 private fun createDataSource(
     jdbcUrl: String,
     username: String,
-    password: String
+    password: String,
 ): HikariDataSource {
   val config = HikariConfig()
   config.jdbcUrl = jdbcUrl

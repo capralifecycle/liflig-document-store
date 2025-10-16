@@ -228,7 +228,7 @@ private const val BATCH_ENTRY_EXCEPTION_PREFIX = "Batch entry"
  */
 private fun <EntityT> getFailingEntity(
     batch: List<EntityT>,
-    exception: UnableToExecuteStatementException
+    exception: UnableToExecuteStatementException,
 ): Entity<*>? {
   try {
     val cause = exception.cause

@@ -19,7 +19,8 @@ class CountTest {
   fun `countAll returns count of all entities in table`() {
     val expectedCount = 50
     exampleRepo.batchCreate(
-        (1..expectedCount).map { number -> ExampleEntity(text = number.toString()) })
+        (1..expectedCount).map { number -> ExampleEntity(text = number.toString()) }
+    )
 
     val count = exampleRepo.countAll()
     count shouldBe expectedCount

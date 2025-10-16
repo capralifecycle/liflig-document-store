@@ -121,7 +121,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
 
   override fun <EntityOrSubClassT : EntityT> update(
       entity: EntityOrSubClassT,
-      previousVersion: Version
+      previousVersion: Version,
   ): Versioned<EntityOrSubClassT> {
     try {
       useHandle { handle ->
@@ -451,7 +451,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       nullsFirst: Boolean = orderDesc,
       handleJsonNullsInOrderBy: Boolean = false,
       forUpdate: Boolean = false,
-      bind: Query.() -> Query = { this }
+      bind: Query.() -> Query = { this },
   ): List<Versioned<EntityT>> {
     useHandle { handle ->
       val results =
@@ -646,7 +646,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       orderDesc: Boolean = false,
       nullsFirst: Boolean = orderDesc,
       handleJsonNullsInOrderBy: Boolean = false,
-      bind: Query.() -> Query = { this }
+      bind: Query.() -> Query = { this },
   ): ListWithTotalCount<Versioned<EntityT>> {
     useHandle { handle ->
       val orderByString: String =

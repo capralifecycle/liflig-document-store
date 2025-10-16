@@ -95,7 +95,7 @@ internal class EntityRowMapperWithTotalCount<EntityT : Entity<*>>(
 ) : RowMapper<MappedEntityWithTotalCount<EntityT>> {
   override fun map(
       resultSet: ResultSet,
-      ctx: StatementContext
+      ctx: StatementContext,
   ): MappedEntityWithTotalCount<EntityT> {
     val totalCount = getLongFromRowOrThrow(resultSet, Columns.COUNT)
 
