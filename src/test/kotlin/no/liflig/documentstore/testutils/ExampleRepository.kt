@@ -27,6 +27,7 @@ class ExampleRepository(jdbi: Jdbi) :
       limit: Int? = null,
       offset: Int? = null,
       orderBy: OrderBy? = null,
+      orderByString: String? = null,
       orderDesc: Boolean = false,
       nullsFirst: Boolean = false,
       handleJsonNullsInOrderBy: Boolean = false,
@@ -40,7 +41,7 @@ class ExampleRepository(jdbi: Jdbi) :
               OrderBy.TEXT -> "data->>'text'"
               OrderBy.OPTIONAL_TEXT -> "data->'optionalText'"
               OrderBy.CREATED_AT -> "created_at"
-              null -> null
+              null -> orderByString
             },
         orderDesc = orderDesc,
         nullsFirst = nullsFirst,

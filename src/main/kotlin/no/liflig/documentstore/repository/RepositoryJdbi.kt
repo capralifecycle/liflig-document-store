@@ -598,8 +598,16 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
           handleJsonNullsInOrderBy -> "NULLIF(${orderBy}, 'null')"
           else -> orderBy
         }
-    val orderDirection = if (orderDesc) "DESC" else "ASC"
-    val orderNulls = if (nullsFirst) "NULLS FIRST" else "NULLS LAST"
+
+    val orderDirection = if (orderDesc) " DESC" else "" // Defaults to ASC
+    val orderNulls =
+        when {
+          // NULLS FIRST is already assumed for ORDER BY DESC
+          nullsFirst && !orderDesc -> " NULLS FIRST"
+          // NULLS LAST is already assumed for ORDER BY ASC
+          !nullsFirst && orderDesc -> " NULLS LAST"
+          else -> ""
+        }
 
     val limitString = if (limit != null) "LIMIT ${limit}" else ""
     val offsetString = if (offset != null) "OFFSET ${offset}" else ""
@@ -611,7 +619,7 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
               SELECT id, data, version, created_at, modified_at
               FROM "${tableName}"
               WHERE (${sqlWhere})
-              ORDER BY ${orderByString} ${orderDirection} ${orderNulls}
+              ORDER BY ${orderByString}${orderDirection}${orderNulls}
               ${limitString}
               ${offsetString}
               ${forUpdateString}

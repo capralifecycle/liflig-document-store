@@ -1,5 +1,6 @@
 package no.liflig.documentstore.repository
 
+import io.kotest.matchers.shouldBe
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import no.liflig.documentstore.testutils.ExampleEntity
@@ -103,6 +104,25 @@ class GetByPredicateTest {
     assertNotEquals(-1, indexOf2)
 
     assert(indexOf1 < indexOf2)
+  }
+
+  /**
+   * We want users to be able to set ASC/DESC in ORDER BY themselves, in order to support ORDER BY
+   * on multiple columns (the `orderDesc` parameter of [RepositoryJdbi.getByPredicate] just appends
+   * "DESC" at the end of the ORDER BY clause, which does not work when ordering by multiple
+   * columns).
+   */
+  @Test
+  fun `order by multiple columns works`() {
+    val (entity1, _) = exampleRepo.create(ExampleEntity(text = "2", optionalText = "2"))
+    val (entity2, _) = exampleRepo.create(ExampleEntity(text = "2", optionalText = "1"))
+    val (entity3, _) = exampleRepo.create(ExampleEntity(text = "1", optionalText = "1"))
+
+    val result =
+        exampleRepo.search(orderByString = "data->>'text' DESC, data->>'optionalText' DESC").map {
+          it.data
+        }
+    result.shouldBe(listOf(entity1, entity2, entity3))
   }
 
   @Test
