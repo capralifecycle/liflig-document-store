@@ -22,9 +22,11 @@ import org.jdbi.v3.core.statement.Query
  * stored entities. For example, we may want to query on the field with
  * [RepositoryJdbi.getByPredicate] without having to handle the field not being present. This
  * function exists for those cases, when you want to migrate the stored entities of a table. It
- * works by reading out all entities from the table, and then writing them back. In the process of
- * this deserialization and re-serialization, default values will be populated. You can perform
- * further transformations with the [transform] parameter.
+ * works by reading out all entities from the table, and then writing them back (see "Batching"
+ * below for how this is done efficiently). In the process of this deserialization and
+ * re-serialization, default values will be populated. You can perform further transformations with
+ * the [transform] parameter. For even more comprehensive transforms, you may consider using
+ * [migrateEntitySerialization] instead.
  *
  * If you want to migrate only some entities in the table, pass a WHERE clause in the optional
  * [where] parameter, either with static parameters in the clause or with bound parameters in
@@ -44,7 +46,7 @@ import org.jdbi.v3.core.statement.Query
  *
  * ### Example
  *
- * File named `V001_1__Test_migration.kt` (will get version number 1.1), under
+ * File named `V001_1__Example_migration.kt` (will get version number 1.1), under
  * `src/main/kotlin/migrations`. If you've configured "migrations" as a Flyway location, it will
  * automatically find this and run it when you call `Flyway.migrate()`.
  *
