@@ -37,7 +37,7 @@ import org.jdbi.v3.core.statement.Query
  * Calling this function on application startup may be problematic, since any additional server
  * instances will call the migration one time each. If you use Flyway for migrations, you should
  * instead call this from a
- * ["Java-based migration"](https://documentation.red-gate.com/fd/tutorial-java-based-migrations-184127624.html).
+ * ["Java-based migration"](https://documentation.red-gate.com/fd/tutorial-java-based-migrations-277579349.html).
  * This way, Flyway ensures that the migration is done once, and only once, for the database table.
  *
  * Flyway also automatically runs the migration class in a transaction, so we don't start a new
