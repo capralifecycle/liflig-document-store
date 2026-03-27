@@ -21,7 +21,7 @@
     <!-- Required by JUnit 6 -->
     <java.version>17</java.version>
 
-    <jdbi3.version>3.51.0</jdbi3.version>
+    <jdbi3.version>3.52.0</jdbi3.version>
 
     <!-- For tests -->
     <junit.version>6.0.2</junit.version>
@@ -110,6 +110,11 @@
       <groupId>org.jdbi</groupId>
       <artifactId>jdbi3-core</artifactId>
     </dependency>
+    <!-- Needed for the PostgresPlugin, which we need to bind java.time.Instant -->
+    <dependency>
+      <groupId>org.jdbi</groupId>
+      <artifactId>jdbi3-postgres</artifactId>
+    </dependency>
 
     <!-- For tests -->
     <dependency>
@@ -148,11 +153,6 @@
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
       <version>${postgresql.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.jdbi</groupId>
-      <artifactId>jdbi3-postgres</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

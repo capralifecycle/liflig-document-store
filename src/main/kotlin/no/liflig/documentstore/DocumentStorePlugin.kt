@@ -12,6 +12,7 @@ import org.jdbi.v3.core.argument.AbstractArgumentFactory
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.config.ConfigRegistry
 import org.jdbi.v3.core.spi.JdbiPlugin
+import org.jdbi.v3.postgres.PostgresPlugin
 
 /**
  * JDBI plugin that registers all bind argument types used by Liflig Document Store. In order to use
@@ -33,6 +34,9 @@ import org.jdbi.v3.core.spi.JdbiPlugin
  * bindArray("ids", StringEntityId::class.java, ids) // where ids: List<T extends StringEntityId>
  * bindArray("ids", IntegerEntityId::class.java, ids) // where ids: List<T extends IntegerEntityId>
  * ```
+ *
+ * This plugin also installs the [PostgresPlugin] from `jdbi3-postgres`, which Document Store needs
+ * in order to bind [java.time.Instant] argument types.
  */
 class DocumentStorePlugin : JdbiPlugin.Singleton() {
   override fun customizeJdbi(jdbi: Jdbi) {
@@ -44,6 +48,15 @@ class DocumentStorePlugin : JdbiPlugin.Singleton() {
         .registerArrayType(UuidEntityId::class.java, "uuid", { id -> id.value })
         .registerArrayType(StringEntityId::class.java, "text", { id -> id.value })
         .registerArrayType(IntegerEntityId::class.java, "bigint", { id -> id.value })
+        /**
+         * As of JDBI 3.52.0, we need to install the Postgres plugin in order to be able to bind
+         * [java.time.Instant], which we use for the `created_at` and `modified_at` columns. This
+         * library is Postgres-specific, so this is reasonable.
+         *
+         * It's fine if the application also installs this plugin, since [PostgresPlugin] extends
+         * [JdbiPlugin.Singleton], so it will only be installed once.
+         */
+        .installPlugin(PostgresPlugin())
   }
 }
 
