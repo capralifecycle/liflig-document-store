@@ -1,5 +1,5 @@
 // We use Kotlin Contracts in `transactional`, for ergonomic use with lambdas. Contracts are an
-// experimental feature, but they guarantee binary compatibility, so we can safely use them here
+// experimental feature, but they guarantee binary compatibility, so we can safely use them here.
 @file:OptIn(ExperimentalContracts::class)
 
 package no.liflig.documentstore.repository
@@ -10,8 +10,19 @@ import kotlin.contracts.contract
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 
-// `@PublishedApi` lets us use this in inline functions. Renaming or removing this may be a breaking
-// change.
+/**
+ * Thread-local that keeps a JDBI handle for an active transaction on the current thread (`null` if
+ * there's no active transaction on the thread). Using a thread-local for this is useful to enforce
+ * that all repository methods in the scope of a `transactional` block are executed in that
+ * transaction, without having to explicitly pass a transaction handle to every repository method.
+ *
+ * `@PublishedApi` lets us use this in inline functions. Renaming or removing this may be a breaking
+ * change.
+ *
+ * TODO: We no longer use this directly in inline functions, so we can remove `@PublishedApi` and
+ *   make this `private` if we're comfortable that consumers don't rely on this through a transitive
+ *   dependency on Document Store.
+ */
 @PublishedApi internal val transactionHandle = ThreadLocal<Handle?>()
 
 /**
@@ -22,16 +33,12 @@ import org.jdbi.v3.core.Jdbi
  * so that your implementation plays well with transactions.
  */
 inline fun <ReturnT> useHandle(jdbi: Jdbi, block: (Handle) -> ReturnT): ReturnT {
-  val existingHandle = transactionHandle.get()
-  if (existingHandle != null) {
-    return block(existingHandle)
+  val activeTransaction = getActiveTransactionHandle()
+  if (activeTransaction != null) {
+    return block(activeTransaction)
   }
 
-  try {
-    return jdbi.open().use(block)
-  } catch (e: Exception) {
-    throw mapDatabaseException(e)
-  }
+  return openHandle(jdbi).use(block)
 }
 
 /**
@@ -53,24 +60,15 @@ inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
   // Allows callers to use `block` as if it were in-place
   contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }
 
-  val existingHandle = transactionHandle.get()
-  if (existingHandle != null) {
+  val activeTransaction = getActiveTransactionHandle()
+  if (activeTransaction != null) {
     // This means we're already in a transaction, so we do not start a new one
     return block()
   }
 
-  val handle: Handle =
-      try {
-        jdbi.open()
-      } catch (e: Exception) {
-        throw mapDatabaseException(e)
-      }
-
-  handle.use {
+  openHandle(jdbi).use { handle ->
     var shouldCommit = true
     try {
-      transactionHandle.set(handle)
-
       /**
        * 1. Begin transaction
        * 2. Call [block]
@@ -87,29 +85,16 @@ inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
        * The implementation here matches JDBI's
        * [org.jdbi.v3.core.transaction.LocalTransactionHandler.BoundLocalTransactionHandler.inTransaction].
        */
-      handle.begin()
+      beginTransaction(handle)
       return block()
     } catch (e: Throwable) {
       shouldCommit = false
-      try {
-        handle.rollback()
-      } catch (rollback: Exception) {
-        // If rollback failed, we still want to throw the original exception, so we add this
-        // exception as a suppressed exception here. This is the same as JDBI does in their
-        // implementation of `inTransaction`.
-        e.addSuppressed(rollback)
-      }
-
-      throw mapDatabaseException(e)
+      throw rollbackTransactionAndMapException(handle, e)
     } finally {
-      transactionHandle.remove()
-
       // If `shouldCommit` is still true, that means we haven't rolled back, which means `block`
       // returned successfully, so we should commit.
-      // See comment on `handle.begin()` above for why we call this here.
-      if (shouldCommit) {
-        handle.commit()
-      }
+      // See comment on `beginTransaction` above for why we call this here.
+      endTransaction(handle, shouldCommit)
     }
   }
 }
@@ -190,4 +175,84 @@ open class TransactionManager(
    * ```
    */
   open fun shouldMockTransactions(): Boolean = false
+}
+
+/**
+ * Used by [transactional] and [useHandle]. We separate as much code as possible out from
+ * [transactional] / [useHandle] into utility functions, because these functions are `inline`, and
+ * having too much code inlined can bloat the compiled bytecode which in turn can lead to worse
+ * performance.
+ *
+ * Since this is used in `inline` functions, renaming/removing/changing this function's signature
+ * may break consumers (hence the `@PublishedApi` annotation).
+ */
+@PublishedApi
+internal fun getActiveTransactionHandle(): Handle? {
+  return transactionHandle.get()
+}
+
+/**
+ * Used by [transactional] and [useHandle] (see [getActiveTransactionHandle] for why we separate
+ * this out into its own function).
+ *
+ * Since this is used in `inline` functions, renaming/removing/changing this function's signature
+ * may break consumers (hence the `@PublishedApi` annotation).
+ */
+@PublishedApi
+internal fun openHandle(jdbi: Jdbi): Handle {
+  try {
+    return jdbi.open()
+  } catch (e: Exception) {
+    throw mapDatabaseException(e)
+  }
+}
+
+/**
+ * Used by [transactional] (see [getActiveTransactionHandle] for why we separate this out into its
+ * own function).
+ *
+ * Since this is used in `inline` functions, renaming/removing/changing this function's signature
+ * may break consumers (hence the `@PublishedApi` annotation).
+ */
+@PublishedApi
+internal fun beginTransaction(handle: Handle) {
+  transactionHandle.set(handle)
+  handle.begin()
+}
+
+/**
+ * Used by [transactional] (see [getActiveTransactionHandle] for why we separate this out into its
+ * own function).
+ *
+ * Since this is used in `inline` functions, renaming/removing/changing this function's signature
+ * may break consumers (hence the `@PublishedApi` annotation).
+ */
+@PublishedApi
+internal fun rollbackTransactionAndMapException(handle: Handle, exception: Throwable): Throwable {
+  try {
+    handle.rollback()
+  } catch (rollback: Exception) {
+    // If rollback failed, we still want to throw the original exception, so we add this
+    // exception as a suppressed exception here. This is the same as JDBI does in their
+    // implementation of `inTransaction`.
+    exception.addSuppressed(rollback)
+  }
+
+  return mapDatabaseException(exception)
+}
+
+/**
+ * Used by [transactional] (see [getActiveTransactionHandle] for why we separate this out into its
+ * own function).
+ *
+ * Since this is used in `inline` functions, renaming/removing/changing this function's signature
+ * may break consumers (hence the `@PublishedApi` annotation).
+ */
+@PublishedApi
+internal fun endTransaction(handle: Handle, shouldCommit: Boolean) {
+  transactionHandle.remove()
+
+  if (shouldCommit) {
+    handle.commit()
+  }
 }
