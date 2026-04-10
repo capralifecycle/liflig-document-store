@@ -441,6 +441,9 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * @param forUpdate Set this to true to lock the rows of the returned entities in the database
    *   until a subsequent call to [update]/[delete], preventing concurrent modification. This only
    *   works when done inside a transaction (see [transactional]).
+   *
+   *   For more information on how this works, see the "Optimistic locking" section in the README of
+   *   this library.
    */
   protected open fun getByPredicate(
       sqlWhere: String = "TRUE",
@@ -526,6 +529,10 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * @param forUpdate Set this to true to lock the rows of the returned entities in the database
    *   until a subsequent call to [update]/[delete], preventing concurrent modification. This only
    *   works when done inside a transaction (see [transactional]).
+   *
+   *   For more information on how this works, see the "Optimistic locking" section in the README of
+   *   this library.
+   *
    * @return The same as [useStream] (a generic return type based on the passed lambda).
    */
   protected fun <ReturnT> streamByPredicate(

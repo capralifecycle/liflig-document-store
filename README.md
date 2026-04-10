@@ -18,6 +18,8 @@ This library is currently only distributed in Liflig internal repositories.
 
 - [Usage](#usage)
   - [Implementing `SerializationAdapter`](#implementing-serializationadapter)
+- [Optimistic locking](#optimistic-locking)
+  - [Avoiding `ConflictRepositoryException`](#avoiding-conflictrepositoryexception)
 - [Contributing](#contributing)
 
 ## Usage
@@ -143,6 +145,122 @@ class KotlinSerialization<EntityT : Entity<*>>(
 
   override fun fromJson(value: String): EntityT = json.decodeFromString(serializer, value)
 }
+```
+
+## Optimistic locking
+
+When using a database as a document store, the application becomes the single source of truth for
+the schema of the data (since the schema in the database is just an unspecified `jsonb` blob).
+Because of this, it becomes extra important that the application has control over how database
+entities are mutated. This can be compromised when we have concurrent updates of entities in our
+application, as follows:
+
+```
+    Process 1          Process 2
+       |                  |
+       |                  |
+   Get entity             |           <-- Entity state 1
+       |                  |
+       |            Get same entity   <-- Entity state 1
+       |                  |
+       |                  |
+ Update entity            |           <-- Entity state 2
+       |                  |
+       |                  |
+       |            Update entity     <-- Entity state 3
+       |                  |
+       |                  |       
+```
+
+The application may enforce domain rules when updating an entity, which specifies what state
+transitions are valid for an entity. In the example above, we have a Process 1 that gets the entity
+and performs an update on it, transitioning the entity from "state 1" to "state 2". And then we have
+a concurrent Process 2, which gets the same entity, and then also applies an update to it - but
+since it fetched the entity before Process 1 completed its update, Process 2 will transition the
+entity from "state 1" to "state 3"! Not only does this overwrite the changes from Process 1, but it
+may also break domain rules about what are valid state transitions for an entity.
+
+In order to avoid this, Document Store implements "optimistic locking". This works by
+attaching a `version` number to every entity (part of the common table schema for all entities, see
+[Usage](#usage)), which starts at 1 and increments every time an entity is updated. When fetching
+an entity, this version number is returned (the caller gets a `Versioned<Entity>` instead of just
+an `Entity`). When calling `Repository.update`, the caller must provide this version as an argument.
+If the version matches the current version of the entity in the database, the update is performed
+and the entity's version is incremented. If the version does _not_ match, then a
+`ConflictRepositoryException` is thrown, with a message describing that the entity was concurrently
+modified.
+
+### Avoiding `ConflictRepositoryException`
+
+How to avoid `ConflictRepositoryException` depends on how your application wants to deal with
+concurrent updates. For example, you may return an entity's version out to a web client, that is
+used by a human user to update the entity in a form. Upon submitting the form, you can then attach
+the entity version (using an
+[`ETag` header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag), for
+example), and use that in the call to `Repository.update`. If a `ConflictRepositoryException` is
+thrown, you can catch that and map it to a Bad Request response to the user describing that another
+user updated the entity simultaneously, and that they will have to refresh to get the latest
+changes.
+
+Another alternative, if the fetch + update are performed after each other in the same server
+process (not returned out to a user in between), is to lock the entity's row in the database while
+performing the update. This can be achieved with the
+[`FOR UPDATE`](https://www.cockroachlabs.com/blog/select-for-update/) SQL clause, which locks rows
+returned by `SELECT` for the duration of a transaction, blocking other processes from reading the
+rows (makes them wait) until the transaction completes. Document Store has special support for this,
+through the `forUpdate` boolean parameter in `Repository.get`, `Repository.listByIds` and
+`RepositoryJdbi.getByPredicate`. In order to use it, you set `forUpdate = true` when calling these
+methods, and wrap your fetch + update in the `transactional` scope function in order to run it in a
+database transaction (required for `FOR UPDATE` to work):
+
+<!-- @formatter:off -->
+```kotlin
+exampleRepository.transactional {
+  val (exampleEntity, version) = exampleRepository.getOrThrow(exampleId, forUpdate = true)
+  
+  exampleRepository.update(exampleEntity.copy(name = newName), version)
+}
+```
+<!-- @formatter:on -->
+
+Using this technique, all entity fetches + updates are performed atomically, so our application gets
+control of all entity state transition and can apply domain rules. So the above diagram becomes as
+follows:
+
+```
+    Process 1          Process 2
+       |                  |
+       |                  |
+   Transaction            |
+     start                |
+       |                  |
+   Get entity             |
+   FOR UPDATE             |
+       |                  |
+       |                  |
+       |              Transaction
+       |                start
+       |                  |
+       |            Get same entity
+       |         Blocked by FOR UPDATE
+       |                  |
+       |                  |
+ Update entity            |
+       |                  |
+   Transaction            |
+     commit               |
+       |                  |
+       |                  |
+       |           'Get same entity'
+       |        returns, with Process 1's
+       |            update applied
+       |                  |
+       |            Update entity
+       |                  |
+       |              Transaction
+       |                commit
+       |                  |
+       |                  |
 ```
 
 ## Contributing

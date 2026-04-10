@@ -17,6 +17,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    * @param forUpdate Set this to true to lock the entity's row in the database until a subsequent
    *   call to [update]/[delete], preventing concurrent modification. This only works when done
    *   inside a transaction (see [transactional]).
+   *
+   *   For more information on how this works, see the "Optimistic locking" section in the README of
+   *   this library.
    */
   fun get(id: EntityIdT, forUpdate: Boolean = false): Versioned<EntityT>?
 
@@ -30,6 +33,10 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    * @param forUpdate Set this to true to lock the entity's row in the database until a subsequent
    *   call to [update]/[delete], preventing concurrent modification. This only works when done
    *   inside a transaction (see [transactional]).
+   *
+   *   For more information on how this works, see the "Optimistic locking" section in the README of
+   *   this library.
+   *
    * @throws EntityNotFoundException If no entity was found with the given ID.
    */
   fun getOrThrow(id: EntityIdT, forUpdate: Boolean = false): Versioned<EntityT> {
@@ -51,6 +58,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *
    * @throws ConflictRepositoryException If [previousVersion] does not match the version of the
    *   entity in the database.
+   *
+   *   For more information on how to avoid this exception, see the "Optimistic locking" section in
+   *   the README of this library.
    */
   fun <EntityOrSubClassT : EntityT> update(
       entity: EntityOrSubClassT,
@@ -70,6 +80,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *
    * @throws ConflictRepositoryException If `entity.version` does not match the version of the
    *   entity in the database.
+   *
+   *   For more information on how to avoid this exception, see the "Optimistic locking" section in
+   *   the README of this library.
    */
   fun <EntityOrSubClassT : EntityT> update(
       entity: Versioned<EntityOrSubClassT>
@@ -84,6 +97,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *
    * @throws ConflictRepositoryException If [previousVersion] does not match the version of the
    *   entity in the database.
+   *
+   *   For more information on how to avoid this exception, see the "Optimistic locking" section in
+   *   the README of this library.
    */
   fun delete(id: EntityIdT, previousVersion: Version)
 
@@ -93,6 +109,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *
    * @throws ConflictRepositoryException If `entity.version` does not match the version of the
    *   entity in the database.
+   *
+   *   For more information on how to avoid this exception, see the "Optimistic locking" section in
+   *   the README of this library.
    */
   fun delete(entity: Versioned<EntityT>) {
     return delete(entity.data.id, entity.version)
@@ -104,6 +123,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    * @param forUpdate Set this to true to lock the rows of the returned entities in the database
    *   until a subsequent call to [update]/[delete], preventing concurrent modification. This only
    *   works when done inside a transaction (see [transactional]).
+   *
+   *   For more information on how this works, see the "Optimistic locking" section in the README of
+   *   this library.
    */
   fun listByIds(ids: List<EntityIdT>, forUpdate: Boolean = false): List<Versioned<EntityT>> {
     // A default implementation is provided here on the interface, so that implementers don't have
@@ -160,6 +182,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *
    * @throws ConflictRepositoryException If the version on any of the given entities does not match
    *   the current version of the entity in the database.
+   *
+   *   For more information on how to avoid this exception, see the "Optimistic locking" section in
+   *   the README of this library.
    */
   fun batchUpdate(entities: Iterable<Versioned<EntityT>>): List<Versioned<EntityT>> {
     // A default implementation is provided here on the interface, so that implementers don't have
@@ -174,6 +199,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *
    * @throws ConflictRepositoryException If the version on any of the given entities does not match
    *   the current version of the entity in the database.
+   *
+   *   For more information on how to avoid this exception, see the "Optimistic locking" section in
+   *   the README of this library.
    */
   fun batchUpdate(entities: Iterator<Versioned<EntityT>>) {
     // A default implementation is provided here on the interface, so that implementers don't have
@@ -191,6 +219,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *
    * @throws ConflictRepositoryException If the version on any of the given entities does not match
    *   the current version of the entity in the database.
+   *
+   *   For more information on how to avoid this exception, see the "Optimistic locking" section in
+   *   the README of this library.
    */
   fun batchDelete(entities: Iterable<Versioned<EntityT>>) {
     // A default implementation is provided here on the interface, so that implementers don't have
@@ -204,6 +235,9 @@ interface Repository<EntityIdT : EntityId, EntityT : Entity<EntityIdT>> {
    *
    * @throws ConflictRepositoryException If the version on any of the given entities does not match
    *   the current version of the entity in the database.
+   *
+   *   For more information on how to avoid this exception, see the "Optimistic locking" section in
+   *   the README of this library.
    */
   fun batchDelete(entities: Iterator<Versioned<EntityT>>) {
     // A default implementation is provided here on the interface, so that implementers don't have
