@@ -248,38 +248,36 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     val createdAt = currentTimeWithMicrosecondPrecision()
 
     try {
-      transactional {
-        useHandle { handle ->
-          executeBatchOperation(
-              handle,
-              batchProvider,
-              statement =
-                  """
+      useTransactionHandle { handle ->
+        executeBatchOperation(
+            handle,
+            batchProvider,
+            statement =
+                """
                     INSERT INTO "${tableName}" (id, data, version, created_at, modified_at)
                     VALUES (:id, :data::jsonb, :version, :createdAt, :modifiedAt)
                   """
-                      .trimIndent(),
-              bindParameters = { batch, entity ->
-                if (results != null) {
-                  results.add(
-                      Versioned(
-                          entity,
-                          version,
-                          createdAt = createdAt,
-                          modifiedAt = createdAt,
-                      ),
-                  )
-                }
+                    .trimIndent(),
+            bindParameters = { batch, entity ->
+              if (results != null) {
+                results.add(
+                    Versioned(
+                        entity,
+                        version,
+                        createdAt = createdAt,
+                        modifiedAt = createdAt,
+                    ),
+                )
+              }
 
-                batch
-                    .bind("id", entity.id)
-                    .bind("data", serializationAdapter.toJson(entity))
-                    .bind("version", version)
-                    .bind("createdAt", createdAt)
-                    .bind("modifiedAt", createdAt)
-              },
-          )
-        }
+              batch
+                  .bind("id", entity.id)
+                  .bind("data", serializationAdapter.toJson(entity))
+                  .bind("version", version)
+                  .bind("createdAt", createdAt)
+                  .bind("modifiedAt", createdAt)
+            },
+        )
       }
     } catch (e: BatchOperationException) {
       @Suppress("UNCHECKED_CAST") // We know the entity is EntityT on this repository
@@ -311,13 +309,12 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
     val modifiedAt = currentTimeWithMicrosecondPrecision()
 
     try {
-      transactional {
-        useHandle { handle ->
-          executeBatchOperation(
-              handle,
-              batchProvider,
-              statement =
-                  """
+      useTransactionHandle { handle ->
+        executeBatchOperation(
+            handle,
+            batchProvider,
+            statement =
+                """
                     UPDATE "${tableName}"
                     SET
                       data = :data::jsonb,
@@ -327,33 +324,32 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
                       id = :id AND
                       version = :previousVersion
                   """
-                      .trimIndent(),
-              bindParameters = { batch, entity ->
-                val newVersion = entity.version.next()
+                    .trimIndent(),
+            bindParameters = { batch, entity ->
+              val newVersion = entity.version.next()
 
-                if (results != null) {
-                  results.add(
-                      Versioned(
-                          entity.data,
-                          version = newVersion,
-                          createdAt = entity.createdAt,
-                          modifiedAt = modifiedAt,
-                      ),
-                  )
-                }
+              if (results != null) {
+                results.add(
+                    Versioned(
+                        entity.data,
+                        version = newVersion,
+                        createdAt = entity.createdAt,
+                        modifiedAt = modifiedAt,
+                    ),
+                )
+              }
 
-                batch
-                    .bind("data", serializationAdapter.toJson(entity.data))
-                    .bind("nextVersion", newVersion)
-                    .bind("modifiedAt", modifiedAt)
-                    .bind("id", entity.data.id)
-                    .bind("previousVersion", entity.version)
-              },
-              handleModifiedRowCounts = { counts, batch ->
-                handleModifiedRowCounts(counts, batch, operation = "update")
-              },
-          )
-        }
+              batch
+                  .bind("data", serializationAdapter.toJson(entity.data))
+                  .bind("nextVersion", newVersion)
+                  .bind("modifiedAt", modifiedAt)
+                  .bind("id", entity.data.id)
+                  .bind("previousVersion", entity.version)
+            },
+            handleModifiedRowCounts = { counts, batch ->
+              handleModifiedRowCounts(counts, batch, operation = "update")
+            },
+        )
       }
     } catch (e: BatchOperationException) {
       @Suppress("UNCHECKED_CAST") // We know the entity is EntityT on this repository
@@ -374,27 +370,25 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       return
     }
 
-    transactional {
-      useHandle { handle ->
-        executeBatchOperation(
-            handle,
-            batchProvider,
-            statement =
-                """
+    useTransactionHandle { handle ->
+      executeBatchOperation(
+          handle,
+          batchProvider,
+          statement =
+              """
                   DELETE FROM "${tableName}"
                   WHERE
                     id = :id AND
                     version = :previousVersion
                 """
-                    .trimIndent(),
-            bindParameters = { batch, entity ->
-              batch.bind("id", entity.data.id).bind("previousVersion", entity.version)
-            },
-            handleModifiedRowCounts = { counts, batch ->
-              handleModifiedRowCounts(counts, batch, operation = "delete")
-            },
-        )
-      }
+                  .trimIndent(),
+          bindParameters = { batch, entity ->
+            batch.bind("id", entity.data.id).bind("previousVersion", entity.version)
+          },
+          handleModifiedRowCounts = { counts, batch ->
+            handleModifiedRowCounts(counts, batch, operation = "delete")
+          },
+      )
     }
   }
 
@@ -548,24 +542,22 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
       bind: Query.() -> Query = { this },
   ): ReturnT {
     // Must wrap the query in a transaction for fetchSize to work
-    transactional {
-      useHandle { handle ->
-        val results =
-            getByPredicateInternal(
-                handle = handle,
-                sqlWhere = sqlWhere,
-                limit = limit,
-                offset = offset,
-                orderBy = orderBy,
-                orderDesc = orderDesc,
-                nullsFirst = nullsFirst,
-                handleJsonNullsInOrderBy = handleJsonNullsInOrderBy,
-                forUpdate = forUpdate,
-                bind = bind,
-                fetchSize = 50,
-            )
-        return results.stream().use(useStream)
-      }
+    useTransactionHandle { handle ->
+      val results =
+          getByPredicateInternal(
+              handle = handle,
+              sqlWhere = sqlWhere,
+              limit = limit,
+              offset = offset,
+              orderBy = orderBy,
+              orderDesc = orderDesc,
+              nullsFirst = nullsFirst,
+              handleJsonNullsInOrderBy = handleJsonNullsInOrderBy,
+              forUpdate = forUpdate,
+              bind = bind,
+              fetchSize = 50,
+          )
+      return results.stream().use(useStream)
     }
   }
 
@@ -760,6 +752,9 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * progress on the current thread, a new one will not be started (since we're already in a
    * transaction).
    *
+   * If you want access to the transaction [Handle] inside the block, call [useTransactionHandle]
+   * instead.
+   *
    * ### Thread safety
    *
    * This function stores a transaction handle in a thread-local, so that operations within [block]
@@ -787,11 +782,49 @@ open class RepositoryJdbi<EntityIdT : EntityId, EntityT : Entity<EntityIdT>>(
    * found, gets a new handle with [Jdbi.open] (automatically closed after the given [block]
    * returns), using the JDBI instance on this repository.
    *
-   * You should use this function whenever you want to write custom SQL using Liflig Document Store,
-   * so that your implementation plays well with transactions.
+   * If you want to _start_ a database transaction and also get access to the database [Handle],
+   * call [useTransactionHandle] instead.
+   *
+   * This function is semantically equivalent to [Jdbi.useHandle] / [Jdbi.withHandle]. Reasons you
+   * may want to use this instead:
+   * - It's `inline`, which can be more ergonomic to use in Kotlin for scope functions such as this
+   * - You don't have to provide a generic parameter for the exception type, which JDBI requires
+   *   because of checked exceptions in Java
    */
   protected inline fun <ReturnT> useHandle(block: (Handle) -> ReturnT): ReturnT {
     return useHandle(jdbi, block)
+  }
+
+  /**
+   * Starts a database transaction, runs the given [block] inside of it and gives you access to the
+   * transaction [Handle]. Calls to [useHandle] inside the block's scope will use the same
+   * transaction (this includes the various methods on [RepositoryJdbi]). If an exception is thrown,
+   * the transaction is rolled back.
+   *
+   * The repository's [Jdbi] instance is used for the transaction. If a transaction is already in
+   * progress on the current thread, a new one will not be started (since we're already in a
+   * transaction).
+   *
+   * This function is semantically equivalent to [Jdbi.inTransaction]. Reasons you may want to use
+   * this instead:
+   * - It's `inline`, which can be more ergonomic to use in Kotlin for scope functions such as this
+   * - You don't have to provide a generic parameter for the exception type, which JDBI requires
+   *   because of checked exceptions in Java
+   *
+   * This function is functionally equivalent to:
+   * ```
+   * transactional {
+   *   useHandle { handle ->
+   *     // ...
+   *   }
+   * }
+   * ```
+   */
+  protected inline fun <ReturnT> useTransactionHandle(block: (Handle) -> ReturnT): ReturnT {
+    // Allows callers to use `block` as if it were in-place
+    contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }
+
+    return useTransactionHandle(jdbi, block)
   }
 
   /**

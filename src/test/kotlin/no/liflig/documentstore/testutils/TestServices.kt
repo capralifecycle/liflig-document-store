@@ -7,7 +7,7 @@ import no.liflig.documentstore.DocumentStorePlugin
 import no.liflig.documentstore.repository.useHandle
 import org.flywaydb.core.Flyway
 import org.jdbi.v3.core.Jdbi
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 
 val dataSource: DataSource by lazy {
   val pgContainer = PostgreSQLContainer("postgres:16")

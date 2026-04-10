@@ -8,6 +8,7 @@ import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.repository.ListWithTotalCount
 import no.liflig.documentstore.repository.RepositoryJdbi
 import no.liflig.documentstore.repository.RepositoryWithGeneratedIds
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 
 enum class OrderBy {
@@ -83,6 +84,11 @@ class ExampleRepository(jdbi: Jdbi) :
 
   fun countEntitiesWithText(text: String): Long {
     return countByPredicate("""data->>'text' = :text""") { bind("text", text) }
+  }
+
+  /** Public override to expose [RepositoryJdbi.useTransactionHandle] for tests. */
+  fun <ReturnT> useTransactionHandlePublic(block: (Handle) -> ReturnT): ReturnT {
+    return this.useTransactionHandle(block)
   }
 
   override fun mapCreateOrUpdateException(e: Exception, entity: ExampleEntity): Exception {

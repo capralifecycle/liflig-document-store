@@ -32,6 +32,9 @@ internal val THREAD_LOCAL_TRANSACTION_HANDLE: HandleScope = HandleScope.threadLo
  * [transactional] scope), or if none is found, gets a new handle with [Jdbi.open] (automatically
  * closed after the given [block] returns).
  *
+ * If you want to _start_ a database transaction and also get access to the database [Handle], call
+ * [useTransactionHandle] instead.
+ *
  * This function is semantically equivalent to [Jdbi.useHandle] / [Jdbi.withHandle]. Reasons you may
  * want to use this instead:
  * - It's `inline`, which can be more ergonomic to use in Kotlin for scope functions such as this
@@ -60,15 +63,53 @@ inline fun <ReturnT> useHandle(jdbi: Jdbi, block: (Handle) -> ReturnT): ReturnT 
  * - It's `inline`, which can be more ergonomic to use in Kotlin for scope functions such as this
  * - You don't have to provide a generic parameter for the exception type, which JDBI requires
  *   because of checked exceptions in Java
+ *
+ * If you want access to the transaction [Handle] inside the block, call [useTransactionHandle]
+ * instead.
  */
 inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
+  // Allows callers to use `block` as if it were in-place
+  contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }
+
+  /**
+   * This function is equivalent to [useTransactionHandle], but just not using the [Handle]
+   * parameter to the lambda.
+   */
+  return useTransactionHandle(jdbi) { block() }
+}
+
+/**
+ * Starts a database transaction, runs the given [block] inside of it and gives you access to the
+ * transaction [Handle]. Calls to [useHandle] inside the block's scope will use the same transaction
+ * (this includes the various methods on [RepositoryJdbi]). If an exception is thrown, the
+ * transaction is rolled back.
+ *
+ * If a transaction is already in progress on the current thread, a new one will not be started
+ * (since we're already in a transaction).
+ *
+ * This function is semantically equivalent to [Jdbi.inTransaction]. Reasons you may want to use
+ * this instead:
+ * - It's `inline`, which can be more ergonomic to use in Kotlin for scope functions such as this
+ * - You don't have to provide a generic parameter for the exception type, which JDBI requires
+ *   because of checked exceptions in Java
+ *
+ * This function is functionally equivalent to:
+ * ```
+ * transactional(jdbi) {
+ *   useHandle(jdbi) { handle ->
+ *     // ...
+ *   }
+ * }
+ * ```
+ */
+inline fun <ReturnT> useTransactionHandle(jdbi: Jdbi, block: (Handle) -> ReturnT): ReturnT {
   // Allows callers to use `block` as if it were in-place
   contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }
 
   val activeTransaction = getActiveTransactionHandle()
   if (activeTransaction != null) {
     // This means we're already in a transaction, so we do not start a new one
-    return block()
+    return block(activeTransaction)
   }
 
   openHandle(jdbi).use { handle ->
@@ -91,7 +132,7 @@ inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
        * [org.jdbi.v3.core.transaction.LocalTransactionHandler.BoundLocalTransactionHandler.inTransaction].
        */
       beginTransaction(handle)
-      return block()
+      return block(handle)
     } catch (e: Throwable) {
       shouldCommit = false
       throw rollbackTransactionAndMapException(handle, e)

@@ -4,6 +4,7 @@ import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
 import java.util.UUID
@@ -22,6 +23,7 @@ import no.liflig.documentstore.testutils.clearDatabase
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.jdbi
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -38,10 +40,14 @@ class TransactionTest {
   }
 
   /**
-   * We have 3 functions for running database transactions:
+   * We have multiple functions for running database transactions:
    * - The top-level [transactional] function
    * - The [RepositoryJdbi.transactional] method
    * - The [TransactionManager.transactional] method
+   * - The top-level [useTransactionHandle] function
+   * - The [RepositoryJdbi.useTransactionHandle] method
+   * - JDBI's [Jdbi.inTransaction] method (we want Document Store methods to also work with
+   *   [Jdbi.inTransaction], see [THREAD_LOCAL_TRANSACTION_HANDLE])
    *
    * We want to test that all of these work as expected. So we make a test case for each here, and
    * run every test in this class as a "parameterized test", repeating every test for each
@@ -60,15 +66,17 @@ class TransactionTest {
             transactional(jdbi, block)
           },
           TransactionTestCase("RepositoryJdbi transactional method") { block ->
-            transactional(jdbi, block)
+            exampleRepo.transactional(block)
           },
           TransactionTestCase("TransactionManager transactional method") { block ->
             TransactionManager(jdbi).transactional(block)
           },
-          /**
-           * We want Document Store methods to also work with [Jdbi.inTransaction] (see
-           * [THREAD_LOCAL_TRANSACTION_HANDLE]).
-           */
+          TransactionTestCase("Top-level useTransactionHandle function") { block ->
+            useTransactionHandle(jdbi) { block() }
+          },
+          TransactionTestCase("RepositoryJdbi useTransactionHandle method") { block ->
+            exampleRepo.useTransactionHandlePublic { block() }
+          },
           TransactionTestCase("Jdbi inTransaction method") { block ->
             jdbi.inTransaction<Unit, Exception> { block() }
           },
@@ -261,6 +269,26 @@ class TransactionTest {
 
     testCase.transactional {
       useHandle(jdbi) { handle -> handleWasInTransaction = handle.isInTransaction }
+    }
+
+    handleWasInTransaction.shouldBeTrue()
+  }
+
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `useTransactionHandle reuses transaction handle from outer transaction scope`(
+      testCase: TransactionTestCase
+  ) {
+    var handleWasInTransaction = false
+
+    testCase.transactional {
+      val transactionHandle: Handle = getActiveTransactionHandle().shouldNotBeNull()
+
+      useTransactionHandle(jdbi) { nestedHandle ->
+        nestedHandle.shouldBeSameInstanceAs(transactionHandle)
+
+        handleWasInTransaction = nestedHandle.isInTransaction
+      }
     }
 
     handleWasInTransaction.shouldBeTrue()
