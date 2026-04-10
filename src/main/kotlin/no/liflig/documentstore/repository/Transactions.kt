@@ -7,30 +7,36 @@ package no.liflig.documentstore.repository
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
+import no.liflig.documentstore.DocumentStorePlugin
 import org.jdbi.v3.core.Handle
+import org.jdbi.v3.core.HandleScope
 import org.jdbi.v3.core.Jdbi
 
 /**
- * Thread-local that keeps a JDBI handle for an active transaction on the current thread (`null` if
- * there's no active transaction on the thread). Using a thread-local for this is useful to enforce
- * that all repository methods in the scope of a `transactional` block are executed in that
- * transaction, without having to explicitly pass a transaction handle to every repository method.
+ * All [Jdbi] instances have a [HandleScope], which holds database [Handle]s in a thread-local scope
+ * (such as for transactions from [Jdbi.inTransaction]). We want to use this for our [transactional]
+ * and [useHandle] functions, so that they can interoperate with [Jdbi.inTransaction] and
+ * [Jdbi.useHandle] (Document Store provides these alternate versions of the Jdbi methods, so that
+ * we can make them `inline`, which is more ergonomic for scope functions in Kotlin).
  *
- * `@PublishedApi` lets us use this in inline functions. Renaming or removing this may be a breaking
- * change.
- *
- * TODO: We no longer use this directly in inline functions, so we can remove `@PublishedApi` and
- *   make this `private` if we're comfortable that consumers don't rely on this through a transitive
- *   dependency on Document Store.
+ * JDBI gives access to the handle scope with [Jdbi.getHandleScope], but its docstring explains that
+ * it's an internal API, so we can't rely on it. But [Jdbi.setHandleScope] is public and intended
+ * for external use, so we can use that in [DocumentStorePlugin] to override JDBI's [HandleScope]
+ * with this global variable. By making it global, we get access to it in [transactional] and
+ * [useHandle] without having to go through the internal [Jdbi.getHandleScope].
  */
-@PublishedApi internal val transactionHandle = ThreadLocal<Handle?>()
+internal val THREAD_LOCAL_TRANSACTION_HANDLE: HandleScope = HandleScope.threadLocal()
 
 /**
- * Gets a database handle either from an ongoing transaction (from [transactional]), or if none is
- * found, gets a new handle with [Jdbi.open] (automatically closed after the given [block] returns).
+ * Gets a database handle, either from an ongoing transaction (if this is called in a
+ * [transactional] scope), or if none is found, gets a new handle with [Jdbi.open] (automatically
+ * closed after the given [block] returns).
  *
- * You should use this function whenever you want to write custom SQL using Liflig Document Store,
- * so that your implementation plays well with transactions.
+ * This function is semantically equivalent to [Jdbi.useHandle] / [Jdbi.withHandle]. Reasons you may
+ * want to use this instead:
+ * - It's `inline`, which can be more ergonomic to use in Kotlin for scope functions such as this
+ * - You don't have to provide a generic parameter for the exception type, which JDBI requires
+ *   because of checked exceptions in Java
  */
 inline fun <ReturnT> useHandle(jdbi: Jdbi, block: (Handle) -> ReturnT): ReturnT {
   val activeTransaction = getActiveTransactionHandle()
@@ -49,12 +55,11 @@ inline fun <ReturnT> useHandle(jdbi: Jdbi, block: (Handle) -> ReturnT): ReturnT 
  * If a transaction is already in progress on the current thread, a new one will not be started
  * (since we're already in a transaction).
  *
- * ### Thread safety
- *
- * This function stores a transaction handle in a thread-local, so that operations within [block]
- * can get the handle. But new threads spawned in the scope of `block` will not see this
- * thread-local, and so they will not work correctly with the transaction. So you should not attempt
- * concurrent database operations with this function.
+ * This function is semantically equivalent to [Jdbi.inTransaction]. Reasons you may want to use
+ * this instead:
+ * - It's `inline`, which can be more ergonomic to use in Kotlin for scope functions such as this
+ * - You don't have to provide a generic parameter for the exception type, which JDBI requires
+ *   because of checked exceptions in Java
  */
 inline fun <ReturnT> transactional(jdbi: Jdbi, block: () -> ReturnT): ReturnT {
   // Allows callers to use `block` as if it were in-place
@@ -188,7 +193,7 @@ open class TransactionManager(
  */
 @PublishedApi
 internal fun getActiveTransactionHandle(): Handle? {
-  return transactionHandle.get()
+  return THREAD_LOCAL_TRANSACTION_HANDLE.get()?.handle
 }
 
 /**
@@ -216,7 +221,7 @@ internal fun openHandle(jdbi: Jdbi): Handle {
  */
 @PublishedApi
 internal fun beginTransaction(handle: Handle) {
-  transactionHandle.set(handle)
+  THREAD_LOCAL_TRANSACTION_HANDLE.set(handle)
   handle.begin()
 }
 
@@ -250,9 +255,21 @@ internal fun rollbackTransactionAndMapException(handle: Handle, exception: Throw
  */
 @PublishedApi
 internal fun endTransaction(handle: Handle, shouldCommit: Boolean) {
-  transactionHandle.remove()
+  THREAD_LOCAL_TRANSACTION_HANDLE.clear()
 
   if (shouldCommit) {
     handle.commit()
   }
 }
+
+/**
+ * TODO: Remove this, as it's no longer used (replaced by [THREAD_LOCAL_TRANSACTION_HANDLE]).
+ *
+ * We didn't remove this immediately, as it was used in inline functions (hence [PublishedApi]), so
+ * consumers may indirectly still depend on this through transitive dependencies. Should probably be
+ * fine to remove in a couple months from the time of writing.
+ */
+@Deprecated("Scheduled for removal", level = DeprecationLevel.ERROR)
+@Suppress("unused")
+@PublishedApi
+internal val transactionHandle = ThreadLocal<Handle?>()

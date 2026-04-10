@@ -6,6 +6,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 import kotlin.test.assertEquals
@@ -15,11 +16,13 @@ import no.liflig.documentstore.entity.Version
 import no.liflig.documentstore.entity.Versioned
 import no.liflig.documentstore.entity.mapEntities
 import no.liflig.documentstore.testutils.ExampleEntity
+import no.liflig.documentstore.testutils.ExampleId
 import no.liflig.documentstore.testutils.ExampleRepository
 import no.liflig.documentstore.testutils.clearDatabase
 import no.liflig.documentstore.testutils.exampleRepo
 import no.liflig.documentstore.testutils.jdbi
 import no.liflig.documentstore.utils.currentTimeWithMicrosecondPrecision
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -61,6 +64,13 @@ class TransactionTest {
           },
           TransactionTestCase("TransactionManager transactional method") { block ->
             TransactionManager(jdbi).transactional(block)
+          },
+          /**
+           * We want Document Store methods to also work with [Jdbi.inTransaction] (see
+           * [THREAD_LOCAL_TRANSACTION_HANDLE]).
+           */
+          TransactionTestCase("Jdbi inTransaction method") { block ->
+            jdbi.inTransaction<Unit, Exception> { block() }
           },
       )
 
@@ -191,10 +201,10 @@ class TransactionTest {
   fun `batchCreate rolls back on failed transaction`(testCase: TransactionTestCase) {
     val entitiesToCreate = (1..10).map { ExampleEntity(text = "batchCreate transaction test") }
 
-    assertFailsWith<Exception> {
+    assertFailsWith<CustomException> {
       testCase.transactional {
         exampleRepo.batchCreate(entitiesToCreate)
-        throw Exception("Rolling back transaction")
+        throw CustomException("Rolling back transaction")
       }
     }
 
@@ -211,10 +221,10 @@ class TransactionTest {
     val createdEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
     val updatedEntities = createdEntities.mapEntities { it.copy(text = "Updated") }
 
-    assertFailsWith<Exception> {
+    assertFailsWith<CustomException> {
       testCase.transactional {
         exampleRepo.batchUpdate(updatedEntities)
-        throw Exception("Rolling back transaction")
+        throw CustomException("Rolling back transaction")
       }
     }
 
@@ -233,10 +243,10 @@ class TransactionTest {
 
     val createdEntities = exampleRepo.listByIds(entitiesToCreate.map { it.id })
 
-    assertFailsWith<Exception> {
+    assertFailsWith<CustomException> {
       testCase.transactional {
         exampleRepo.batchDelete(createdEntities)
-        throw Exception("Rolling back transaction")
+        throw CustomException("Rolling back transaction")
       }
     }
 
@@ -254,6 +264,51 @@ class TransactionTest {
     }
 
     handleWasInTransaction.shouldBeTrue()
+  }
+
+  /**
+   * See [THREAD_LOCAL_TRANSACTION_HANDLE]: We want [Jdbi.useHandle] to interoperate with Document
+   * Store's [transactional] functions.
+   */
+  @ParameterizedTest
+  @MethodSource("transactionTestCases")
+  fun `Jdbi useHandle uses transaction handle from document store`(testCase: TransactionTestCase) {
+    var handleWasInTransaction = false
+    val entityId = "a7f6fefa-9942-44c5-bbf7-0ad3d57d817b"
+
+    assertFailsWith<CustomException> {
+      testCase.transactional {
+        jdbi.useHandle<Exception> { handle ->
+          handleWasInTransaction = handle.isInTransaction
+
+          /**
+           * Test manually inserting an entity using this handle, to verify that it rolls back when
+           * the transaction fails.
+           */
+          handle.execute(
+              """
+              insert into example(
+                  id, created_at, modified_at, version, data
+              ) values (
+                  '${entityId}',
+                  '2026-04-10T12:08:48Z',
+                  '2026-04-10T12:08:48Z',
+                  '1',
+                  '{"id":"${entityId}","text":"test"}'
+              )
+              """
+                  .trimIndent()
+          )
+        }
+
+        throw CustomException("Rolling back transaction")
+      }
+    }
+
+    handleWasInTransaction.shouldBeTrue()
+
+    /** Manual insert should have been rolled back. */
+    exampleRepo.get(ExampleId(UUID.fromString(entityId))).shouldBeNull()
   }
 
   @Test
@@ -369,3 +424,6 @@ class TransactionTest {
     return string.length
   }
 }
+
+/** Custom exception class, to test that a specific exception is thrown. */
+private class CustomException(message: String) : Exception(message)

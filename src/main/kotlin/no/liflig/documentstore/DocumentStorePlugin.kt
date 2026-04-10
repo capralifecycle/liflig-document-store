@@ -7,6 +7,7 @@ import no.liflig.documentstore.entity.IntegerEntityId
 import no.liflig.documentstore.entity.StringEntityId
 import no.liflig.documentstore.entity.UuidEntityId
 import no.liflig.documentstore.entity.Version
+import no.liflig.documentstore.repository.THREAD_LOCAL_TRANSACTION_HANDLE
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.argument.AbstractArgumentFactory
 import org.jdbi.v3.core.argument.Argument
@@ -57,6 +58,14 @@ class DocumentStorePlugin : JdbiPlugin.Singleton() {
          * [JdbiPlugin.Singleton], so it will only be installed once.
          */
         .installPlugin(PostgresPlugin())
+
+    /**
+     * See [THREAD_LOCAL_TRANSACTION_HANDLE] for why we set this.
+     *
+     * If a use case arises where a library consumer wants to override with their own `HandleScope`
+     * implementation, we may have to reconsider this approach.
+     */
+    jdbi.handleScope = THREAD_LOCAL_TRANSACTION_HANDLE
   }
 }
 
