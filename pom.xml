@@ -7,7 +7,7 @@
   <parent>
     <groupId>no.liflig</groupId>
     <artifactId>kotlin-parent</artifactId>
-    <version>3.20260311.194334</version>
+    <version>3.20260518.023024</version>
   </parent>
 
   <artifactId>liflig-document-store</artifactId>
@@ -21,16 +21,16 @@
     <!-- Required by JUnit 6 -->
     <java.version>17</java.version>
 
-    <jdbi3.version>3.52.0</jdbi3.version>
+    <jdbi3.version>3.53.0</jdbi3.version>
 
     <!-- For tests -->
     <junit.version>6.0.3</junit.version>
-    <kotest.version>6.1.7</kotest.version>
-    <testcontainers.version>2.0.3</testcontainers.version>
-    <postgresql.version>42.7.10</postgresql.version>
+    <kotest.version>6.1.11</kotest.version>
+    <testcontainers.version>2.0.5</testcontainers.version>
+    <postgresql.version>42.7.11</postgresql.version>
     <hikari.version>7.0.2</hikari.version>
-    <flyway.version>12.1.1</flyway.version>
-    <kotlinx-serialization.version>1.10.0</kotlinx-serialization.version>
+    <flyway.version>12.6.1</flyway.version>
+    <kotlinx-serialization.version>1.11.0</kotlinx-serialization.version>
     <jackson.version>2.21</jackson.version>
     <logback-classic.version>1.5.32</logback-classic.version>
     <mockk.version>1.14.9</mockk.version>
