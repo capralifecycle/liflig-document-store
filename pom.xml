@@ -29,7 +29,7 @@
     <testcontainers.version>2.0.5</testcontainers.version>
     <postgresql.version>42.7.12</postgresql.version>
     <hikari.version>7.1.0</hikari.version>
-    <flyway.version>12.11.0</flyway.version>
+    <flyway.version>13.0.0</flyway.version>
     <kotlinx-serialization.version>1.11.0</kotlinx-serialization.version>
     <jackson.version>2.22</jackson.version>
     <logback-classic.version>1.5.38</logback-classic.version>
